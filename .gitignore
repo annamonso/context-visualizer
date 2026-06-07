@@ -18,6 +18,9 @@ src/chronolog_observability/static/workspace/
 logs/
 *.csv
 
+# Migration staging (regenerable via scripts/import_from_clio_core.sh)
+**/_imported/
+
 # Editor / OS
 .vscode/
 .idea/
