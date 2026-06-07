@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chronolog-observability"
+version = "0.1.0"
+description = "Drop-in observability dashboard and trace-capture for ChronoLog deployments."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "flask>=2.0",
+    "pyyaml",
+    "msgpack",
+]
+
+# ChronoLog's Python client (`py_chronolog_client`) is NOT on PyPI — it is built
+# from the ChronoLog C++ source tree and placed on PYTHONPATH by the deployment.
+# We therefore do not list it as a hard dependency; instead the backend probes
+# for it at runtime and fails with a clear message if it is missing.
+#
+# chimaera (`chimaera_runtime_ext`) is likewise a C++ extension built out-of-tree.
+# The chimaera adapter is always present in the package but only activates when
+# that module is importable — see chronolog_observability/adapters/registry.py.
+# The extra below exists purely as documentation / a place to pin pure-Python
+# helpers the chimaera adapter may need.
+[project.optional-dependencies]
+chimaera = []
+dev = ["pytest", "ruff"]
+
+[project.scripts]
+chronolog-observe = "chronolog_observability.app:main"
+
+# Adapters are discovered via this entry-point group. Third parties can ship
+# their own data source as a separate distribution by registering here.
+[project.entry-points."chronolog_observability.adapters"]
+chronolog = "chronolog_observability.adapters.chronolog_source:ChronoLogAdapter"
+chimaera = "chronolog_observability.adapters.chimaera_source:ChimaeraAdapter"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["chronolog_observability*"]
+
+[tool.setuptools.package-data]
+chronolog_observability = ["templates/*.html", "static/**/*"]
