@@ -1,0 +1,417 @@
+"""Store for InterAgentMessage events.
+
+The store has two backends, selected by env flags at process start:
+
+  =====================  =====================  ============================
+  Mode                   Env                    Writes / Reads
+  =====================  =====================  ============================
+  Legacy (default)       (none)                 JSONL only / JSONL only
+  Dual-write             DTP_CHRONOLOG_BACKEND=1 + DTP_CHRONOLOG_DUAL_WRITE=1
+                                                JSONL + ChronoLog / JSONL
+  Cut-over reads         + DTP_CHRONOLOG_READS=1
+                                                JSONL + ChronoLog / ChronoLog
+  ChronoLog only (end)   DTP_CHRONOLOG_BACKEND=1 + DTP_CHRONOLOG_READS=1
+                                                ChronoLog only / ChronoLog
+  =====================  =====================  ============================
+
+The "end state" is `DTP_CHRONOLOG_BACKEND=1` + `DTP_CHRONOLOG_READS=1` with
+DUAL_WRITE off — no JSONL writes happen, and the JSONL store directory is
+unused. The JSONL code path is retained as a fallback for cluster-down
+emergencies (toggle off DTP_CHRONOLOG_BACKEND to revert).
+
+Other invariants:
+  - Two-phase records ("start"/"done") stitched by ``correlation_id``.
+  - Records are immutable; "updates" emit a second record.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import threading
+import uuid
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Iterable, List, Optional
+
+
+log = logging.getLogger(__name__)
+
+
+_ISO = "%Y-%m-%dT%H:%M:%S.%fZ"
+
+
+def _iso_now() -> str:
+    return datetime.now(tz=timezone.utc).strftime(_ISO)
+
+
+@dataclass
+class InterAgentMessage:
+    """One inter-agent call event.
+
+    A single logical call emits two of these: one with ``phase='start'`` when
+    the caller MCP tool fires, and one with ``phase='done'`` when the remote
+    replies. Adapters stitch them on the shared ``correlation_id``.
+    """
+
+    event_id: str
+    scenario_id: str
+    correlation_id: str
+    phase: str  # "start" | "done"
+    from_host: str
+    from_session: str
+    to_host: str
+    to_session: str
+    ts: str  # ISO 8601 UTC
+    kind: str = "mcp_call"  # mcp_call | tool_invoke | direct_message
+    tool_name: str = ""
+    payload_digest: str = ""
+    payload_preview: str = ""
+    status: str = ""  # "ok" | "error:<msg>" | "" while in-flight
+    latency_ms: float = 0.0
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "InterAgentMessage":
+        # Tolerate missing fields on pre-existing records.
+        return cls(
+            event_id=str(d.get("event_id") or uuid.uuid4().hex),
+            scenario_id=str(d.get("scenario_id") or ""),
+            correlation_id=str(d.get("correlation_id") or ""),
+            phase=str(d.get("phase") or "done"),
+            from_host=str(d.get("from_host") or ""),
+            from_session=str(d.get("from_session") or ""),
+            to_host=str(d.get("to_host") or ""),
+            to_session=str(d.get("to_session") or ""),
+            ts=str(d.get("ts") or _iso_now()),
+            kind=str(d.get("kind") or "mcp_call"),
+            tool_name=str(d.get("tool_name") or ""),
+            payload_digest=str(d.get("payload_digest") or ""),
+            payload_preview=str(d.get("payload_preview") or ""),
+            status=str(d.get("status") or ""),
+            latency_ms=float(d.get("latency_ms") or 0.0),
+        )
+
+
+def _safe_scenario(sid: str) -> str:
+    """Sanitize scenario_id into a safe filename fragment."""
+    return "".join(c if c.isalnum() or c in ("-", "_", ".") else "_" for c in sid)[:120]
+
+
+class InterAgentStore:
+    """Scenario store with pluggable backend (JSONL and/or ChronoLog).
+
+    Backend selection is per-call via env flags so a single process can serve
+    different routes from different backends during cutover. The constructor
+    accepts an optional `chronolog_backend` injection point so tests can run
+    the ChronoLog code path against an in-process fake.
+    """
+
+    def __init__(
+        self,
+        root: Optional[os.PathLike] = None,
+        *,
+        chronolog_backend: Optional[object] = None,
+    ) -> None:
+        if root is None:
+            root = Path(os.environ.get("DTP_STATE_DIR", "")) if os.environ.get("DTP_STATE_DIR") else Path.home() / ".dt_provenance"
+        self._root = Path(root) / "inter_agent"
+        self._root.mkdir(parents=True, exist_ok=True)
+        self._lock = threading.Lock()
+        # `_chronolog_override` is set by tests; production discovers via
+        # the chronolog package singleton at call time so flag changes take
+        # effect without restarting the store.
+        self._chronolog_override = chronolog_backend
+
+    # ------------------------------------------------------------------
+    # Backend selection
+    # ------------------------------------------------------------------
+
+    def _chronolog(self):
+        """Return the chronolog backend if dual-write or reads are enabled.
+
+        Lazy import so importing this module doesn't pull in py_chronolog_client.
+        """
+        if self._chronolog_override is not None:
+            return self._chronolog_override
+        try:
+            from ..chronolog import get_backend
+        except ImportError:
+            return None
+        return get_backend()
+
+    @staticmethod
+    def _backend_enabled() -> bool:
+        return os.environ.get("DTP_CHRONOLOG_BACKEND", "").strip().lower() in ("1", "true", "yes", "on")
+
+    @staticmethod
+    def _dual_write_enabled() -> bool:
+        return os.environ.get("DTP_CHRONOLOG_DUAL_WRITE", "").strip().lower() in ("1", "true", "yes", "on")
+
+    @staticmethod
+    def _reads_enabled() -> bool:
+        return os.environ.get("DTP_CHRONOLOG_READS", "").strip().lower() in ("1", "true", "yes", "on")
+
+    # ------------------------------------------------------------------
+    # JSONL backend (legacy)
+    # ------------------------------------------------------------------
+
+    def _path_for(self, scenario_id: str) -> Path:
+        return self._root / f"{_safe_scenario(scenario_id)}.jsonl"
+
+    def _append_jsonl(self, msg: "InterAgentMessage") -> None:
+        path = self._path_for(msg.scenario_id)
+        line = json.dumps(msg.to_dict(), separators=(",", ":")) + "\n"
+        with self._lock:
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(line)
+
+    def _read_jsonl(self, scenario_id: str) -> List["InterAgentMessage"]:
+        path = self._path_for(scenario_id)
+        if not path.is_file():
+            return []
+        out: List[InterAgentMessage] = []
+        with self._lock:
+            with open(path, "r", encoding="utf-8") as f:
+                for raw in f:
+                    raw = raw.strip()
+                    if not raw:
+                        continue
+                    try:
+                        out.append(InterAgentMessage.from_dict(json.loads(raw)))
+                    except Exception:
+                        continue
+        return out
+
+    def _list_scenarios_jsonl(self) -> List[str]:
+        out: List[str] = []
+        if not self._root.is_dir():
+            return out
+        for p in self._root.iterdir():
+            if p.is_file() and p.suffix == ".jsonl":
+                out.append(p.stem)
+        out.sort()
+        return out
+
+    # ------------------------------------------------------------------
+    # ChronoLog backend
+    # ------------------------------------------------------------------
+
+    def _append_chronolog(self, msg: "InterAgentMessage", backend) -> None:
+        from ..chronolog import constants
+        ch = constants.inter_agent_chronicle(msg.scenario_id)
+        backend.append_event(ch, constants.INTER_AGENT_STORY_EDGES, msg.to_dict())
+        # Index the scenario so list_scenarios() has something to enumerate
+        # once the writer-side index Story drains. Idempotent — dup events
+        # are dedup'd on read.
+        try:
+            backend.index_add(constants.INDEX_STORY_SCENARIOS, msg.scenario_id)
+        except Exception as exc:  # never fail an ingest on the index update
+            log.warning("chronolog index_add failed: %s", exc)
+
+    def _read_chronolog(self, scenario_id: str, backend) -> List["InterAgentMessage"]:
+        from ..chronolog import constants
+        ch = constants.inter_agent_chronicle(scenario_id)
+        try:
+            events = backend.replay_events(ch, constants.INTER_AGENT_STORY_EDGES)
+        except RuntimeError as exc:
+            log.warning("chronolog replay failed for %s: %s", scenario_id, exc)
+            return []
+        out: List[InterAgentMessage] = []
+        for ev in events:
+            # Strip the internal `_chronolog_*` annotation keys before
+            # rehydrating, so InterAgentMessage.from_dict isn't surprised.
+            ev = {k: v for k, v in ev.items() if not k.startswith("_chronolog_")}
+            try:
+                out.append(InterAgentMessage.from_dict(ev))
+            except Exception:
+                continue
+        return out
+
+    def _list_scenarios_chronolog(self, backend) -> List[str]:
+        from ..chronolog import constants
+        try:
+            ids = backend.index_list(constants.INDEX_STORY_SCENARIOS)
+        except RuntimeError as exc:
+            log.warning("chronolog index_list failed: %s", exc)
+            return []
+        ids.sort()
+        return ids
+
+    # ------------------------------------------------------------------
+    # Public API (unchanged signatures)
+    # ------------------------------------------------------------------
+
+    def append(self, msg: InterAgentMessage) -> None:
+        """Append a single event; safe under concurrent writers.
+
+        Mode determined by env at call time:
+
+          * DTP_CHRONOLOG_BACKEND=1 + DTP_CHRONOLOG_DUAL_WRITE=1
+            -> JSONL + ChronoLog (transitional dual-write).
+          * DTP_CHRONOLOG_BACKEND=1, no DUAL_WRITE
+            -> ChronoLog only (end state). JSONL files no longer touched.
+          * DTP_CHRONOLOG_BACKEND off (default)
+            -> JSONL only (legacy).
+
+        On any mode involving ChronoLog, an append failure is propagated up so
+        the Flask ingest returns 500 — silent loss is worse than visible loss.
+        Dual-write mode keeps JSONL writes unconditional so a ChronoLog outage
+        does NOT block ingest.
+        """
+        if not msg.scenario_id:
+            raise ValueError("scenario_id is required")
+
+        chronolog_active  = self._backend_enabled()
+        dual_write_active = self._dual_write_enabled()
+
+        if not chronolog_active or dual_write_active:
+            self._append_jsonl(msg)
+
+        if chronolog_active or dual_write_active:
+            backend = self._chronolog()
+            if backend is None:
+                if dual_write_active:
+                    log.warning("DTP_CHRONOLOG_DUAL_WRITE=1 but no backend "
+                                "available — JSONL write still succeeded")
+                    return
+                raise RuntimeError(
+                    "DTP_CHRONOLOG_BACKEND=1 but the chronolog backend is "
+                    "unavailable; refusing to drop the event silently"
+                )
+            try:
+                self._append_chronolog(msg, backend)
+            except Exception as exc:
+                if dual_write_active:
+                    log.error("chronolog append failed (event=%s) — JSONL "
+                              "still authoritative: %s", msg.event_id, exc)
+                    return
+                # ChronoLog-only mode: bubble up so the ingest API returns 5xx.
+                raise
+
+    def list_scenarios(self) -> List[str]:
+        """Return scenario ids that have at least one recorded event.
+
+        Reads from JSONL unless DTP_CHRONOLOG_READS=1. When reading from
+        ChronoLog, the result may lag JSONL by up to one chunk acceptance
+        window (~180s) until the index Story is drained — the first call
+        within that window will look empty even if writes succeeded.
+        """
+        if self._reads_enabled():
+            backend = self._chronolog()
+            if backend is not None:
+                return self._list_scenarios_chronolog(backend)
+        return self._list_scenarios_jsonl()
+
+    def read(self, scenario_id: str) -> List[InterAgentMessage]:
+        """Read all events for one scenario, in chronological order."""
+        if self._reads_enabled():
+            backend = self._chronolog()
+            if backend is not None:
+                return self._read_chronolog(scenario_id, backend)
+        return self._read_jsonl(scenario_id)
+
+    def read_stitched(self, scenario_id: str) -> List[dict]:
+        """Return one merged event per correlation_id.
+
+        A completed call merges start + done (picking ts_start, ts_done,
+        status, latency_ms from the done record). An in-flight call keeps
+        just the start event with ts_done=None.
+        """
+        events = self.read(scenario_id)
+        bucket: dict[str, dict] = {}
+        order: list[str] = []
+        for ev in events:
+            cid = ev.correlation_id or ev.event_id
+            slot = bucket.get(cid)
+            if slot is None:
+                slot = {
+                    "correlation_id": cid,
+                    "scenario_id": ev.scenario_id,
+                    "from_host": ev.from_host,
+                    "from_session": ev.from_session,
+                    "to_host": ev.to_host,
+                    "to_session": ev.to_session,
+                    "kind": ev.kind,
+                    "tool_name": ev.tool_name,
+                    "payload_digest": ev.payload_digest,
+                    "payload_preview": ev.payload_preview,
+                    "ts_start": None,
+                    "ts_done": None,
+                    "status": "",
+                    "latency_ms": 0.0,
+                }
+                bucket[cid] = slot
+                order.append(cid)
+            if ev.phase == "start":
+                slot["ts_start"] = ev.ts
+                # Start events seed routing / payload info if not yet set.
+                for key in ("from_host", "from_session", "to_host",
+                            "to_session", "kind", "tool_name",
+                            "payload_digest", "payload_preview"):
+                    if not slot[key]:
+                        slot[key] = getattr(ev, key)
+            else:  # done
+                slot["ts_done"] = ev.ts
+                slot["status"] = ev.status or "ok"
+                slot["latency_ms"] = ev.latency_ms
+                # Done events are authoritative for payload/digest if provided.
+                for key in ("payload_digest", "payload_preview"):
+                    v = getattr(ev, key)
+                    if v:
+                        slot[key] = v
+        return [bucket[cid] for cid in order]
+
+
+_DEFAULT_STORE: Optional[InterAgentStore] = None
+_DEFAULT_LOCK = threading.Lock()
+
+
+def get_store() -> InterAgentStore:
+    """Process-wide singleton. First call creates the directory."""
+    global _DEFAULT_STORE
+    if _DEFAULT_STORE is None:
+        with _DEFAULT_LOCK:
+            if _DEFAULT_STORE is None:
+                _DEFAULT_STORE = InterAgentStore()
+    return _DEFAULT_STORE
+
+
+def new_message(
+    *,
+    scenario_id: str,
+    from_host: str,
+    from_session: str,
+    to_host: str,
+    to_session: str,
+    phase: str,
+    correlation_id: str = "",
+    kind: str = "mcp_call",
+    tool_name: str = "",
+    payload_preview: str = "",
+    payload_digest: str = "",
+    status: str = "",
+    latency_ms: float = 0.0,
+) -> InterAgentMessage:
+    """Construct a new event with auto-generated event_id + timestamp."""
+    return InterAgentMessage(
+        event_id=uuid.uuid4().hex,
+        scenario_id=scenario_id,
+        correlation_id=correlation_id or uuid.uuid4().hex,
+        phase=phase,
+        from_host=from_host,
+        from_session=from_session,
+        to_host=to_host,
+        to_session=to_session,
+        ts=_iso_now(),
+        kind=kind,
+        tool_name=tool_name,
+        payload_digest=payload_digest,
+        payload_preview=payload_preview,
+        status=status,
+        latency_ms=latency_ms,
+    )

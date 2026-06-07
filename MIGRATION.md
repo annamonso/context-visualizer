@@ -37,8 +37,8 @@ Path-A reader + shapers. These power capabilities served on a bare host:
 - `api/interactions.py`   → `Capability.INTERACTIONS`  ✅ ported
 - `api/provenance.py`     → `Capability.PROVENANCE`    ✅ ported (+ `analysis/` pkg)
 - `api/semantic.py`       → `Capability.SEMANTIC`      ✅ ported (+ `semantic/` + `checkpointing/` pkgs)
-- `api/scenarios.py`      → `Capability.SCENARIOS`     ⏳ needs `capture/` (inter_agent store + llm_demo_store)
-- `api/inter_agent.py`    → `Capability.INTER_AGENT`   ⏳ needs `capture/`
+- `api/scenarios.py`      → `Capability.SCENARIOS`     ✅ ported (+ `capture/` stores)
+- `api/inter_agent.py`    → `Capability.INTER_AGENT`   ✅ ported (Path-B ingest endpoint)
 - `api/llm_dispatch.py`, `api/demo_llm.py` → fold into capture/demo, drop live reads.
 
 Note: ``api/conversations.py`` (CONVERSATIONS) is also ported ✅.

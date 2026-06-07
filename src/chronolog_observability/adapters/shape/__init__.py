@@ -17,7 +17,9 @@ from .scenario import (
     build_scenario_graph,
     build_scenario_summary,
     build_scenario_timeline,
+    parse_iso,
     participants,
+    strip_scope,
 )
 
 __all__ = [
@@ -31,5 +33,7 @@ __all__ = [
     "build_scenario_graph",
     "build_scenario_summary",
     "build_scenario_timeline",
+    "parse_iso",
     "participants",
+    "strip_scope",
 ]
