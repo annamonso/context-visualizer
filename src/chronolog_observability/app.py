@@ -33,7 +33,6 @@ _BLUEPRINTS = [
     ("chronolog_observability.api.scenarios", "bp", "/api", Capability.SCENARIOS),
     ("chronolog_observability.api.provenance", "bp", "/api", Capability.PROVENANCE),
     ("chronolog_observability.api.semantic", "bp", "/api", Capability.SEMANTIC),
-    ("chronolog_observability.api.overhead", "bp", "/api", Capability.OVERHEAD),
     ("chronolog_observability.api.inter_agent", "bp", "/api", Capability.INTER_AGENT),
     # Live-runtime (chimaera) — mount only when available:
     ("chronolog_observability.api.topology", "bp", "/api", Capability.TOPOLOGY),
@@ -43,6 +42,8 @@ _BLUEPRINTS = [
     ("chronolog_observability.api.system", "bp", "/api", Capability.SYSTEM),
     ("chronolog_observability.api.recovery", "bp", "/api", Capability.RECOVERY),
     ("chronolog_observability.api.checkpoints", "bp", "/api", Capability.CHECKPOINTS),
+    # OVERHEAD reads chimaera's own instrumentation — live-runtime only.
+    ("chronolog_observability.api.overhead", "bp", "/api", Capability.OVERHEAD),
 ]
 
 

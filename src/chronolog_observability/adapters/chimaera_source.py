@@ -30,6 +30,10 @@ _LIVE_CAPS = frozenset(
         Capability.SYSTEM,
         Capability.RECOVERY,
         Capability.CHECKPOINTS,
+        # OVERHEAD measures the chimaera proxy/tracker/untangler instrumentation
+        # (get_proxy_dispatch_stats, ...) — not reconstructable from ChronoLog,
+        # so it is a live-runtime capability, not a generic one.
+        Capability.OVERHEAD,
     }
 )
 

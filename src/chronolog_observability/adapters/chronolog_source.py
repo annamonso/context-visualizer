@@ -20,7 +20,6 @@ _GENERIC_CAPS = frozenset(
         Capability.INTERACTIONS,
         Capability.PROVENANCE,
         Capability.SEMANTIC,
-        Capability.OVERHEAD,
         Capability.INTER_AGENT,
         Capability.RECOVERY,
     }

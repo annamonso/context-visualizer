@@ -34,13 +34,19 @@ The view is reconstructable from stories; replace the chimaera read with the
 Path-A reader + shapers. These power capabilities served on a bare host:
 
 - `api/conversations.py`  → `Capability.CONVERSATIONS`
-- `api/scenarios.py`      → `Capability.SCENARIOS`
-- `api/interactions.py`   → `Capability.INTERACTIONS`
-- `api/provenance.py`     → `Capability.PROVENANCE`
-- `api/semantic.py`       → `Capability.SEMANTIC`
-- `api/overhead.py`       → `Capability.OVERHEAD`
-- `api/inter_agent.py`    → `Capability.INTER_AGENT`
+- `api/interactions.py`   → `Capability.INTERACTIONS`  ✅ ported
+- `api/provenance.py`     → `Capability.PROVENANCE`    ✅ ported (+ `analysis/` pkg)
+- `api/semantic.py`       → `Capability.SEMANTIC`      ✅ ported (+ `semantic/` + `checkpointing/` pkgs)
+- `api/scenarios.py`      → `Capability.SCENARIOS`     ⏳ needs `capture/` (inter_agent store + llm_demo_store)
+- `api/inter_agent.py`    → `Capability.INTER_AGENT`   ⏳ needs `capture/`
 - `api/llm_dispatch.py`, `api/demo_llm.py` → fold into capture/demo, drop live reads.
+
+Note: ``api/conversations.py`` (CONVERSATIONS) is also ported ✅.
+
+**Correction from the original plan:** `api/overhead.py` is NOT group-A. It reads
+chimaera's own proxy/tracker/untangler instrumentation
+(`get_proxy_dispatch_stats`, …) which is not reconstructable from ChronoLog, so
+`Capability.OVERHEAD` moved to the live-runtime set below.
 
 **B. Live-runtime view — keep chimaera, route through `ChimaeraAdapter`.**
 These genuinely need the running runtime; they mount only when chimaera is
@@ -53,7 +59,10 @@ present. Replace direct `chimaera_client` imports with calls into
 - `api/node.py`      → `Capability.NODE`
 - `api/system.py`    → `Capability.SYSTEM`
 - `api/recovery.py`  → `Capability.RECOVERY`
-- `checkpointing/checkpoint_manager.py` + `api/checkpoints.py` → `Capability.CHECKPOINTS`
+- `api/overhead.py`  → `Capability.OVERHEAD`
+- `api/checkpoints.py` → `Capability.CHECKPOINTS` (the `checkpointing/` pkg is
+  ported; its two generic reads route through the registry, but live
+  checkpoint *create/restore* against the runtime is still group-B).
 
 **Invariant to enforce:** outside `adapters/_chimaera_client.py` and
 `adapters/chimaera_source.py`, nothing may `import chimaera`. A grep gate:
