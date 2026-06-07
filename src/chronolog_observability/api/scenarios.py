@@ -36,7 +36,7 @@ def _source():
     return registry.source_for(Capability.SCENARIOS)
 
 
-# ─────────────────────────── chimaera fetch helpers ───────────────────────────
+# ─────────────────────────── data-source fetch helpers ───────────────────────────
 
 
 def _fetch_all_sessions() -> list[dict]:

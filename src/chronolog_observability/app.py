@@ -1,9 +1,8 @@
-"""Flask application factory — adapter-aware, no hard chimaera import.
+"""Flask application factory.
 
-Contrast with the old app.py, whose very first line was ``from . import
-chimaera_client``. Here we discover adapters at startup and register only the
-blueprints whose capabilities some active adapter can serve. On a bare ChronoLog
-host the live-runtime blueprints simply don't mount; on a clio-core host they do.
+Discovers the data-source adapters at startup and registers only the blueprints
+whose capability some active adapter can serve. The shipped adapter reads from
+ChronoLog, so the dashboard runs against any ChronoLog deployment.
 """
 
 from __future__ import annotations
@@ -19,13 +18,11 @@ from .config import Config
 log = logging.getLogger(__name__)
 
 
-# Maps each blueprint to the capability it needs. Generic ones are always served
-# by ChronoLogAdapter; live ones only when chimaera is active.
+# Maps each blueprint to the capability it needs. All are served from ChronoLog.
 #
-# url_prefix mirrors the original app.py: conversations / interactions /
-# llm_dispatch declare ABSOLUTE routes (``/api/...``, ``/_interceptor/...``) so
-# they mount with NO prefix; every other blueprint declares bare paths and gets
-# ``/api``.
+# url_prefix: conversations / interactions declare ABSOLUTE routes (``/api/...``,
+# ``/_interceptor/...``) so they mount with NO prefix; every other blueprint
+# declares bare paths and gets ``/api``.
 _BLUEPRINTS = [
     # (import_path, attr, url_prefix, required_capability)
     ("chronolog_observability.api.conversations", "bp", "", Capability.CONVERSATIONS),
@@ -34,16 +31,6 @@ _BLUEPRINTS = [
     ("chronolog_observability.api.provenance", "bp", "/api", Capability.PROVENANCE),
     ("chronolog_observability.api.semantic", "bp", "/api", Capability.SEMANTIC),
     ("chronolog_observability.api.inter_agent", "bp", "/api", Capability.INTER_AGENT),
-    # Live-runtime (chimaera) — mount only when available:
-    ("chronolog_observability.api.topology", "bp", "/api", Capability.TOPOLOGY),
-    ("chronolog_observability.api.workers", "bp", "/api", Capability.WORKERS),
-    ("chronolog_observability.api.pools", "bp", "/api", Capability.POOLS),
-    ("chronolog_observability.api.node", "bp", "/api", Capability.NODE),
-    ("chronolog_observability.api.system", "bp", "/api", Capability.SYSTEM),
-    ("chronolog_observability.api.recovery", "bp", "/api", Capability.RECOVERY),
-    ("chronolog_observability.api.checkpoints", "bp", "/api", Capability.CHECKPOINTS),
-    # OVERHEAD reads chimaera's own instrumentation — live-runtime only.
-    ("chronolog_observability.api.overhead", "bp", "/api", Capability.OVERHEAD),
 ]
 
 

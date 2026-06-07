@@ -6,62 +6,61 @@ scenario / interaction / provenance views reconstructed from ChronoLog stories �
 no chimaera or clio-core required.
 
 This is a repackaging of the former `clio-core/context-visualizer` into a
-standalone, pip-installable plugin. The central change is that the two external
-couplings swapped roles:
-
-| | old (`context-visualizer`) | new (this plugin) |
-|---|---|---|
-| **ChronoLog** | optional backend behind `DTP_CHRONOLOG_*` flags | **required substrate** |
-| **chimaera** | hard dependency (16 modules import it) | **optional adapter**, auto-enabled when present |
+standalone, pip-installable plugin. The key change: ChronoLog moved from an
+optional backend to the **required substrate**, and the old hard dependency on
+the chimaera C++ runtime was removed — every view is served from ChronoLog.
 
 ## How it works
 
 Data sources are **adapters** selected at runtime via the
-`chronolog_observability.adapters` entry-point group:
+`chronolog_observability.adapters` entry-point group (plus a built-in default):
 
-- **`ChronoLogAdapter`** (default) — serves the generic views from ChronoLog
-  stories alone. Available on any ChronoLog host.
-- **`ChimaeraAdapter`** (optional) — adds live-runtime panels (topology, workers,
-  pools, node, system, recovery). Activates only when `chimaera_runtime_ext` is
-  importable.
+- **`ChronoLogAdapter`** (default) — serves every view from ChronoLog stories.
+  Available on any ChronoLog host.
 
-Blueprints declare the `Capability` they need; `app.create_app()` mounts only the
-ones an active adapter can serve. So the same wheel runs on a bare ChronoLog host
-and inside a full clio-core stack, with no feature flags.
+Blueprints declare the `Capability` they need; `app.create_app()` discovers the
+active adapters and mounts only the blueprints some adapter can serve. The
+adapter interface is the seam for third parties to add their own data source
+without forking.
 
 ```
 src/chronolog_observability/
-├── app.py            # adapter-aware Flask factory (no hard chimaera import)
+├── app.py            # Flask factory: discover adapters, mount blueprints, serve SPA
 ├── config.py         # visor endpoint, offline mode, bind
-├── backend/          # ChronoLog substrate (client, path_a_reader, sync_worker)
+├── backend/          # ChronoLog substrate (client, constants, path_a_reader)
 ├── adapters/
-│   ├── base.py       # SourceAdapter + Capability  <- the decoupling seam
+│   ├── base.py       # SourceAdapter + Capability  <- the data-source seam
 │   ├── registry.py   # entry-point discovery + capability resolution
-│   ├── chronolog_source.py   # default adapter (generic)
-│   ├── chimaera_source.py    # optional adapter (live runtime)
+│   ├── chronolog_source.py   # the ChronoLog adapter
 │   └── shape/        # story -> conversation/scenario graph shapers
-├── capture/          # Path-A proxy + Path-B inter-agent ingest
+├── capture/          # inter-agent edge store + Path-B ingest + demo store
 ├── api/              # Flask blueprints (one per capability)
-├── static/           # built React SPA lands here
-└── templates/
+├── analysis/ semantic/ checkpointing/   # pure analysis + checks packages
+└── static/workspace/ # built React SPA lands here (gitignored build artifact)
 ```
+
+The React dashboard lives in `frontend/` (Vite). Its three tabs — Workspace,
+Scenarios, Interactions — are all ChronoLog-served.
 
 ## Install & run
 
 ```bash
+make workspace                       # build the React SPA into static/workspace/
 pip install -e .                     # py_chronolog_client must be on PYTHONPATH
 export CHRONOLOG_VISOR_IP=10.x.x.x   # raw IP, NOT the -40g hostname
-chronolog-observe                    # serves on :5000
+chronolog-observe                    # serves the dashboard on :5000
 ```
 
 Demo / dev without a live deployment:
 
 ```bash
 CHRONOLOG_OFFLINE=1 chronolog-observe  # replays from drained CSVs
+make workspace-dev                     # Vite dev server on :5173, proxies to :5000
 ```
 
 ## Status
 
-Scaffold. The seam (adapters, registry, app factory, backend probe) is in place;
-the read/shape/capture bodies are ported from `context-visualizer` per
-[`MIGRATION.md`](./MIGRATION.md).
+Functional. Backend, shape adapters, all generic blueprints (conversations,
+interactions, provenance, semantic, scenarios, inter_agent), capture stores, and
+the React frontend are ported and serve from ChronoLog. See
+[`MIGRATION.md`](./MIGRATION.md) for the port record.

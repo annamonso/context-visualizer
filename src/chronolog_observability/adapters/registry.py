@@ -1,14 +1,12 @@
 """Discover, probe, and select data-source adapters at runtime.
 
 Adapters register under the ``chronolog_observability.adapters`` entry-point
-group (see pyproject.toml). At startup the registry instantiates each, calls
-``is_available()``, and keeps the ones that say yes. Blueprints then resolve a
-capability to *some* active adapter that provides it.
+group (see pyproject.toml), plus a built-in default. At startup the registry
+instantiates each, calls ``is_available()``, and keeps the ones that say yes.
+Blueprints then resolve a capability to *some* active adapter that provides it.
 
-This is the mechanism that lets the same wheel run:
-  * on a bare ChronoLog host  -> only ChronoLogAdapter activates
-  * inside a clio-core stack   -> ChronoLogAdapter + ChimaeraAdapter both activate
-without any feature flags or conditional imports scattered through the code.
+The shipped default is ``ChronoLogAdapter``; the entry-point group is the seam
+for third parties to register additional data sources without forking.
 """
 
 from __future__ import annotations
@@ -32,7 +30,6 @@ class SourceUnavailable(RuntimeError):
 # by registering under the entry-point group above.
 _BUILTIN = [
     ("chronolog", "chronolog_observability.adapters.chronolog_source:ChronoLogAdapter"),
-    ("chimaera", "chronolog_observability.adapters.chimaera_source:ChimaeraAdapter"),
 ]
 
 

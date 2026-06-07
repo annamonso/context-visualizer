@@ -1,31 +1,18 @@
-"""The data-source seam that makes this a *generic* ChronoLog plugin.
-
-The original ``context-visualizer`` read live state directly from the chimaera
-C++ runtime — 16 API modules did ``import chimaera_client`` unconditionally, so
-the package could not even be imported on a host without chimaera. A generic
-ChronoLog user has no chimaera, so that coupling has to move behind an interface.
+"""The data-source seam of the plugin.
 
 A ``SourceAdapter`` supplies the **read primitives** the dashboard's shape layer
-turns into views. Both shipped adapters implement the SAME primitive shapes
-(``{node_id: ...}`` monitor wrapping included), so blueprints and shape adapters
-never know which source served a request:
+turns into views, returning the ``{node_id: ...}`` monitor shapes the blueprints
+and shape adapters expect — so the rest of the code never knows where the data
+came from. The shipped adapter is:
 
-  * ``ChronoLogAdapter``  — the default. Serves the session / interaction /
-    context-graph / recovery reads from ChronoLog stories (via
-    ``backend.path_a_reader``). Available on *any* ChronoLog deployment.
+  * ``ChronoLogAdapter`` — serves the session / interaction / context-graph /
+    recovery reads from ChronoLog stories (via ``backend.path_a_reader``).
+    Available on *any* ChronoLog deployment.
 
-  * ``ChimaeraAdapter``   — optional. Adds the *live runtime* reads (topology,
-    workers, pools, …) by introspecting a running chimaera runtime. Only
-    activates when ``chimaera_runtime_ext`` is importable.
-
-Each adapter declares which ``Capability`` values it provides; ``app.create_app``
-mounts only the blueprints whose capability some active adapter offers, so the
-dashboard degrades gracefully instead of crashing on a missing import.
-
-NOTE: the read-primitive methods below cover the *generic* (ChronoLog-served)
-views. Live-runtime adapters add their own methods (``get_topology`` …); those
-are accessed by duck-typing the adapter the registry returns for a live
-``Capability``, so they don't bloat this shared interface.
+The interface is kept so third parties can register additional data sources
+under the ``chronolog_observability.adapters`` entry-point group; each declares
+which ``Capability`` values it provides, and ``app.create_app`` mounts only the
+blueprints whose capability some active adapter offers.
 """
 
 from __future__ import annotations
@@ -36,25 +23,17 @@ from typing import Any, Dict, List, Protocol, runtime_checkable
 
 
 class Capability(enum.Enum):
-    """A view the dashboard can render, supplied by zero or more adapters."""
+    """A view the dashboard can render, supplied by zero or more adapters.
 
-    # Reconstructable from ChronoLog stories alone (the generic path):
+    All capabilities are reconstructable from ChronoLog stories."""
+
     CONVERSATIONS = "conversations"
     SCENARIOS = "scenarios"
     INTERACTIONS = "interactions"
     PROVENANCE = "provenance"
     SEMANTIC = "semantic"
-    OVERHEAD = "overhead"
     INTER_AGENT = "inter_agent"
-
-    # Require a live runtime to introspect (chimaera-only today):
-    TOPOLOGY = "topology"
-    WORKERS = "workers"
-    POOLS = "pools"
-    NODE = "node"
-    SYSTEM = "system"
     RECOVERY = "recovery"
-    CHECKPOINTS = "checkpoints"
 
 
 @runtime_checkable

@@ -6,9 +6,8 @@ React workspace view expects. All business logic lives in
 active data source, normalizing monitor payloads, HTTP responses).
 
 Source-agnostic: the data source is resolved from the adapter registry
-(``registry.source_for(Capability.CONVERSATIONS)``) rather than importing
-chimaera. On a bare ChronoLog host that resolves to ``ChronoLogAdapter``; inside
-a clio-core stack it could be the chimaera live adapter — same shapes either way.
+(``registry.source_for(Capability.CONVERSATIONS)``), which resolves to
+``ChronoLogAdapter`` — the blueprint never knows which source served it.
 
 The base session id (everything before the first ``.`` in ``parent.N.M``
 notation) is treated as the conversation id.

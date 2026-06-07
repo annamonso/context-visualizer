@@ -43,34 +43,24 @@ Path-A reader + shapers. These power capabilities served on a bare host:
 
 Note: ``api/conversations.py`` (CONVERSATIONS) is also ported ✅.
 
-**Correction from the original plan:** `api/overhead.py` is NOT group-A. It reads
-chimaera's own proxy/tracker/untangler instrumentation
-(`get_proxy_dispatch_stats`, …) which is not reconstructable from ChronoLog, so
-`Capability.OVERHEAD` moved to the live-runtime set below.
+**B. Live-runtime views — DROPPED (chimaera removed).**
+The original plan kept an optional `ChimaeraAdapter` for views that introspect
+the running chimaera runtime (`topology`, `workers`, `pools`, `node`, `system`,
+`overhead`, and live checkpoint create/restore). Per the decision to not depend
+on chimaera at all, these are **not ported** and the chimaera adapter,
+entry-point, capabilities, and legacy Flask HTML templates were removed. The
+plugin is ChronoLog-only.
 
-**B. Live-runtime view — keep chimaera, route through `ChimaeraAdapter`.**
-These genuinely need the running runtime; they mount only when chimaera is
-present. Replace direct `chimaera_client` imports with calls into
-`adapters/_chimaera_client.py` via the adapter:
+`recovery` survives as a *generic* capability — recovery events live in ChronoLog
+(`CHRONICLE_RECOVERY_EVENTS`), so `ChronoLogAdapter` serves them via
+`path_a_reader.get_recovery_events`; the `checkpointing/` package is ported
+(chimaera-free) for the rollback analyzer's `Checkpoint` type.
 
-- `api/topology.py`  → `Capability.TOPOLOGY`
-- `api/workers.py`   → `Capability.WORKERS`
-- `api/pools.py`     → `Capability.POOLS`
-- `api/node.py`      → `Capability.NODE`
-- `api/system.py`    → `Capability.SYSTEM`
-- `api/recovery.py`  → `Capability.RECOVERY`
-- `api/overhead.py`  → `Capability.OVERHEAD`
-- `api/checkpoints.py` → `Capability.CHECKPOINTS` (the `checkpointing/` pkg is
-  ported; its two generic reads route through the registry, but live
-  checkpoint *create/restore* against the runtime is still group-B).
-
-**Invariant to enforce:** outside `adapters/_chimaera_client.py` and
-`adapters/chimaera_source.py`, nothing may `import chimaera`. A grep gate:
+**Invariant to enforce:** nothing may `import chimaera` anywhere. A grep gate:
 
 ```bash
 grep -rn "import chimaera" src/chronolog_observability \
-  --include='*.py' | grep -v 'adapters/_chimaera_client.py' \
-                   | grep -v 'adapters/chimaera_source.py' && echo "LEAK" || echo "clean"
+  --include='*.py' && echo "LEAK" || echo "clean"
 ```
 
 ## Suggested order

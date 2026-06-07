@@ -26,8 +26,9 @@ echo ">> api blueprints"
 
 echo ">> capture-related glue"
 "${RSYNC[@]}" "$SRC/context_visualizer/inter_agent/" "$PKG/capture/_imported/inter_agent/" || true
-cp -n "$SRC/context_visualizer/chimaera_client.py" "$PKG/adapters/_chimaera_client.py" 2>/dev/null || true
 cp -n "$SRC/context_visualizer/llm_demo_store.py" "$PKG/capture/_imported/" 2>/dev/null || true
+# Note: chimaera_client.py is intentionally NOT imported — this plugin is
+# ChronoLog-only and does not depend on the chimaera runtime.
 
 echo ">> static + templates"
 "${RSYNC[@]}" "$SRC/context_visualizer/static/" "$PKG/static/" || true
