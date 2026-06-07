@@ -1,21 +1,15 @@
 """Default adapter: serve every generic view from ChronoLog stories alone.
 
-This is what makes the plugin usable by *any* ChronoLog operator. It wraps the
-existing read path that already lives in the codebase:
-
-    backend.get_backend()            -> writer/reader ChronoLog client facade
-    backend.path_a_reader            -> decode Path-A proxy-capture stories
-    adapters.shape.conversation_*    -> shape stories into the conversation graph
-    adapters.shape.scenario_*        -> shape inter-agent events into scenarios
-
-MIGRATION: port the bodies of the old `api/chronolog_view.py`,
-`chronolog/path_a_reader.py`, and the conversation/scenario shapers in here (or
-have this delegate to them). Nothing here may import chimaera.
+This is what makes the plugin usable by *any* ChronoLog operator. The read
+primitives delegate to ``backend.path_a_reader``, which replays ChronoLog
+stories and returns the exact ``{node_id: ...}`` monitor shapes the old
+``chimaera_client`` returned — so the shape adapters and blueprints are
+source-agnostic. Nothing here imports chimaera.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Dict, List
 
 from .base import BaseAdapter, Capability
 
@@ -28,6 +22,7 @@ _GENERIC_CAPS = frozenset(
         Capability.SEMANTIC,
         Capability.OVERHEAD,
         Capability.INTER_AGENT,
+        Capability.RECOVERY,
     }
 )
 
@@ -36,7 +31,8 @@ class ChronoLogAdapter(BaseAdapter):
     name = "chronolog"
 
     def is_available(self) -> bool:
-        # Available whenever the ChronoLog Python client can be reached.
+        # Available whenever ChronoLog can serve reads (live client present, or
+        # offline CSV-replay demo mode). See backend.is_reachable().
         try:
             from .. import backend
 
@@ -47,9 +43,39 @@ class ChronoLogAdapter(BaseAdapter):
     def capabilities(self) -> "frozenset[Capability]":
         return _GENERIC_CAPS
 
-    def fetch(self, capability: Capability, **params: Any) -> Any:
-        # TODO(migration): dispatch to the ported read/shape functions.
-        raise NotImplementedError(
-            f"ChronoLogAdapter.fetch({capability}) not yet wired — "
-            "port the read path from the old chronolog/ + adapters/ modules."
-        )
+    # --- generic read primitives (delegate to the ChronoLog read path) ---
+
+    def get_sessions(self) -> Dict[str, Dict[str, Any]]:
+        from ..backend import path_a_reader
+
+        return path_a_reader.get_sessions()
+
+    def get_session_interactions(self, session_id: str) -> Dict[str, Dict[str, Any]]:
+        from ..backend import path_a_reader
+
+        return path_a_reader.get_session_interactions(session_id)
+
+    def get_interaction(self, session_id: str, seq_id: Any) -> Dict[str, Dict[str, Any]]:
+        from ..backend import path_a_reader
+
+        return path_a_reader.get_interaction(session_id, seq_id)
+
+    def get_context_graphs(self) -> Dict[str, List[str]]:
+        from ..backend import path_a_reader
+
+        return path_a_reader.get_context_graphs()
+
+    def get_context_graph(self, session_id: str, since: int = 0) -> Dict[str, List[Dict[str, Any]]]:
+        from ..backend import path_a_reader
+
+        return path_a_reader.get_context_graph(session_id, since)
+
+    def get_context_node(self, session_id: str, seq_id: Any) -> Dict[str, Dict[str, Any]]:
+        from ..backend import path_a_reader
+
+        return path_a_reader.get_context_node(session_id, seq_id)
+
+    def get_recovery_events(self, session_id: str) -> List[Dict[str, Any]]:
+        from ..backend import path_a_reader
+
+        return path_a_reader.get_recovery_events(session_id)

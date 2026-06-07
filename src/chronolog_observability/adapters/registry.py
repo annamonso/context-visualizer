@@ -17,11 +17,31 @@ import logging
 from importlib.metadata import entry_points
 from typing import Optional
 
-from .base import BaseAdapter, Capability, SourceAdapter
+from .base import Capability, SourceAdapter
 
 log = logging.getLogger(__name__)
 
 _ENTRY_POINT_GROUP = "chronolog_observability.adapters"
+
+
+class SourceUnavailable(RuntimeError):
+    """No active adapter provides the requested capability."""
+
+# Built-in adapters, registered even when the package is run from source (no
+# editable install, so no entry-point metadata). Third parties extend the set
+# by registering under the entry-point group above.
+_BUILTIN = [
+    ("chronolog", "chronolog_observability.adapters.chronolog_source:ChronoLogAdapter"),
+    ("chimaera", "chronolog_observability.adapters.chimaera_source:ChimaeraAdapter"),
+]
+
+
+def _load(target: str):
+    """Load a ``module:attr`` target string into the class object."""
+    import importlib
+
+    mod_name, _, attr = target.partition(":")
+    return getattr(importlib.import_module(mod_name), attr)
 
 
 class AdapterRegistry:
@@ -29,23 +49,35 @@ class AdapterRegistry:
         self._active: list[SourceAdapter] = []
 
     def discover(self) -> "AdapterRegistry":
-        """Load every registered adapter and keep the available ones."""
+        """Load built-in + entry-point adapters; keep the available ones."""
         self._active = []
+        seen: set[str] = set()
+
+        candidates: list[tuple[str, object]] = []
+        for name, target in _BUILTIN:
+            candidates.append((name, target))
         for ep in entry_points(group=_ENTRY_POINT_GROUP):
+            candidates.append((ep.name, ep))
+
+        for name, ref in candidates:
+            if name in seen:
+                continue  # built-in wins over a same-named entry point
             try:
-                cls = ep.load()
+                cls = ref.load() if hasattr(ref, "load") else _load(ref)  # type: ignore[union-attr]
             except Exception as exc:  # an optional adapter's deps may be absent
-                log.info("adapter %r not loadable: %s", ep.name, exc)
+                log.info("adapter %r not loadable: %s", name, exc)
                 continue
             try:
                 adapter = cls()
                 if adapter.is_available():
                     self._active.append(adapter)
-                    log.info("adapter %r active (%r)", ep.name, adapter)
+                    seen.add(name)
+                    log.info("adapter %r active (%r)", name, adapter)
                 else:
-                    log.info("adapter %r present but inactive", ep.name)
+                    seen.add(name)
+                    log.info("adapter %r present but inactive", name)
             except Exception as exc:
-                log.warning("adapter %r failed to initialise: %s", ep.name, exc)
+                log.warning("adapter %r failed to initialise: %s", name, exc)
         return self
 
     def active(self) -> list[SourceAdapter]:
@@ -61,6 +93,15 @@ class AdapterRegistry:
 
     def has(self, capability: Capability) -> bool:
         return self.for_capability(capability) is not None
+
+    def source_for(self, capability: Capability) -> SourceAdapter:
+        """Like ``for_capability`` but raises when nothing provides it — used by
+        blueprints, which are only mounted when a provider exists, so this should
+        not fire in practice."""
+        src = self.for_capability(capability)
+        if src is None:
+            raise SourceUnavailable(f"no active adapter provides {capability.value}")
+        return src
 
     def capability_map(self) -> dict[str, list[str]]:
         """For the ``/api/config`` endpoint and the frontend feature gating."""

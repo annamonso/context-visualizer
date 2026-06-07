@@ -21,11 +21,16 @@ log = logging.getLogger(__name__)
 
 # Maps each blueprint to the capability it needs. Generic ones are always served
 # by ChronoLogAdapter; live ones only when chimaera is active.
+#
+# url_prefix mirrors the original app.py: conversations / interactions /
+# llm_dispatch declare ABSOLUTE routes (``/api/...``, ``/_interceptor/...``) so
+# they mount with NO prefix; every other blueprint declares bare paths and gets
+# ``/api``.
 _BLUEPRINTS = [
     # (import_path, attr, url_prefix, required_capability)
-    ("chronolog_observability.api.conversations", "bp", "/api", Capability.CONVERSATIONS),
+    ("chronolog_observability.api.conversations", "bp", "", Capability.CONVERSATIONS),
+    ("chronolog_observability.api.interactions", "bp", "", Capability.INTERACTIONS),
     ("chronolog_observability.api.scenarios", "bp", "/api", Capability.SCENARIOS),
-    ("chronolog_observability.api.interactions", "bp", "/api", Capability.INTERACTIONS),
     ("chronolog_observability.api.provenance", "bp", "/api", Capability.PROVENANCE),
     ("chronolog_observability.api.semantic", "bp", "/api", Capability.SEMANTIC),
     ("chronolog_observability.api.overhead", "bp", "/api", Capability.OVERHEAD),
@@ -57,7 +62,7 @@ def create_app(config: Config | None = None) -> Flask:
             continue
         try:
             mod = importlib.import_module(module_path)
-            app.register_blueprint(getattr(mod, attr), url_prefix=prefix)
+            app.register_blueprint(getattr(mod, attr), url_prefix=prefix or None)
         except ModuleNotFoundError:
             # Blueprint not ported yet during migration — non-fatal.
             log.info("blueprint %s not present yet (migration)", module_path)

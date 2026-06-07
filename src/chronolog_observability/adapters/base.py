@@ -5,28 +5,34 @@ C++ runtime — 16 API modules did ``import chimaera_client`` unconditionally, s
 the package could not even be imported on a host without chimaera. A generic
 ChronoLog user has no chimaera, so that coupling has to move behind an interface.
 
-A ``SourceAdapter`` is one way of supplying the views the dashboard renders.
-Two adapters ship in-tree:
+A ``SourceAdapter`` supplies the **read primitives** the dashboard's shape layer
+turns into views. Both shipped adapters implement the SAME primitive shapes
+(``{node_id: ...}`` monitor wrapping included), so blueprints and shape adapters
+never know which source served a request:
 
-  * ``ChronoLogAdapter``  — the default. Reconstructs conversations, scenarios,
-    interactions, provenance and overhead purely from ChronoLog stories
-    (this is the existing Path-A reader / ReplayStory read path). Available on
-    *any* ChronoLog deployment.
+  * ``ChronoLogAdapter``  — the default. Serves the session / interaction /
+    context-graph / recovery reads from ChronoLog stories (via
+    ``backend.path_a_reader``). Available on *any* ChronoLog deployment.
 
-  * ``ChimaeraAdapter``   — optional. Adds the *live runtime* panels (topology,
-    workers, pools, node, system, recovery) by introspecting a running chimaera
-    runtime. Only activates when ``chimaera_runtime_ext`` is importable.
+  * ``ChimaeraAdapter``   — optional. Adds the *live runtime* reads (topology,
+    workers, pools, …) by introspecting a running chimaera runtime. Only
+    activates when ``chimaera_runtime_ext`` is importable.
 
-Each adapter declares which ``Capability`` values it provides. Blueprints ask
-the registry for a capability and degrade gracefully (HTTP 501) when no active
-adapter offers it, instead of crashing on import.
+Each adapter declares which ``Capability`` values it provides; ``app.create_app``
+mounts only the blueprints whose capability some active adapter offers, so the
+dashboard degrades gracefully instead of crashing on a missing import.
+
+NOTE: the read-primitive methods below cover the *generic* (ChronoLog-served)
+views. Live-runtime adapters add their own methods (``get_topology`` …); those
+are accessed by duck-typing the adapter the registry returns for a live
+``Capability``, so they don't bloat this shared interface.
 """
 
 from __future__ import annotations
 
 import abc
 import enum
-from typing import Any, Iterable, Protocol, runtime_checkable
+from typing import Any, Dict, List, Protocol, runtime_checkable
 
 
 class Capability(enum.Enum):
@@ -53,35 +59,20 @@ class Capability(enum.Enum):
 
 @runtime_checkable
 class SourceAdapter(Protocol):
-    """Minimal contract every data source implements.
-
-    Concrete adapters subclass :class:`BaseAdapter`; the Protocol is here so
-    the registry can structurally type-check third-party adapters loaded via
-    entry points without importing them at definition time.
-    """
+    """Structural contract the registry checks. Concrete adapters subclass
+    :class:`BaseAdapter`; the Protocol lets third-party adapters loaded via
+    entry points be duck-typed without importing them at definition time."""
 
     name: str
 
-    def is_available(self) -> bool:
-        """Cheap probe: can this adapter actually serve data right now?
-
-        Must NOT raise and must NOT import heavy/native modules at call time
-        beyond what is needed to answer. Used by the registry to decide whether
-        to activate the adapter.
-        """
-        ...
-
-    def capabilities(self) -> "frozenset[Capability]":
-        """Which views this adapter can supply when available."""
-        ...
-
-    def fetch(self, capability: Capability, **params: Any) -> Any:
-        """Return the view payload for ``capability`` (already JSON-shaped)."""
-        ...
+    def is_available(self) -> bool: ...
+    def capabilities(self) -> "frozenset[Capability]": ...
 
 
 class BaseAdapter(abc.ABC):
-    """Convenience base with sensible defaults."""
+    """Common base: capability declaration + availability + the generic read
+    primitives. Primitives default to "empty" so an adapter only overrides the
+    ones it can actually serve."""
 
     name: str = "base"
 
@@ -96,9 +87,32 @@ class BaseAdapter(abc.ABC):
     def provides(self, capability: Capability) -> bool:
         return capability in self.capabilities()
 
-    @abc.abstractmethod
-    def fetch(self, capability: Capability, **params: Any) -> Any:  # pragma: no cover
-        ...
+    # ------------------------------------------------------------------
+    # Generic read primitives — same names/shapes as the old chimaera_client.
+    # Defaults return "empty" so blueprints degrade gracefully on a source
+    # that doesn't implement a given read.
+    # ------------------------------------------------------------------
+
+    def get_sessions(self) -> Dict[str, Dict[str, Any]]:
+        return {}
+
+    def get_session_interactions(self, session_id: str) -> Dict[str, Dict[str, Any]]:
+        return {}
+
+    def get_interaction(self, session_id: str, seq_id: Any) -> Dict[str, Dict[str, Any]]:
+        return {}
+
+    def get_context_graphs(self) -> Dict[str, List[str]]:
+        return {}
+
+    def get_context_graph(self, session_id: str, since: int = 0) -> Dict[str, List[Dict[str, Any]]]:
+        return {}
+
+    def get_context_node(self, session_id: str, seq_id: Any) -> Dict[str, Dict[str, Any]]:
+        return {}
+
+    def get_recovery_events(self, session_id: str) -> List[Dict[str, Any]]:
+        return []
 
     def __repr__(self) -> str:  # pragma: no cover - debug aid
         avail = "available" if self.is_available() else "inactive"
