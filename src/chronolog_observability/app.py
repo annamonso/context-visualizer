@@ -78,6 +78,42 @@ def create_app(config: Config | None = None) -> Flask:
             }
         )
 
+    _register_spa(app)
+    return app
+
+
+def _register_spa(app: Flask) -> None:
+    """Serve the built React SPA at ``/``.
+
+    Vite writes its bundle into ``static/workspace/`` with ``base=/static/workspace/``,
+    so ``index.html`` already references hashed asset URLs that Flask's default
+    static handler serves — we just hand back the entry HTML. No chimaera, no
+    template indirection. If the SPA hasn't been built, return a 503 with a
+    build hint rather than a confusing 404.
+    """
+    from pathlib import Path
+
+    from flask import send_file
+
+    workspace_index = Path(app.static_folder) / "workspace" / "index.html"
+
+    @app.get("/")
+    def index():
+        if not workspace_index.is_file():
+            body = (
+                "<!doctype html><meta charset='utf-8'>"
+                "<title>UI not built</title>"
+                "<style>body{font-family:sans-serif;padding:40px;max-width:640px}"
+                "code{background:#eee;padding:2px 6px;border-radius:4px}</style>"
+                "<h1>Dashboard UI not built yet</h1>"
+                "<p>The SPA bundle is missing from <code>static/workspace/</code>. "
+                "Run <code>make workspace</code> (or "
+                "<code>cd frontend &amp;&amp; npm install &amp;&amp; npm run build</code>) "
+                "and reload.</p>"
+            )
+            return body, 503, {"Content-Type": "text/html; charset=utf-8"}
+        return send_file(workspace_index)
+
     return app
 
 
