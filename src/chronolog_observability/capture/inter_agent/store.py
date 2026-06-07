@@ -1,23 +1,20 @@
 """Store for InterAgentMessage events.
 
-The store has two backends, selected by env flags at process start:
+ChronoLog is the substrate. There is a single backend selection rule, decided
+per call by whether a live ChronoLog backend is available:
 
-  =====================  =====================  ============================
-  Mode                   Env                    Writes / Reads
-  =====================  =====================  ============================
-  Legacy (default)       (none)                 JSONL only / JSONL only
-  Dual-write             DTP_CHRONOLOG_BACKEND=1 + DTP_CHRONOLOG_DUAL_WRITE=1
-                                                JSONL + ChronoLog / JSONL
-  Cut-over reads         + DTP_CHRONOLOG_READS=1
-                                                JSONL + ChronoLog / ChronoLog
-  ChronoLog only (end)   DTP_CHRONOLOG_BACKEND=1 + DTP_CHRONOLOG_READS=1
-                                                ChronoLog only / ChronoLog
-  =====================  =====================  ============================
+  ====================  ==========================  =========================
+  Mode                  When                        Writes / Reads
+  ====================  ==========================  =========================
+  ChronoLog (normal)    live backend present        ChronoLog / ChronoLog
+  Local (offline demo)  CHRONOLOG_OFFLINE=1         JSONL / JSONL
+  ====================  ==========================  =========================
 
-The "end state" is `DTP_CHRONOLOG_BACKEND=1` + `DTP_CHRONOLOG_READS=1` with
-DUAL_WRITE off — no JSONL writes happen, and the JSONL store directory is
-unused. The JSONL code path is retained as a fallback for cluster-down
-emergencies (toggle off DTP_CHRONOLOG_BACKEND to revert).
+The migration-era ``DTP_CHRONOLOG_BACKEND / DUAL_WRITE / READS`` flags are gone
+— this is a ChronoLog-native plugin, not a JSONL deployment being cut over. The
+JSONL path now exists only so the demo Workspace can capture and replay locally
+in ``CHRONOLOG_OFFLINE=1`` mode (where ``get_backend()`` returns ``None``); it
+is never a silent fallback when a real visor was expected.
 
 Other invariants:
   - Two-phase records ("start"/"done") stitched by ``correlation_id``.
@@ -132,29 +129,17 @@ class InterAgentStore:
     # ------------------------------------------------------------------
 
     def _chronolog(self):
-        """Return the chronolog backend if dual-write or reads are enabled.
+        """Return the live ChronoLog backend, or ``None`` in offline demo mode.
 
-        Lazy import so importing this module doesn't pull in py_chronolog_client.
+        ``get_backend()`` is the single source of truth: it returns a connected
+        backend in normal operation and ``None`` only under ``CHRONOLOG_OFFLINE=1``
+        (see ``backend.client``). The lazy import keeps importing this module
+        from pulling in ``py_chronolog_client``.
         """
         if self._chronolog_override is not None:
             return self._chronolog_override
-        try:
-            from ..chronolog import get_backend
-        except ImportError:
-            return None
+        from ...backend.client import get_backend
         return get_backend()
-
-    @staticmethod
-    def _backend_enabled() -> bool:
-        return os.environ.get("DTP_CHRONOLOG_BACKEND", "").strip().lower() in ("1", "true", "yes", "on")
-
-    @staticmethod
-    def _dual_write_enabled() -> bool:
-        return os.environ.get("DTP_CHRONOLOG_DUAL_WRITE", "").strip().lower() in ("1", "true", "yes", "on")
-
-    @staticmethod
-    def _reads_enabled() -> bool:
-        return os.environ.get("DTP_CHRONOLOG_READS", "").strip().lower() in ("1", "true", "yes", "on")
 
     # ------------------------------------------------------------------
     # JSONL backend (legacy)
@@ -202,7 +187,7 @@ class InterAgentStore:
     # ------------------------------------------------------------------
 
     def _append_chronolog(self, msg: "InterAgentMessage", backend) -> None:
-        from ..chronolog import constants
+        from ...backend import constants
         ch = constants.inter_agent_chronicle(msg.scenario_id)
         backend.append_event(ch, constants.INTER_AGENT_STORY_EDGES, msg.to_dict())
         # Index the scenario so list_scenarios() has something to enumerate
@@ -214,7 +199,7 @@ class InterAgentStore:
             log.warning("chronolog index_add failed: %s", exc)
 
     def _read_chronolog(self, scenario_id: str, backend) -> List["InterAgentMessage"]:
-        from ..chronolog import constants
+        from ...backend import constants
         ch = constants.inter_agent_chronicle(scenario_id)
         try:
             events = backend.replay_events(ch, constants.INTER_AGENT_STORY_EDGES)
@@ -233,7 +218,7 @@ class InterAgentStore:
         return out
 
     def _list_scenarios_chronolog(self, backend) -> List[str]:
-        from ..chronolog import constants
+        from ...backend import constants
         try:
             ids = backend.index_list(constants.INDEX_STORY_SCENARIOS)
         except RuntimeError as exc:
@@ -249,71 +234,41 @@ class InterAgentStore:
     def append(self, msg: InterAgentMessage) -> None:
         """Append a single event; safe under concurrent writers.
 
-        Mode determined by env at call time:
-
-          * DTP_CHRONOLOG_BACKEND=1 + DTP_CHRONOLOG_DUAL_WRITE=1
-            -> JSONL + ChronoLog (transitional dual-write).
-          * DTP_CHRONOLOG_BACKEND=1, no DUAL_WRITE
-            -> ChronoLog only (end state). JSONL files no longer touched.
-          * DTP_CHRONOLOG_BACKEND off (default)
-            -> JSONL only (legacy).
-
-        On any mode involving ChronoLog, an append failure is propagated up so
-        the Flask ingest returns 500 — silent loss is worse than visible loss.
-        Dual-write mode keeps JSONL writes unconditional so a ChronoLog outage
-        does NOT block ingest.
+        Normal operation writes to ChronoLog and propagates any append failure
+        up so the Flask ingest returns 5xx — silent loss is worse than visible
+        loss. In ``CHRONOLOG_OFFLINE=1`` demo mode (no live backend) the event
+        is persisted to the local JSONL store instead so the Workspace can
+        replay it without a visor.
         """
         if not msg.scenario_id:
             raise ValueError("scenario_id is required")
 
-        chronolog_active  = self._backend_enabled()
-        dual_write_active = self._dual_write_enabled()
-
-        if not chronolog_active or dual_write_active:
+        backend = self._chronolog()
+        if backend is None:
             self._append_jsonl(msg)
-
-        if chronolog_active or dual_write_active:
-            backend = self._chronolog()
-            if backend is None:
-                if dual_write_active:
-                    log.warning("DTP_CHRONOLOG_DUAL_WRITE=1 but no backend "
-                                "available — JSONL write still succeeded")
-                    return
-                raise RuntimeError(
-                    "DTP_CHRONOLOG_BACKEND=1 but the chronolog backend is "
-                    "unavailable; refusing to drop the event silently"
-                )
-            try:
-                self._append_chronolog(msg, backend)
-            except Exception as exc:
-                if dual_write_active:
-                    log.error("chronolog append failed (event=%s) — JSONL "
-                              "still authoritative: %s", msg.event_id, exc)
-                    return
-                # ChronoLog-only mode: bubble up so the ingest API returns 5xx.
-                raise
+            return
+        # ChronoLog append failures bubble up to the ingest API as 5xx.
+        self._append_chronolog(msg, backend)
 
     def list_scenarios(self) -> List[str]:
         """Return scenario ids that have at least one recorded event.
 
-        Reads from JSONL unless DTP_CHRONOLOG_READS=1. When reading from
-        ChronoLog, the result may lag JSONL by up to one chunk acceptance
-        window (~180s) until the index Story is drained — the first call
-        within that window will look empty even if writes succeeded.
+        Served from ChronoLog in normal operation; from the local JSONL store
+        in offline demo mode. The ChronoLog result may lag writes by up to one
+        chunk acceptance window (~180s) until the index Story is drained — the
+        first call within that window can look empty even if writes succeeded.
         """
-        if self._reads_enabled():
-            backend = self._chronolog()
-            if backend is not None:
-                return self._list_scenarios_chronolog(backend)
-        return self._list_scenarios_jsonl()
+        backend = self._chronolog()
+        if backend is None:
+            return self._list_scenarios_jsonl()
+        return self._list_scenarios_chronolog(backend)
 
     def read(self, scenario_id: str) -> List[InterAgentMessage]:
         """Read all events for one scenario, in chronological order."""
-        if self._reads_enabled():
-            backend = self._chronolog()
-            if backend is not None:
-                return self._read_chronolog(scenario_id, backend)
-        return self._read_jsonl(scenario_id)
+        backend = self._chronolog()
+        if backend is None:
+            return self._read_jsonl(scenario_id)
+        return self._read_chronolog(scenario_id, backend)
 
     def read_stitched(self, scenario_id: str) -> List[dict]:
         """Return one merged event per correlation_id.
