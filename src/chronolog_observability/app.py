@@ -65,8 +65,33 @@ def create_app(config: Config | None = None) -> Flask:
             }
         )
 
+    _maybe_start_capture(config)
     _register_spa(app)
     return app
+
+
+def _maybe_start_capture(config: Config) -> None:
+    """Start the Path-A capture worker if opted in via ``CHRONOLOG_CAPTURE=1``.
+
+    The dashboard is primarily a reader, so draining the local capture spool
+    into ChronoLog is off by default. When enabled (and not offline), the worker
+    runs as a daemon thread for the life of the process. It is a no-op without a
+    live backend, so offline/demo mode never starts it.
+    """
+    import os
+
+    flag = os.environ.get("CHRONOLOG_CAPTURE", os.environ.get("DTP_CHRONOLOG_CAPTURE", ""))
+    if config.offline or flag.strip().lower() not in ("1", "true", "yes", "on"):
+        return
+    try:
+        from .capture.sync_worker import start_sync_worker
+
+        interval = float(os.environ.get("CHRONOLOG_CAPTURE_INTERVAL", "5"))
+        worker = start_sync_worker(interval_sec=interval)
+        if worker is not None:
+            log.info("path-a capture worker started (interval=%.1fs)", interval)
+    except Exception as exc:  # never let capture wiring break the dashboard
+        log.warning("path-a capture worker not started: %s", exc)
 
 
 def _register_spa(app: Flask) -> None:

@@ -23,6 +23,7 @@ dev = ["pytest", "ruff"]
 
 [project.scripts]
 chronolog-observe = "chronolog_observability.app:main"
+chronolog-capture = "chronolog_observability.capture.sync_worker:main"
 
 # Adapters are discovered via this entry-point group. Third parties can ship
 # their own data source as a separate distribution by registering here.

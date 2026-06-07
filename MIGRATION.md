@@ -11,7 +11,7 @@ step leaves the package importable.
 | `chronolog/client.py` | `backend/client.py` | drop the `DTP_CHRONOLOG_BACKEND` on/off gate; ChronoLog is now assumed. Keep `CHRONOLOG_OFFLINE` CSV fallback. |
 | `chronolog/constants.py` | `backend/constants.py` | |
 | `chronolog/path_a_reader.py` | `backend/path_a_reader.py` | |
-| `chronolog/sync_worker.py` | `backend/sync_worker.py` | **remove** its `import chimaera_client`; capture ingest no longer reads live runtime. |
+| `chronolog/sync_worker.py` | `capture/sync_worker.py` (+ new `capture/spool.py`) | ✅ chimaera-free rewrite. Source is now the local **capture spool** (`CaptureSpool`), not the live chimaera runtime; the worker drains it into the same Path-A chronicles `path_a_reader` reads. Lives under `capture/` (Path-A ingest) to keep `capture → backend` layering. |
 | `adapters/conversation_adapter.py` | `adapters/shape/conversation.py` | already chimaera-free ✔ |
 | `adapters/scenario_adapter.py` | `adapters/shape/scenario.py` | already chimaera-free ✔ |
 | `chimaera_client.py` | `adapters/_chimaera_client.py` | the *only* place allowed to `import chimaera_runtime_ext`. |
