@@ -34,6 +34,7 @@ class Capability(enum.Enum):
     SEMANTIC = "semantic"
     INTER_AGENT = "inter_agent"
     RECOVERY = "recovery"
+    CLUSTER = "cluster"  # ChronoLog deployment view: keepers per node, chronicles
 
 
 @runtime_checkable
@@ -67,7 +68,7 @@ class BaseAdapter(abc.ABC):
         return capability in self.capabilities()
 
     # ------------------------------------------------------------------
-    # Generic read primitives — same names/shapes as the old chimaera_client.
+    # Generic read primitives — same names/shapes as the legacy runtime client.
     # Defaults return "empty" so blueprints degrade gracefully on a source
     # that doesn't implement a given read.
     # ------------------------------------------------------------------

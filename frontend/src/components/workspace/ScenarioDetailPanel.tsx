@@ -1,4 +1,6 @@
-import type { ScenarioEdge, ScenarioGraph } from "../../types";
+import { useEffect, useState } from "react";
+import { listInteractions } from "../../api";
+import type { InteractionSummary, ScenarioEdge, ScenarioGraph } from "../../types";
 
 export type DetailSelection =
   | { kind: "host"; host: string }
@@ -125,7 +127,7 @@ function HostDetail({
               <li key={a.agent_id}>
                 <button
                   type="button"
-                  onClick={() => onOpenAgent(a.agent_id)}
+                  onClick={() => onOpenAgent(a.scoped_session_id || a.agent_id)}
                   className="w-full text-left px-2 py-1.5 rounded hover:bg-bg-elevated border border-transparent hover:border-border-soft"
                 >
                   <div
@@ -157,7 +159,7 @@ function HostDetail({
         )}
       </section>
 
-      <section className="px-4 py-3">
+      <section className="px-4 py-3 border-b border-border-soft">
         <div className="text-[10px] uppercase tracking-widest text-fg-muted mb-2">
           Inter-agent calls
         </div>
@@ -176,7 +178,98 @@ function HostDetail({
           </div>
         )}
       </section>
+
+      <section className="px-4 py-3">
+        <div className="text-[10px] uppercase tracking-widest text-fg-muted mb-2">
+          LLM calls on this node
+        </div>
+        <HostLlmCalls agentIds={agents.map((a) => a.agent_id)} />
+      </section>
     </>
+  );
+}
+
+const LLM_AGENT_CAP = 8;
+const LLM_ROWS_CAP = 20;
+
+/**
+ * Recent LLM interactions of the agents on this host, fetched per base
+ * session via the interactions feed. Bounded on both axes (agents queried,
+ * rows shown) so a busy node cannot flood the panel.
+ */
+function HostLlmCalls({ agentIds }: { agentIds: string[] }) {
+  const [rows, setRows] = useState<InteractionSummary[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const key = agentIds.slice(0, LLM_AGENT_CAP).join("|");
+  useEffect(() => {
+    let cancelled = false;
+    const ids = key ? key.split("|") : [];
+    if (!ids.length) {
+      setRows([]);
+      return;
+    }
+    setRows(null);
+    Promise.all(
+      ids.map((sid) =>
+        listInteractions({ session_id: sid, limit: LLM_ROWS_CAP }).catch(() => []),
+      ),
+    )
+      .then((per) => {
+        if (cancelled) return;
+        const merged = per
+          .flat()
+          .sort((a, b) => (b.timestamp || "").localeCompare(a.timestamp || ""))
+          .slice(0, LLM_ROWS_CAP);
+        setRows(merged);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [key]);
+
+  if (error) return <div className="text-xs text-fg-muted">Failed: {error}</div>;
+  if (rows == null) return <div className="text-xs text-fg-muted">Loading…</div>;
+  if (!rows.length)
+    return <div className="text-xs text-fg-muted">No LLM interactions recorded.</div>;
+
+  return (
+    <div className="flex flex-col gap-2 text-xs">
+      {agentIds.length > LLM_AGENT_CAP && (
+        <div className="text-[10px] text-fg-muted">
+          showing the first {LLM_AGENT_CAP} of {agentIds.length} agents
+        </div>
+      )}
+      {rows.map((r) => (
+        <div
+          key={r.id}
+          className="flex flex-col gap-0.5 px-2 py-1.5 rounded border border-border-soft"
+        >
+          <div className="flex items-center gap-2">
+            <span className="font-mono truncate" title={r.session_id ?? undefined}>
+              {r.session_id ?? "unknown session"}
+            </span>
+            {r.model && (
+              <span className="text-[10px] text-fg-muted font-mono truncate">{r.model}</span>
+            )}
+          </div>
+          <div className="text-[10px] text-fg-muted tabular-nums flex gap-2">
+            <span>{r.provider}</span>
+            {r.total_latency_ms != null && <span>· {fmtLatency(r.total_latency_ms)}</span>}
+            {r.status_code != null && <span>· HTTP {r.status_code}</span>}
+            {r.timestamp && <span className="truncate">· {r.timestamp.slice(11, 19)}Z</span>}
+          </div>
+          {r.response_text_preview && (
+            <div className="text-[10px] text-fg-muted truncate" title={r.response_text_preview}>
+              {r.response_text_preview}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 

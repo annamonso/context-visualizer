@@ -17,9 +17,9 @@ What stays from the original backend:
 Env vars are read under the ``CHRONOLOG_*`` prefix with legacy ``DTP_CHRONOLOG_*``
 names accepted as fallback (see ``client._env``).
 
-NOTE: the old ``sync_worker.py`` (which polled the chimaera runtime and wrote
+NOTE: the old ``sync_worker.py`` (which polled the legacy runtime and wrote
 deltas to ChronoLog) is Path-B *capture*, not storage — it moves to
-``chronolog_observability.capture`` so this package stays chimaera-free.
+``chronolog_observability.capture`` so this package stays read-only.
 """
 
 from __future__ import annotations

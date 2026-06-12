@@ -1,10 +1,11 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ReactFlow, {
   Background,
   Controls,
   MiniMap,
   type Edge,
   type Node,
+  type ReactFlowInstance,
   useNodesState,
   useEdgesState,
   MarkerType,
@@ -14,14 +15,48 @@ import "reactflow/dist/style.css";
 
 import AgentNodeComp, { type AgentNodeData } from "./nodes/AgentNode";
 import HostGroupNode, { type HostGroupData } from "./nodes/HostGroupNode";
+import HostTileNode, { type HostTileData } from "./nodes/HostTileNode";
 import type { ScenarioGraph } from "../../types";
+
+/**
+ * Auto view switch: past this many agents (or hosts) the per-agent card
+ * layout stops being readable, so we fall back to one compact tile per
+ * host on a grid. Tuned so the 3–4 node demos keep the detailed view.
+ */
+const DETAIL_MAX_AGENTS = 24;
+const DETAIL_MAX_HOSTS = 8;
+
+/** Cap on simultaneously drawn host-level edges (a 100-host all-to-all
+ *  mesh would be ~10k paths). Failing flows always win a slot. */
+const MAX_HOST_EDGES = 150;
+
+export type TopologyView = "auto" | "detail" | "hosts";
 
 interface Props {
   graph: ScenarioGraph;
+  /**
+   * "detail": per-agent cards grouped by host (the original view).
+   * "hosts": one compact tile per host on a grid — readable at 100+ nodes.
+   * "auto" (default): pick based on graph size.
+   */
+  view?: TopologyView;
+  /**
+   * Replay position (unix ms). When set, edges are drawn per *event* and
+   * filtered by time: calls that started before the playhead appear, calls
+   * still in flight at the playhead pulse, agents on in-flight calls light
+   * up. ``null`` = live (aggregated) rendering.
+   */
+  playheadMs?: number | null;
   onAgentClick?: (agentId: string) => void;
   onHostClick?: (host: string) => void;
   onEdgeSelect?: (correlationId: string) => void;
 }
+
+const parseTs = (s: string | null): number => {
+  if (!s) return NaN;
+  const t = Date.parse(s);
+  return Number.isFinite(t) ? t : NaN;
+};
 
 const NODE_W = 200;
 const NODE_H = 110;
@@ -29,13 +64,23 @@ const GROUP_PAD_X = 28;
 const GROUP_PAD_TOP = 56;   // room for the "node · <host>" header + totals line
 const GROUP_PAD_BOTTOM = 20;
 
-const nodeTypes = { agent: AgentNodeComp, hostGroup: HostGroupNode };
+const TILE_W = 200;
+const TILE_H = 84;
+const TILE_GAP_X = 72;
+const TILE_GAP_Y = 48;
+
+const nodeTypes = {
+  agent: AgentNodeComp,
+  hostGroup: HostGroupNode,
+  hostTile: HostTileNode,
+};
 
 /**
  * Evenly-spaced hue per host within a scenario. With N hosts we walk around
  * the color wheel in N equal steps, starting at a pleasant blue so the first
  * host isn't fire-engine red. Any two hosts in the same scenario are visibly
- * distinct regardless of how similar their hostnames look.
+ * distinct regardless of how similar their hostnames look. (Only used in the
+ * detailed view — at cluster scale color encodes health, not identity.)
  */
 function buildHostHueMap(hosts: Iterable<string>): Map<string, number> {
   const unique = Array.from(new Set(hosts)).sort();
@@ -61,12 +106,192 @@ function layoutDagreFlat(nodes: Node[], edges: Edge[]) {
   });
 }
 
+interface HostViewResult {
+  nodes: Node[];
+  edges: Edge[];
+  /** Host-level flows not drawn because of MAX_HOST_EDGES. */
+  hiddenFlows: number;
+}
+
+/** Cluster-scale view: one tile per host on a near-square grid, edges
+ *  aggregated per host pair. O(hosts + edges); no dagre involved.
+ *  With a playhead, only calls started before it are aggregated and pairs
+ *  with a call still in flight are drawn animated. */
+function buildHostView(graph: ScenarioGraph, playheadMs: number | null = null): HostViewResult {
+  const hostOf = new Map<string, string>();
+  for (const a of graph.agents) hostOf.set(a.agent_id, a.host || "unknown");
+
+  // ── Per-host aggregates ──────────────────────────────────────────────
+  interface HostAgg {
+    agentCount: number;
+    totalTokens: number;
+    totalCostUsd: number;
+    msgsOut: number;
+    msgsIn: number;
+    errCount: number;
+  }
+  const hosts = new Map<string, HostAgg>();
+  const hostAgg = (h: string): HostAgg => {
+    let agg = hosts.get(h);
+    if (!agg) {
+      agg = {
+        agentCount: 0, totalTokens: 0, totalCostUsd: 0,
+        msgsOut: 0, msgsIn: 0, errCount: 0,
+      };
+      hosts.set(h, agg);
+    }
+    return agg;
+  };
+  for (const a of graph.agents) {
+    const agg = hostAgg(a.host || "unknown");
+    agg.agentCount += 1;
+    agg.totalTokens += a.total_tokens;
+    agg.totalCostUsd += a.total_cost_usd;
+  }
+
+  // ── Host-pair aggregates from the scenario edges ─────────────────────
+  interface PairAgg {
+    from: string;
+    to: string;
+    count: number;
+    errCount: number;
+    inFlight: number;
+    correlationId: string;
+  }
+  const pairs = new Map<string, PairAgg>();
+  for (const e of graph.edges) {
+    let inFlight = false;
+    if (playheadMs != null) {
+      const start = parseTs(e.ts_start);
+      if (!Number.isFinite(start) || start > playheadMs) continue; // not happened yet
+      const done = parseTs(e.ts_done);
+      inFlight = !Number.isFinite(done) || done > playheadMs;
+    }
+    const fh = e.from_host || hostOf.get(e.from_session_id) || "unknown";
+    const th = e.to_host || hostOf.get(e.to_session_id) || "unknown";
+    const isErr = (e.status || "").startsWith("error") && !inFlight;
+    hostAgg(fh).msgsOut += 1;
+    hostAgg(th).msgsIn += 1;
+    if (isErr) {
+      hostAgg(fh).errCount += 1;
+      if (th !== fh) hostAgg(th).errCount += 1;
+    }
+    if (fh === th) continue; // intra-host traffic: counted above, not drawn
+    const key = `${fh}__${th}`;
+    let pair = pairs.get(key);
+    if (!pair) {
+      pair = { from: fh, to: th, count: 0, errCount: 0, inFlight: 0, correlationId: e.correlation_id };
+      pairs.set(key, pair);
+    }
+    pair.count += 1;
+    if (isErr) pair.errCount += 1;
+    if (inFlight) pair.inFlight += 1;
+  }
+
+  // ── Grid layout: natural-sorted hosts on a near-square grid ──────────
+  const hostNames = Array.from(hosts.keys()).sort((a, b) =>
+    a.localeCompare(b, undefined, { numeric: true }),
+  );
+  const cols = Math.max(1, Math.ceil(Math.sqrt(hostNames.length)));
+  const maxTraffic = Math.max(
+    1,
+    ...Array.from(hosts.values()).map((h) => h.msgsOut + h.msgsIn),
+  );
+
+  const nodes: Node<HostTileData>[] = hostNames.map((host, i) => {
+    const agg = hosts.get(host)!;
+    return {
+      id: `host__${host}`,
+      type: "hostTile",
+      position: {
+        x: (i % cols) * (TILE_W + TILE_GAP_X),
+        y: Math.floor(i / cols) * (TILE_H + TILE_GAP_Y),
+      },
+      style: { width: TILE_W, height: TILE_H },
+      data: {
+        host,
+        agentCount: agg.agentCount,
+        totalTokens: agg.totalTokens,
+        totalCostUsd: agg.totalCostUsd,
+        msgsOut: agg.msgsOut,
+        msgsIn: agg.msgsIn,
+        errCount: agg.errCount,
+        trafficFrac: (agg.msgsOut + agg.msgsIn) / maxTraffic,
+      },
+    };
+  });
+
+  // ── Edges: failing flows first, then busiest, capped ─────────────────
+  const ranked = Array.from(pairs.values()).sort((a, b) => {
+    const aFailing = a.errCount >= 2 && a.errCount / a.count >= 0.25 ? 1 : 0;
+    const bFailing = b.errCount >= 2 && b.errCount / b.count >= 0.25 ? 1 : 0;
+    if (aFailing !== bFailing) return bFailing - aFailing;
+    return b.count - a.count;
+  });
+  const drawn = ranked.slice(0, MAX_HOST_EDGES);
+  // On a dense mesh, 150 "×N" labels are pure noise — keep labels only
+  // while the graph is sparse enough to read them, plus on failing flows.
+  const showLabels = drawn.length <= 60;
+
+  const edges: Edge[] = drawn.map((p) => {
+    // Red is reserved for flows that are *persistently* failing — a stray
+    // error among many calls shouldn't paint the whole cluster red.
+    const failing = p.errCount >= 2 && p.errCount / p.count >= 0.25;
+    const live = p.inFlight > 0;
+    const color = live
+      ? "rgb(var(--accent))"
+      : failing
+        ? "rgb(var(--error))"
+        : "rgb(var(--fg-muted))";
+    return {
+      id: `hostedge__${p.from}__${p.to}`,
+      source: `host__${p.from}`,
+      target: `host__${p.to}`,
+      animated: live,
+      style: {
+        stroke: color,
+        strokeWidth: live ? 2.5 : Math.min(3, 1 + Math.log10(p.count)),
+        opacity: live ? 1 : failing ? 0.95 : 0.35,
+        cursor: "pointer",
+      },
+      label:
+        (showLabels || failing) && p.count > 1 ? `×${p.count}` : undefined,
+      labelStyle: { fill: "rgb(var(--fg-secondary))", fontSize: 10 },
+      labelBgStyle: { fill: "rgb(var(--bg-surface))" },
+      markerEnd: { type: MarkerType.ArrowClosed, color, width: 14, height: 14 },
+      data: { correlationId: p.correlationId },
+    };
+  });
+
+  return { nodes, edges, hiddenFlows: ranked.length - drawn.length };
+}
+
 export default function ScenarioFlowGraph({
   graph,
+  view = "auto",
+  playheadMs = null,
   onAgentClick,
   onHostClick,
   onEdgeSelect,
 }: Props) {
+  const hostCount = useMemo(
+    () => new Set(graph.agents.map((a) => a.host || "unknown")).size,
+    [graph.agents],
+  );
+  const effectiveView: "detail" | "hosts" =
+    view !== "auto"
+      ? view
+      : graph.agents.length > DETAIL_MAX_AGENTS || hostCount > DETAIL_MAX_HOSTS
+        ? "hosts"
+        : "detail";
+
+  // ─── Cluster-scale path: host tiles on a grid ─────────────────────────
+  const hostView = useMemo(
+    () => (effectiveView === "hosts" ? buildHostView(graph, playheadMs) : null),
+    [effectiveView, graph, playheadMs],
+  );
+
+  // ─── Detailed path (small scenarios): per-agent cards via dagre ───────
   // Evenly-spaced per-host hues for this scenario — shared between group
   // rectangles and the agent chips inside them so the colors tie together.
   const hueMap = useMemo(
@@ -75,6 +300,28 @@ export default function ScenarioFlowGraph({
   );
 
   const { rawNodes, rawEdges } = useMemo(() => {
+    if (effectiveView !== "detail") {
+      return { rawNodes: [] as Node<AgentNodeData>[], rawEdges: [] as Edge[] };
+    }
+
+    // Replay flags: which agents are on an in-flight call at the playhead,
+    // and which have participated in anything that already started.
+    const activeAgents = new Set<string>();
+    const startedAgents = new Set<string>();
+    if (playheadMs != null) {
+      for (const e of graph.edges) {
+        const start = parseTs(e.ts_start);
+        if (!Number.isFinite(start) || start > playheadMs) continue;
+        startedAgents.add(e.from_session_id);
+        startedAgents.add(e.to_session_id);
+        const done = parseTs(e.ts_done);
+        if (!Number.isFinite(done) || done > playheadMs) {
+          activeAgents.add(e.from_session_id);
+          activeAgents.add(e.to_session_id);
+        }
+      }
+    }
+
     // ─── 1. Agent child nodes (positioning comes after dagre) ─────────────
     const agentNodes: Node<AgentNodeData>[] = graph.agents.map((a) => ({
       id: a.agent_id,
@@ -82,6 +329,7 @@ export default function ScenarioFlowGraph({
       position: { x: 0, y: 0 },
       data: {
         sessionId: a.session_id,
+        scopedSessionId: a.scoped_session_id,
         role: "peer",
         label:
           a.session_id.slice(0, 14) +
@@ -89,13 +337,50 @@ export default function ScenarioFlowGraph({
         callCount: a.interaction_count,
         tokens: a.total_tokens,
         costUsd: a.total_cost_usd,
-        active: false,
-        past: true,
+        active: activeAgents.has(a.agent_id),
+        past: playheadMs == null ? true : startedAgents.has(a.agent_id),
         aggregate: true,
         host: a.host,
         hostHueDeg: hueMap.get(a.host || "unknown"),
       },
     }));
+
+    // ─── 1b. Replay mode: one edge per *event*, filtered by the playhead ──
+    if (playheadMs != null) {
+      const edges: Edge[] = [];
+      for (const e of graph.edges) {
+        if (!e.from_session_id || !e.to_session_id) continue;
+        const start = parseTs(e.ts_start);
+        if (!Number.isFinite(start) || start > playheadMs) continue;
+        const done = parseTs(e.ts_done);
+        const inFlight = !Number.isFinite(done) || done > playheadMs;
+        const hasError = !inFlight && (e.status || "").startsWith("error");
+        const color = inFlight
+          ? "rgb(var(--accent))"
+          : hasError
+            ? "rgb(var(--role-error, 220 38 38))"
+            : "rgb(var(--role-subagent))";
+        edges.push({
+          id: `ev__${e.event_id || e.correlation_id}`,
+          source: e.from_session_id,
+          target: e.to_session_id,
+          animated: inFlight,
+          style: {
+            stroke: color,
+            strokeWidth: inFlight ? 2.5 : 1.5,
+            strokeDasharray: inFlight ? undefined : "6 4",
+            opacity: inFlight ? 1 : 0.3,
+            cursor: "pointer",
+          },
+          label: inFlight ? e.tool_name || "call" : undefined,
+          labelStyle: { fill: "rgb(var(--fg-primary))", fontSize: 10 },
+          labelBgStyle: { fill: "rgb(var(--bg-surface))" },
+          markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
+          data: { correlationId: e.correlation_id },
+        });
+      }
+      return { rawNodes: agentNodes, rawEdges: edges };
+    }
 
     // ─── 2. Aggregate inter-agent edges (pair + direction) ───────────────
     const edgeMap = new Map<
@@ -168,16 +453,46 @@ export default function ScenarioFlowGraph({
     }
 
     return { rawNodes: agentNodes, rawEdges: edges };
-  }, [graph, hueMap]);
+  }, [effectiveView, graph, hueMap, playheadMs]);
 
   // ─── 3. Run dagre on the flat agent graph first ─────────────────────────
+  // The layout input is the *aggregate* pair structure, never the replay
+  // edges — otherwise every playhead tick would re-run dagre and the nodes
+  // would jump around mid-playback (and clobber user drags).
+  const layoutPositions = useMemo(() => {
+    if (effectiveView !== "detail" || graph.agents.length === 0) {
+      return new Map<string, { x: number; y: number }>();
+    }
+    const ids: Node[] = graph.agents.map((a) => ({
+      id: a.agent_id,
+      position: { x: 0, y: 0 },
+      data: {},
+    }));
+    const pairKeys = new Set<string>();
+    const pairEdges: Edge[] = [];
+    for (const e of graph.edges) {
+      if (!e.from_session_id || !e.to_session_id) continue;
+      const key = `${e.from_session_id}__${e.to_session_id}`;
+      if (pairKeys.has(key)) continue;
+      pairKeys.add(key);
+      pairEdges.push({ id: key, source: e.from_session_id, target: e.to_session_id });
+    }
+    const laid = layoutDagreFlat(ids, pairEdges);
+    return new Map(laid.map((n) => [n.id, n.position]));
+  }, [effectiveView, graph]);
+
   const layoutedAgents = useMemo(
-    () => layoutDagreFlat(rawNodes, rawEdges),
-    [rawNodes, rawEdges],
+    () =>
+      rawNodes.map((n) => ({
+        ...n,
+        position: layoutPositions.get(n.id) ?? { x: 0, y: 0 },
+      })),
+    [rawNodes, layoutPositions],
   );
 
   // ─── 4. Bucket laid-out agents by host → build parent groups ───────────
   const nodesWithGroups = useMemo(() => {
+    if (effectiveView !== "detail") return [];
     // Count inter-agent edges per host for the group header.
     const outgoingByHost = new Map<string, number>();
     const incomingByHost = new Map<string, number>();
@@ -244,9 +559,10 @@ export default function ScenarioFlowGraph({
         position: { x: minX, y: minY },
         style: { width: maxX - minX, height: maxY - minY, zIndex: 0 },
         data: groupData,
-        // Groups shouldn't be draggable — they're scaffolding — but they
-        // do need to be clickable so users can open the host detail panel.
-        draggable: false,
+        // Groups are draggable so small clusters can be pulled apart and
+        // inspected separately (children ride along). Clicking still opens
+        // the host's Workspace view.
+        draggable: true,
         selectable: false,
       });
 
@@ -267,22 +583,51 @@ export default function ScenarioFlowGraph({
     }
 
     return result;
-  }, [layoutedAgents, graph, hueMap]);
+  }, [effectiveView, layoutedAgents, graph, hueMap]);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(nodesWithGroups);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(rawEdges);
+  const viewNodes = effectiveView === "hosts" ? hostView!.nodes : nodesWithGroups;
+  const viewEdges = effectiveView === "hosts" ? hostView!.edges : rawEdges;
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(viewNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(viewEdges);
 
   useEffect(() => {
-    setNodes(nodesWithGroups);
-  }, [nodesWithGroups, setNodes]);
+    // Recomputes (playhead ticks, data refresh) must not clobber positions
+    // the user dragged into place — keep the live position for known ids.
+    setNodes((prev) => {
+      if (!prev.length) return viewNodes;
+      const prevById = new Map(prev.map((n) => [n.id, n]));
+      return viewNodes.map((n) => {
+        const old = prevById.get(n.id);
+        return old ? { ...n, position: old.position } : n;
+      });
+    });
+  }, [viewNodes, setNodes]);
   useEffect(() => {
-    setEdges(rawEdges);
-  }, [rawEdges, setEdges]);
+    setEdges(viewEdges);
+  }, [viewEdges, setEdges]);
+
+  // The graph can change shape after mount (scenario switch, view toggle),
+  // so a mount-time-only fitView can end up framing a stale extent. Re-fit
+  // whenever the node *count* or the view changes — it doesn't fight the
+  // user's pan/zoom while they inspect a stable topology.
+  const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
+  const fitPadding = effectiveView === "hosts" ? 0.1 : 0.2;
+  useEffect(() => {
+    if (!rfInstance || viewNodes.length === 0) return;
+    const id = requestAnimationFrame(() =>
+      rfInstance.fitView({ padding: fitPadding }),
+    );
+    return () => cancelAnimationFrame(id);
+  }, [rfInstance, viewNodes.length, effectiveView, fitPadding]);
 
   const handleClick = (_: unknown, node: Node) => {
-    if (node.type === "agent") onAgentClick?.(node.id);
-    else if (node.type === "hostGroup") {
-      const host = (node.data as HostGroupData | undefined)?.host ?? "";
+    if (node.type === "agent") {
+      // Conversation fetches need the scoped session key, not the display id.
+      const scoped = (node.data as AgentNodeData | undefined)?.scopedSessionId;
+      onAgentClick?.(scoped || node.id);
+    } else if (node.type === "hostGroup" || node.type === "hostTile") {
+      const host = (node.data as { host?: string } | undefined)?.host ?? "";
       onHostClick?.(host);
     }
   };
@@ -301,8 +646,9 @@ export default function ScenarioFlowGraph({
   }
 
   return (
-    <div className="h-full w-full bg-canvas">
+    <div className="h-full w-full bg-canvas relative">
       <ReactFlow
+        key={`${effectiveView}-${graph.scenario_id}`}
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
@@ -310,9 +656,10 @@ export default function ScenarioFlowGraph({
         onNodeClick={handleClick}
         onEdgeClick={handleEdgeClick}
         nodeTypes={nodeTypes}
+        onInit={setRfInstance}
         fitView
-        fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.2}
+        fitViewOptions={{ padding: fitPadding }}
+        minZoom={0.1}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
       >
@@ -320,10 +667,29 @@ export default function ScenarioFlowGraph({
         <Controls showInteractive={false} />
         <MiniMap
           maskColor="rgb(var(--bg-canvas) / 0.7)"
+          nodeColor={(n) => {
+            if (n.type === "hostTile") {
+              const d = n.data as HostTileData;
+              const total = d.msgsOut + d.msgsIn;
+              if (total > 0 && d.errCount >= 3 && d.errCount / total >= 0.1)
+                return "rgb(var(--error))";
+            }
+            return "rgb(var(--bg-hover))";
+          }}
           pannable
           zoomable
         />
       </ReactFlow>
+      {hostView != null && hostView.hiddenFlows > 0 && (
+        <div
+          className="absolute bottom-3 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-md border border-border-soft text-[10px] text-fg-muted tabular-nums"
+          style={{ backgroundColor: "rgb(var(--bg-surface) / 0.92)" }}
+        >
+          showing the {MAX_HOST_EDGES} busiest flows · {hostView.hiddenFlows}{" "}
+          quieter flow{hostView.hiddenFlows === 1 ? "" : "s"} hidden (counts stay
+          accurate on the tiles)
+        </div>
+      )}
     </div>
   );
 }

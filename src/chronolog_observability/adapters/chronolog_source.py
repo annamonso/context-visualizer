@@ -3,8 +3,8 @@
 This is what makes the plugin usable by *any* ChronoLog operator. The read
 primitives delegate to ``backend.path_a_reader``, which replays ChronoLog
 stories and returns the exact ``{node_id: ...}`` monitor shapes the old
-``chimaera_client`` returned — so the shape adapters and blueprints are
-source-agnostic. Nothing here imports chimaera.
+the legacy runtime client returned — so the shape adapters and blueprints are
+source-agnostic. Everything here is served from ChronoLog.
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ _GENERIC_CAPS = frozenset(
         Capability.SEMANTIC,
         Capability.INTER_AGENT,
         Capability.RECOVERY,
+        Capability.CLUSTER,
     }
 )
 

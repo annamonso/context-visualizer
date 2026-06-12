@@ -1,9 +1,9 @@
-"""Path-A capture spool — a chimaera-free local buffer for trace events.
+"""Path-A capture spool — a runtime-independent local buffer for trace events.
 
 In the original context-visualizer, Path-A events (LLM interactions, context-graph
-diff nodes, recovery events) lived in the chimaera C++ runtime's in-memory CTE
+diff nodes, recovery events) lived in the legacy C++ runtime's in-memory CTE
 blobs, and ``sync_worker`` drained them into ChronoLog by polling
-``chimaera_client.get_*``. There is no chimaera runtime in this plugin, so the
+the legacy runtime client. There is no such runtime in this plugin, so the
 source is now this local **spool**: whatever instruments the user's agents (an
 LLM proxy, an SDK callback, a shim) appends events here, and the Path-A
 ``SyncWorker`` drains them into ChronoLog.
@@ -79,6 +79,8 @@ class CaptureSpool:
         # Lazily-initialised next-sequence cache per (session, kind). Seeded from
         # the file on first use so sequence ids stay monotonic across restarts.
         self._next_seq: Dict[tuple, int] = {}
+        # (path, size, mtime_ns) -> parsed records; see read().
+        self._read_cache: Dict[tuple, List[Dict[str, Any]]] = {}
 
     # ------------------------------------------------------------------
     # Paths
@@ -180,10 +182,25 @@ class CaptureSpool:
         return sorted(seen)
 
     def read(self, session_id: str, kind: str) -> List[Dict[str, Any]]:
-        """Return all spooled records for (session, kind), in write order."""
+        """Return all spooled records for (session, kind), in write order.
+
+        Parsed results are memoized per (path, size, mtime) — the files are
+        append-only, so an unchanged stat means an unchanged parse. The
+        dashboard's views re-read the same sessions on every poll; without
+        this, a few open tabs turn into thousands of redundant JSONL parses
+        per minute. Callers get a fresh copy so they can mutate freely.
+        """
         path = self._path(session_id, kind)
-        if not path.is_file():
+        try:
+            st = path.stat()
+        except OSError:
             return []
+        key = (str(path), st.st_size, st.st_mtime_ns)
+        with self._lock:
+            cached = self._read_cache.get(key)
+        if cached is not None:
+            return [dict(r) for r in cached]
+
         out: List[Dict[str, Any]] = []
         with open(path, "r", encoding="utf-8") as f:
             for raw in f:
@@ -194,7 +211,13 @@ class CaptureSpool:
                     out.append(json.loads(raw))
                 except json.JSONDecodeError:
                     continue
-        return out
+        with self._lock:
+            # One entry per file path; a newer (size, mtime) replaces it.
+            self._read_cache = {k: v for k, v in self._read_cache.items() if k[0] != key[0]}
+            self._read_cache[key] = out
+            if len(self._read_cache) > 2048:
+                self._read_cache.clear()
+        return [dict(r) for r in out]
 
 
 _DEFAULT_SPOOL: Optional[CaptureSpool] = None

@@ -1,9 +1,9 @@
 """Path-A sync worker — drains the local capture spool into ChronoLog.
 
-This is the chimaera-free successor of the original
+This is the ChronoLog-native successor of the original
 ``context_visualizer/chronolog/sync_worker.py``. That worker polled the live
-chimaera CTE blobs (``chimaera_client.get_*``) and wrote deltas into ChronoLog.
-This plugin has no chimaera runtime, so the source is the local
+the legacy runtime's CTE blobs and wrote deltas into ChronoLog.
+This plugin has no such runtime, so the source is the local
 :class:`~chronolog_observability.capture.spool.CaptureSpool` (see its module
 docstring) — whatever instruments the user's agents appends events there, and
 this worker forwards them into the same ChronoLog stories that

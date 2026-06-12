@@ -2,6 +2,7 @@ import { Handle, Position } from "reactflow";
 
 export interface AgentNodeData {
   sessionId: string;
+  scopedSessionId?: string;
   role: string;
   label: string;
   callCount: number;

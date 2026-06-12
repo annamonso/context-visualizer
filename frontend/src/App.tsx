@@ -2,29 +2,31 @@ import { useEffect, useState } from "react";
 import WorkspacePage from "./pages/WorkspacePage";
 import ScenarioPage from "./pages/ScenarioPage";
 import InteractionsPage from "./pages/InteractionsPage";
+import ClusterPage from "./pages/ClusterPage";
 import Toast, { type ToastState } from "./components/ui/Toast";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { getConfig } from "./api";
 
-type Tab = "workspace" | "scenarios" | "interactions";
+type Tab = "workspace" | "scenarios" | "interactions" | "cluster";
 
 // Each tab maps to the backend capability that powers it. A tab is only shown
 // when an active adapter provides its capability (see /api/config). On a bare
-// ChronoLog deployment all three are present; the SPA has no live-runtime tabs,
-// so it never depends on chimaera.
+// ChronoLog deployment all of them are present.
 const TAB_CAPABILITY: Record<Tab, string> = {
   workspace: "conversations",
   scenarios: "scenarios",
   interactions: "interactions",
+  cluster: "cluster",
 };
 
-const ALL_TABS: Tab[] = ["workspace", "scenarios", "interactions"];
+const ALL_TABS: Tab[] = ["workspace", "scenarios", "interactions", "cluster"];
 
 function getInitialTab(): Tab {
   const params = new URLSearchParams(window.location.search);
   const v = params.get("tab");
   if (v === "scenarios") return "scenarios";
   if (v === "interactions") return "interactions";
+  if (v === "cluster") return "cluster";
   return "workspace";
 }
 
@@ -81,14 +83,23 @@ export default function App() {
 
   return (
     <div className="h-screen flex flex-col bg-canvas text-fg-primary">
-      <header className="border-b border-border-soft px-4 py-2 flex items-center gap-3 shrink-0">
-        <span className="text-base font-semibold tracking-tight">
-          Clio Call Graph
-        </span>
-        <span className="text-[10px] uppercase tracking-widest text-fg-muted">
-          Multi-agent timeline
-        </span>
-        <nav className="ml-auto flex items-center gap-1 text-xs">
+      <header
+        className="border-b border-border-soft px-4 flex items-center gap-3 shrink-0"
+        style={{ backgroundColor: "rgb(var(--bg-surface))" }}
+      >
+        <div className="flex items-center gap-2 py-2.5">
+          <span
+            className="w-2.5 h-2.5 rounded-sm shrink-0"
+            style={{ backgroundColor: "rgb(var(--accent))" }}
+          />
+          <span className="text-sm font-semibold tracking-tight whitespace-nowrap">
+            ChronoLog Observability
+          </span>
+          <span className="hidden sm:inline text-[10px] uppercase tracking-widest text-fg-muted whitespace-nowrap">
+            multi-agent context visualizer
+          </span>
+        </div>
+        <nav className="ml-auto flex items-stretch self-stretch text-xs">
           {enabledTabs.includes("workspace") && (
             <TabButton label="Workspace"    active={tab === "workspace"}    onClick={() => setTab("workspace")} />
           )}
@@ -97,6 +108,9 @@ export default function App() {
           )}
           {enabledTabs.includes("interactions") && (
             <TabButton label="Interactions" active={tab === "interactions"} onClick={() => setTab("interactions")} />
+          )}
+          {enabledTabs.includes("cluster") && (
+            <TabButton label="Cluster"      active={tab === "cluster"}      onClick={() => setTab("cluster")} />
           )}
         </nav>
       </header>
@@ -108,7 +122,9 @@ export default function App() {
               ? "Scenarios"
               : tab === "interactions"
                 ? "Interactions"
-                : "Workspace"
+                : tab === "cluster"
+                  ? "Cluster"
+                  : "Workspace"
           }
         >
           {tab === "scenarios" ? (
@@ -118,6 +134,23 @@ export default function App() {
                 // reads the right conversation on mount.
                 const params = new URLSearchParams(window.location.search);
                 params.set("conv", agentId);
+                params.delete("host");
+                params.delete("hostScenario");
+                params.delete("tab");
+                params.delete("scenario");
+                const qs = params.toString();
+                const url = qs
+                  ? `${window.location.pathname}?${qs}`
+                  : window.location.pathname;
+                window.history.replaceState(null, "", url);
+                setTab("workspace");
+              }}
+              onOpenHost={(host, scenarioId) => {
+                // Host mode: WorkspacePage merges every agent on the node.
+                const params = new URLSearchParams(window.location.search);
+                params.set("host", host);
+                params.set("hostScenario", scenarioId);
+                params.delete("conv");
                 params.delete("tab");
                 params.delete("scenario");
                 const qs = params.toString();
@@ -130,6 +163,8 @@ export default function App() {
             />
           ) : tab === "interactions" ? (
             <InteractionsPage />
+          ) : tab === "cluster" ? (
+            <ClusterPage />
           ) : (
             <WorkspacePage />
           )}
@@ -142,15 +177,16 @@ export default function App() {
 }
 
 function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  // Underline-style nav: a 2px accent bar pinned to the header's bottom
+  // edge marks the active tab — quieter than filled pills at this size.
   return (
     <button
       type="button"
       onClick={onClick}
-      className="px-2.5 py-1 rounded-md font-medium"
+      className="px-3 font-medium flex items-center hover:text-fg-primary"
       style={{
-        backgroundColor: active ? "rgb(var(--bg-elevated))" : "transparent",
         color: active ? "rgb(var(--fg-primary))" : "rgb(var(--fg-muted))",
-        border: active ? "1px solid rgb(var(--border))" : "1px solid transparent",
+        boxShadow: active ? "inset 0 -2px 0 rgb(var(--accent))" : undefined,
       }}
     >
       {label}

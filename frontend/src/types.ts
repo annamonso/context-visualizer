@@ -172,6 +172,8 @@ export interface AgentGraph {
 export interface ScenarioAgentNode {
   agent_id: string;
   session_id: string;
+  /** Pre-strip session key (e.g. "worker-1@<scenario>") — required for conversation fetches. */
+  scoped_session_id?: string;
   agent_role: "peer";
   host: string;
   interaction_count: number;

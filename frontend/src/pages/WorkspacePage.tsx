@@ -12,6 +12,7 @@ import {
   type ConversationData,
   type NormalizedTurn,
 } from "../hooks/useConversationData";
+import { useHostData } from "../hooks/useHostData";
 import { usePlayhead } from "../hooks/usePlayhead";
 
 function errorToastMessage(turn: NormalizedTurn): string {
@@ -25,6 +26,15 @@ interface Props {
 }
 
 export default function WorkspacePage({ onOpenRawLog }: Props) {
+  // Host mode (?host=<node>&hostScenario=<sid>): every agent on one node of a
+  // scenario, merged. Entered by clicking a host in the Scenarios topology.
+  const [hostScope] = useState<{ host: string; scenario: string } | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const host = params.get("host");
+    const scenario = params.get("hostScenario");
+    return host && scenario ? { host, scenario } : null;
+  });
+
   const [conversationId, setConversationId] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("conv");
@@ -35,15 +45,18 @@ export default function WorkspacePage({ onOpenRawLog }: Props) {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (hostScope) return; // host mode owns the URL params
     const params = new URLSearchParams(window.location.search);
     if (conversationId) params.set("conv", conversationId);
     else params.delete("conv");
     const qs = params.toString();
     const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
     window.history.replaceState(null, "", url);
-  }, [conversationId]);
+  }, [conversationId, hostScope]);
 
-  const rawData = useConversationData(conversationId);
+  const convData = useConversationData(hostScope ? null : conversationId);
+  const hostData = useHostData(hostScope?.host ?? null, hostScope?.scenario ?? null);
+  const rawData: ConversationData = hostScope ? hostData : convData;
 
   // Auto-select the first lane when scope flips to "session" and nothing is picked yet,
   // or when the selected one disappears (conversation change).
@@ -97,15 +110,23 @@ export default function WorkspacePage({ onOpenRawLog }: Props) {
     return () => window.removeEventListener("keydown", handler);
   }, [playhead, data.turns.length]);
 
-  const emptyHint = !conversationId
-    ? "Select a conversation to begin."
-    : data.loading
-      ? "Loading conversation…"
+  const emptyHint = hostScope
+    ? data.loading
+      ? "Loading node activity…"
       : data.error
         ? `Error: ${data.error}`
         : data.turns.length === 0
-          ? "No interactions found for this conversation."
-          : null;
+          ? "No agent activity recorded on this node."
+          : null
+    : !conversationId
+      ? "Select a conversation to begin."
+      : data.loading
+        ? "Loading conversation…"
+        : data.error
+          ? `Error: ${data.error}`
+          : data.turns.length === 0
+            ? "No interactions found for this conversation."
+            : null;
 
   const graphAndDetail = detailHidden ? (
     <div className="relative h-full">
@@ -146,12 +167,40 @@ export default function WorkspacePage({ onOpenRawLog }: Props) {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <ConversationHeader
-        conversationId={conversationId}
-        onConversationChange={setConversationId}
-        totals={data.totals}
-        onOpenRawLog={onOpenRawLog}
-      />
+      {hostScope ? (
+        <div className="px-4 py-2 border-b border-border-soft flex items-center gap-3 shrink-0">
+          <span className="text-[10px] uppercase tracking-widest text-fg-muted">node</span>
+          <span className="font-mono text-sm font-semibold">{hostScope.host}</span>
+          <span className="text-[11px] text-fg-muted font-mono truncate">
+            {hostScope.scenario}
+          </span>
+          <span className="text-[11px] text-fg-muted tabular-nums">
+            {hostData.agentCount} agent{hostData.agentCount === 1 ? "" : "s"} ·{" "}
+            {data.totals.calls} calls · {data.totals.tokens.toLocaleString()} tok
+            {hostData.truncated > 0 && ` · first ${hostData.agentCount - hostData.truncated} shown`}
+          </span>
+          <a
+            href={`?tab=scenarios&scenario=${encodeURIComponent(hostScope.scenario)}`}
+            className="ml-auto text-[11px] text-fg-muted hover:text-fg-primary"
+          >
+            ← Back to scenario
+          </a>
+          <a
+            href={window.location.pathname}
+            className="text-[11px] text-fg-muted hover:text-fg-primary"
+            title="Leave host view"
+          >
+            ✕
+          </a>
+        </div>
+      ) : (
+        <ConversationHeader
+          conversationId={conversationId}
+          onConversationChange={setConversationId}
+          totals={data.totals}
+          onOpenRawLog={onOpenRawLog}
+        />
+      )}
       <ViewToolbar
         viewMode={viewMode}
         onViewModeChange={setViewMode}

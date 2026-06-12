@@ -68,6 +68,7 @@ class InterAgentMessage:
     payload_preview: str = ""
     status: str = ""  # "ok" | "error:<msg>" | "" while in-flight
     latency_ms: float = 0.0
+    ingest_ns: int = 0  # server-side monotonic stamp; survives collector relays
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -91,6 +92,7 @@ class InterAgentMessage:
             payload_preview=str(d.get("payload_preview") or ""),
             status=str(d.get("status") or ""),
             latency_ms=float(d.get("latency_ms") or 0.0),
+            ingest_ns=int(d.get("ingest_ns") or 0),
         )
 
 
@@ -231,7 +233,7 @@ class InterAgentStore:
     # Public API (unchanged signatures)
     # ------------------------------------------------------------------
 
-    def append(self, msg: InterAgentMessage) -> None:
+    def append(self, msg: InterAgentMessage, *, skip_chronolog: bool = False) -> None:
         """Append a single event; safe under concurrent writers.
 
         Normal operation writes to ChronoLog and propagates any append failure
@@ -239,6 +241,11 @@ class InterAgentStore:
         loss. In ``CHRONOLOG_OFFLINE=1`` demo mode (no live backend) the event
         is persisted to the local JSONL store instead so the Workspace can
         replay it without a visor.
+
+        ``skip_chronolog=True`` marks events relayed by a per-node collector
+        that already wrote them to ChronoLog — the store must not write a
+        second copy. In offline mode the JSONL write still happens (there is
+        no other durable copy on this host).
         """
         if not msg.scenario_id:
             raise ValueError("scenario_id is required")
@@ -247,8 +254,15 @@ class InterAgentStore:
         if backend is None:
             self._append_jsonl(msg)
             return
+        if skip_chronolog:
+            return
         # ChronoLog append failures bubble up to the ingest API as 5xx.
         self._append_chronolog(msg, backend)
+
+    def append_many(self, msgs: Iterable[InterAgentMessage], *, skip_chronolog: bool = False) -> None:
+        """Append a batch; same semantics per event as :meth:`append`."""
+        for msg in msgs:
+            self.append(msg, skip_chronolog=skip_chronolog)
 
     def list_scenarios(self) -> List[str]:
         """Return scenario ids that have at least one recorded event.
@@ -351,6 +365,7 @@ def new_message(
     payload_digest: str = "",
     status: str = "",
     latency_ms: float = 0.0,
+    ingest_ns: int = 0,
 ) -> InterAgentMessage:
     """Construct a new event with auto-generated event_id + timestamp."""
     return InterAgentMessage(
@@ -369,4 +384,5 @@ def new_message(
         payload_preview=payload_preview,
         status=status,
         latency_ms=latency_ms,
+        ingest_ns=ingest_ns,
     )

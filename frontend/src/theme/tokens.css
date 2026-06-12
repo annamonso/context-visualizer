@@ -12,10 +12,11 @@
   --bg-elevate:  36 36 42;
   --bg-hover:    48 48 56;
 
-  /* Foreground */
+  /* Foreground. Muted/secondary sit above WCAG-AA contrast on bg-canvas —
+     the old values (107/156 grays) were hard to read on near-black. */
   --fg-primary:   243 244 246;
-  --fg-secondary: 156 163 175;
-  --fg-muted:     107 114 128;
+  --fg-secondary: 174 181 192;
+  --fg-muted:     138 145 158;
 
   /* Structural */
   --border:       55 58 64;

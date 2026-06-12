@@ -15,6 +15,9 @@ notation) is treated as the conversation id.
 
 from __future__ import annotations
 
+import time
+from threading import Lock
+
 from flask import Blueprint, jsonify
 
 from ..adapters.base import Capability
@@ -72,15 +75,18 @@ def _fetch_session_bundle(session_id: str) -> dict:
     }
 
 
-def _fetch_conversation_tree(parent_id: str) -> list[dict]:
+def _fetch_conversation_tree(parent_id: str, sessions: list[dict] | None = None) -> list[dict]:
     """Fetch the parent session and every descendant (``parent.N``, ``parent.N.M``).
 
     Descendants are discovered by scanning the global session list for ids that
     begin with ``parent + "."``. The parent itself is always the first entry
     in the returned list — ordering matters to the adapter so it can treat the
-    first node as the orchestrator.
+    first node as the orchestrator. Pass ``sessions`` when the caller already
+    holds the global list — enumerating it costs a ChronoLog index replay per
+    call, which turns a listing of N conversations into N+1 replays.
     """
-    sessions = _fetch_all_sessions()
+    if sessions is None:
+        sessions = _fetch_all_sessions()
     prefix = parent_id + "."
     descendant_ids = sorted(
         {
@@ -127,6 +133,15 @@ def _locate_interaction(interaction_id: str) -> tuple[dict | None, dict | None, 
 # ─────────────────────────────── route handlers ───────────────────────────────
 
 
+# The listing walks every session bundle; against live ChronoLog that is one
+# replay per session and even offline it is the most expensive view. Several
+# open tabs poll it, so serve a short-lived snapshot instead of recomputing.
+_LIST_CACHE_TTL_SECONDS = 5.0
+_list_cache_lock = Lock()
+_list_cache: list | None = None
+_list_cache_at = 0.0
+
+
 @bp.route("/api/conversations")
 def list_conversations():
     """``GET /api/conversations`` — one ``ConversationSummary`` per base session.
@@ -135,6 +150,12 @@ def list_conversations():
     Token/cost aggregation is left to the per-conversation ``agent-graph``
     endpoint so listing stays cheap.
     """
+    global _list_cache, _list_cache_at
+    now = time.monotonic()
+    with _list_cache_lock:
+        if _list_cache is not None and now - _list_cache_at < _LIST_CACHE_TTL_SECONDS:
+            return jsonify(_list_cache)
+
     sessions = _fetch_all_sessions()
 
     conversations: dict[str, list[dict]] = {}
@@ -148,13 +169,15 @@ def list_conversations():
 
     out = []
     for parent_id in sorted(conversations.keys()):
-        tree = _fetch_conversation_tree(parent_id)
+        tree = _fetch_conversation_tree(parent_id, sessions)
         summary = build_conversation_summary(parent_id, tree)
         out.append(summary)
 
     # Sort by lastTurn descending so the most recent conversation is first; empty
     # timestamps sort last.
     out.sort(key=lambda c: c.get("lastTurn", ""), reverse=True)
+    with _list_cache_lock:
+        _list_cache, _list_cache_at = out, now
     return jsonify(out)
 
 

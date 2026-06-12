@@ -31,6 +31,7 @@ _BLUEPRINTS = [
     ("chronolog_observability.api.provenance", "bp", "/api", Capability.PROVENANCE),
     ("chronolog_observability.api.semantic", "bp", "/api", Capability.SEMANTIC),
     ("chronolog_observability.api.inter_agent", "bp", "/api", Capability.INTER_AGENT),
+    ("chronolog_observability.api.chronolog_view", "bp", "/api", Capability.CLUSTER),
 ]
 
 
@@ -99,7 +100,7 @@ def _register_spa(app: Flask) -> None:
 
     Vite writes its bundle into ``static/workspace/`` with ``base=/static/workspace/``,
     so ``index.html`` already references hashed asset URLs that Flask's default
-    static handler serves — we just hand back the entry HTML. No chimaera, no
+    static handler serves — we just hand back the entry HTML. No runtime dependency, no
     template indirection. If the SPA hasn't been built, return a 503 with a
     build hint rather than a confusing 404.
     """

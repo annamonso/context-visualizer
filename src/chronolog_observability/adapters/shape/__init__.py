@@ -1,4 +1,4 @@
-"""Story->view shapers (conversation graph, scenario graph). chimaera-free.
+"""Story->view shapers (conversation graph, scenario graph). ChronoLog-native.
 
 Pure functions over already-fetched data, re-exported here so blueprints can
 ``from ..adapters.shape import build_agent_graph`` without reaching into modules.

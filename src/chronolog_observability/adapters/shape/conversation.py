@@ -24,7 +24,7 @@ are inspected from request/response bodies and stay inside the DetailPanel —
 they are never promoted to graph nodes.
 
 The pure-logic functions here take plain Python dicts so they can be unit-tested
-without a live Chimaera runtime. ``api/conversations.py`` owns the I/O.
+without any live runtime. ``api/conversations.py`` owns the I/O.
 """
 
 from __future__ import annotations
@@ -156,7 +156,7 @@ def _has_tool_result(request_body: dict, provider: str) -> bool:
 def _response_text(response_body: dict, response: dict, provider: str) -> str | None:
     """Best-effort extraction of the assistant's textual reply.
 
-    Prefers the pre-extracted ``response.text`` written by the Chimaera side,
+    Prefers the pre-extracted ``response.text`` written by the capture side,
     falling back to provider-specific body parsing.
     """
     text = (response or {}).get("text")
@@ -504,7 +504,7 @@ def build_interaction_detail(session_id: str, interaction: dict, context_node: d
 
 
 def flatten_monitor_result(raw: Any) -> list:
-    """Turn a chimaera monitor result into a plain Python list of parsed items.
+    """Turn a monitor-shaped result into a plain Python list of parsed items.
 
     clio-core's monitor returns ``{container_id: payload}``; ``payload`` is a
     list of dicts, a single dict, or a JSON string. This helper collapses the

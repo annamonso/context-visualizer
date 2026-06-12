@@ -45,11 +45,9 @@ export async function listInteractions(
 }
 
 /**
- * SSE stream of new interactions. The Flask backend does not yet implement
- * ``/_interceptor/live`` — ``EventSource`` will raise `error` almost
- * immediately and ``useLiveInteractions`` will fall back to polling on its
- * own. We ship the call anyway so a future phase can add an SSE endpoint
- * without touching the hook.
+ * SSE stream of new interactions (``/_interceptor/live``). When the stream
+ * drops, ``useLiveInteractions`` falls back to polling on its own and retries
+ * the stream later.
  */
 export function openInteractionStream(
   onEvent: (row: InteractionSummary) => void,
@@ -139,6 +137,78 @@ export async function getScenarioGraph(scenarioId: string): Promise<ScenarioGrap
     agents: Array.isArray(data.agents) ? data.agents : [],
     edges: Array.isArray(data.edges) ? data.edges : [],
   };
+}
+
+// ── Cluster tab: ChronoLog deployment topology ────────────────────────────
+
+export interface ClusterKeeperStory {
+  chronicle: string;
+  story: string;
+  event_count: number;
+}
+
+export interface ClusterKeeper {
+  ip: string;
+  host: string | null;
+  ports: number[];
+  event_count: number;
+  last_event_ns: number;
+  age_sec: number | null;
+  in_allocation: boolean;
+  stale: boolean;
+  stories: ClusterKeeperStory[];
+}
+
+export interface ClusterChronicle {
+  chronicle: string;
+  story: string;
+  event_count: number;
+  keeper_ips: string[];
+}
+
+export interface ClusterComponents {
+  visor: { ip: string | null; host: string | null };
+  grapher: { host: string | null; by_convention: boolean };
+  player: { host: string | null; by_convention: boolean };
+}
+
+export interface ClusterTopology {
+  via: string;
+  connected: boolean;
+  output_dir: string;
+  scenarios: string[];
+  now_ns: number;
+  drain_window_sec: number;
+  allocation: string[];
+  components: ClusterComponents;
+  stale_cutoff_sec: number;
+  hidden_stale_keepers: number;
+  keepers: ClusterKeeper[];
+  chronicles: ClusterChronicle[];
+}
+
+export async function getClusterTopology(includeStale = false): Promise<ClusterTopology> {
+  const res = await fetch(`/api/chronolog/topology${includeStale ? "?all=1" : ""}`);
+  if (!res.ok) throw new Error(`Failed to get cluster topology: ${res.status}`);
+  return res.json();
+}
+
+export interface ChronologEvents {
+  chronicle: string;
+  story: string;
+  via: string;
+  count: number;
+  events: Record<string, unknown>[];
+}
+
+export async function getChronologEvents(
+  chronicle: string,
+  story: string,
+): Promise<ChronologEvents> {
+  const qs = new URLSearchParams({ chronicle, story });
+  const res = await fetch(`/api/chronolog/events?${qs}`);
+  if (!res.ok) throw new Error(`Failed to get story events: ${res.status}`);
+  return res.json();
 }
 
 export async function clearInteractions(

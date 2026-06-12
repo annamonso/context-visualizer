@@ -338,9 +338,10 @@ class ChronoLogBackend:
             client  = self._client_inst()
             ev_list = cl.EventList()
             rc = client.ReplayStory(chronicle, story, start_ns, end_ns, ev_list)
-        if rc == CL_ERR_NOT_EXIST:
-            return []
-        if rc != CL_SUCCESS:
+        if rc not in (CL_SUCCESS, CL_ERR_NOT_EXIST):
+            archived = _csv_archive_events(chronicle, story, start_ns, end_ns)
+            if archived:
+                return archived
             raise RuntimeError(f"ReplayStory({chronicle}, {story}) -> {rc}")
 
         out: List[Dict[str, Any]] = []
@@ -356,6 +357,12 @@ class ChronoLogBackend:
             obj.setdefault("_chronolog_index",   int(ev.index()))
             obj.setdefault("_chronolog_client",  int(ev.client_id()))
             out.append(obj)
+        if not out:
+            # The player can serve nothing for stories the cluster HAS
+            # accepted (archive read flakiness, or the chunk never became
+            # replayable). The grapher's drained CSVs are the keepers'
+            # durable output — never look empty when they hold the data.
+            out = _csv_archive_events(chronicle, story, start_ns, end_ns)
         return out
 
     # ------------------------------------------------------------------
@@ -382,6 +389,64 @@ class ChronoLogBackend:
                 seen_set.add(v)
                 seen.append(v)
         return seen
+
+
+_CSV_LINE_PREFIX = "event :"
+
+
+def _csv_archive_dir() -> str:
+    return (
+        os.environ.get("CHRONOLOG_OUTPUT_DIR")
+        or os.environ.get("DTP_CHRONOLOG_OUTPUT_DIR")
+        or os.path.expanduser("~/chronolog-install/chronolog/output")
+    )
+
+
+def _csv_archive_events(
+    chronicle: str, story: str, start_ns: int = 0, end_ns: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """Read a story from the grapher's drained CSV archive.
+
+    File naming: ``{chronicle}.{story}.{ip}.{port}.{startSec}.csv``, one file
+    per keeper. Line format: ``event : sid:time_ns:client:index:payload``.
+    Used as the fallback when a live ``ReplayStory`` serves nothing for data
+    the cluster has accepted (see ``replay_events``).
+    """
+    import glob
+    import re
+
+    line_re = re.compile(r"^event\s*:\s*(\d+):(\d+):(\d+):(\d+):(.*)$")
+    out: List[Dict[str, Any]] = []
+    for path in sorted(glob.glob(os.path.join(_csv_archive_dir(), f"{chronicle}.{story}.*.csv"))):
+        try:
+            fh = open(path, "r", encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        with fh:
+            for line in fh:
+                line = line.strip()
+                if not line.startswith(_CSV_LINE_PREFIX):
+                    continue
+                m = line_re.match(line)
+                if not m:
+                    continue
+                _sid, evtime, cid, ix, payload = m.groups()
+                t = int(evtime)
+                if t < start_ns or (end_ns is not None and t > end_ns):
+                    continue
+                try:
+                    obj = json.loads(payload)
+                except Exception:
+                    obj = {"_raw": payload}
+                obj.setdefault("_chronolog_time_ns", t)
+                obj.setdefault("_chronolog_index", int(ix))
+                obj.setdefault("_chronolog_client", int(cid))
+                obj["_chronolog_archived"] = True
+                out.append(obj)
+    out.sort(key=lambda e: e.get("_chronolog_time_ns", 0))
+    if out:
+        log.info("csv archive fallback served %d events for %s/%s", len(out), chronicle, story)
+    return out
 
 
 def _jsonable(obj):

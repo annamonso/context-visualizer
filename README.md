@@ -33,7 +33,8 @@ src/chronolog_observability/
 │   ├── registry.py   # entry-point discovery + capability resolution
 │   ├── chronolog_source.py   # the ChronoLog adapter
 │   └── shape/        # story -> conversation/scenario graph shapers
-├── capture/          # Path-A capture spool + sync worker; Path-B inter-agent store/ingest; demo store
+├── capture/          # Path-A capture spool + sync worker; Path-B inter-agent store/ingest + live bus; demo store
+├── collector/        # per-node collector daemon (agents → ChronoLog + live forward)
 ├── api/              # Flask blueprints (one per capability)
 ├── analysis/ semantic/ checkpointing/   # pure analysis + checks packages
 └── static/workspace/ # built React SPA lands here (gitignored build artifact)
@@ -81,6 +82,35 @@ CHRONOLOG_CAPTURE=1 chronolog-observe   # runs the worker as a daemon thread
 The worker dedups against ChronoLog (high-water marks per session) and rebuilds
 its state from ChronoLog on restart, so capture is at-least-once and ingest is
 effectively exactly-once. It is a no-op in `CHRONOLOG_OFFLINE=1` mode.
+
+### Live view (Path-B → SSE)
+
+ChronoLog's chunk acceptance window (~180 s keeper→grapher drain) makes it
+unusable as a real-time read source, so inter-agent events are fanned out to
+SSE subscribers in-process at the moment of ingest while ChronoLog stays the
+durable cold path:
+
+- `POST /api/_inter-agent/ingest` — single event or batch; publishes to the
+  live bus after the durable write.
+- `GET /api/_inter-agent/stream?scenario=<sid>` — SSE: stored backlog first,
+  then live `event: message` frames as events arrive.
+- `GET /_interceptor/live` — SSE push feed of new LLM interactions (the
+  Interactions tab upgrades from polling automatically).
+
+For multi-node deployments, run one **collector** per compute node; local
+agents POST to it on localhost, it writes to ChronoLog through the node-local
+keeper and forwards a thin copy to the dashboard for the live stream (with
+`X-DTP-Forwarded: chronolog`, so nothing is persisted twice):
+
+```bash
+scripts/launch-collectors.sh <SLURM_JOBID> http://<dashboard-node>:5000   # all nodes
+# or by hand on one node:
+chronolog-collector --flask-url http://<dashboard-node>:5000 --port 5650
+```
+
+Agents emit via `chronolog_observability.collector.emit(event)` or plain
+`POST http://127.0.0.1:5650/ingest`; if the collector is down, `emit()` falls
+back to the dashboard's ingest endpoint directly.
 
 ## Status
 

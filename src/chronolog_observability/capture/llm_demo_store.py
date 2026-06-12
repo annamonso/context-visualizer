@@ -1,8 +1,8 @@
 """JSONL-backed store for synthetic LLM interactions + context-graph nodes.
 
-This is a *demo-only* fallback for `chimaera_client.get_*` so the Workspace
+This is a *demo-only* fallback for the live read path so the Workspace
 tab populates without `dt_demo_server` running. Production reads from
-Chimaera (in-memory CTE blobs) or from ChronoLog after cut-over.
+the legacy runtime (in-memory CTE blobs) or from ChronoLog after cut-over.
 
 Layout under ``~/.dt_provenance/demo_llm/``:
 

@@ -193,8 +193,12 @@ def build_scenario_graph(
         })
 
     # Strip the scenario suffix for display — consistently across agent ids
-    # AND edge endpoints so the frontend still links edges to nodes.
+    # AND edge endpoints so the frontend still links edges to nodes. The
+    # pre-strip id is kept as ``scoped_session_id``: it is the real session
+    # key, and the frontend needs it to fetch the agent's conversation
+    # (fetching with the stripped id silently returns an empty tree).
     for a in agents:
+        a["scoped_session_id"] = a.get("session_id", "") or a.get("agent_id", "")
         a["agent_id"] = strip_scope(a.get("agent_id", ""), scenario_id)
         a["session_id"] = strip_scope(a.get("session_id", ""), scenario_id)
         a["sub_sessions"] = [strip_scope(s, scenario_id) for s in a.get("sub_sessions", [])]
