@@ -112,10 +112,59 @@ Agents emit via `chronolog_observability.collector.emit(event)` or plain
 `POST http://127.0.0.1:5650/ingest`; if the collector is down, `emit()` falls
 back to the dashboard's ingest endpoint directly.
 
+## Live end-to-end test (real agents on a ChronoLog cluster)
+
+`scripts/` ships a harness that exercises the whole stack against a **live**
+ChronoLog cluster with **real Claude Agent SDK agents** — genuine LLM turns and
+a genuine `call_remote_agent` MCP tool call per agent, not synthetic data. It
+drives the plugin's current endpoints (the legacy `scripts/_imported/` demos
+target removed clio-core routes and no longer work).
+
+Prereqs: a ChronoLog cluster up on a SLURM allocation; `flask` importable by the
+same Python that has `py_chronolog_client`; and a conda env with
+`claude_agent_sdk` + an authenticated `claude` CLI for the agents.
+
+```bash
+# one real agent per node, feeding Path-A (spool) and Path-B (collector):
+scripts/run-live-agents.sh <SLURM_JOBID> <scenario_id>
+#   healthcheck -> dashboard -> capture worker -> collectors -> N real agents
+#   (agents scale with the cluster: 4 nodes -> 3 agents, 8 nodes -> 6)
+
+# restart the dashboard, wait for the CSV drain, then assert every tab AND the
+# scenario -> workspace click-through (per-agent metrics + inter-agent edges):
+scripts/verify-when-drained.sh <SLURM_JOBID> <FLASK_NODE> <scenario_id> <N_agents>
+```
+
+Reusable pieces: `real_agent_chronolog.py` (the agent), `launch-dashboard.sh`,
+`launch-capture.sh`, `launch-collectors.sh`, `verify_dashboard.py`.
+
+**Operational notes (load-bearing on a live cluster):**
+
+- **Run the dashboard as a pure reader.** Do *not* set `CHRONOLOG_CAPTURE=1` in
+  the dashboard process: the capture worker's startup `warm_up` does a blocking
+  `ReplayStory`, and `py_chronolog_client` holds the GIL through it, so Flask's
+  `app.run()` never finishes binding. Drain Path-A with a separate
+  `chronolog-capture` process (`launch-capture.sh`).
+- **Read the data-heavy tabs only after the ~180 s keeper→grapher drain.** A
+  `ReplayStory` on a story still inside the drain window blocks for minutes and
+  freezes the whole dashboard; after the drain it returns promptly. The Cluster
+  tab is CSV-backed and safe anytime.
+- **Session ids are `role@scenario`** so a scenario-graph node joins to its
+  conversation on click — the inter-agent edge `from/to_session` must carry the
+  same scoped id the LLM turns are spooled under.
+- On a *brand-new* cluster the capture worker's `warm_up` can hang on the
+  never-written session index; if Path-A never drains, kick a one-shot
+  `SpoolToChronoLogSync(get_backend()).sync_once()` (append-only, no
+  `ReplayStory`) to seed it.
+
+Verified **28/28** checks (all four tabs + the click-through) on live **4-node
+and 8-node** ChronoLog clusters.
+
 ## Status
 
-Functional. Backend, shape adapters, all generic blueprints (conversations,
-interactions, provenance, semantic, scenarios, inter_agent), capture stores, the
-chimaera-free Path-A capture worker (spool → ChronoLog), and the React frontend
-are ported and serve from ChronoLog. See [`MIGRATION.md`](./MIGRATION.md) for the
-port record.
+Functional, and validated end-to-end with real agents on live multi-node
+ChronoLog clusters (see the live-test harness above — 28/28 on 4 and 8 nodes).
+Backend, shape adapters, all generic blueprints (conversations, interactions,
+provenance, semantic, scenarios, inter_agent), capture stores, the chimaera-free
+Path-A capture worker (spool → ChronoLog), and the React frontend are ported and
+serve from ChronoLog. See [`MIGRATION.md`](./MIGRATION.md) for the port record.
