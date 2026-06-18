@@ -57,8 +57,18 @@ def _iso_now() -> str:
 
 
 def _safe(token: str) -> str:
-    """Sanitise a session id into a filename fragment (matches the JSONL store)."""
-    return "".join(c if c.isalnum() or c in ("-", "_", ".") else "_" for c in token)[:120]
+    """Sanitise a session id into a filename fragment.
+
+    ``@`` is allowed: session ids follow the ``role@scenario`` convention, and
+    the live Path-A pipeline derives the ChronoLog *story name* from the spool
+    filename (via ``list_sessions``). Mapping ``@``→``_`` here desynchronised the
+    stored story (``role_scenario``) from the id the read path looks up
+    (``role@scenario`` — the inter-agent edges' ``from_session`` and the scenario
+    graph's ``scoped_session_id``), so clicked nodes showed zero tokens and an
+    empty conversation. ``@`` is a valid filename char and a valid ChronoLog
+    story name (verified), so preserving it makes the round-trip consistent.
+    """
+    return "".join(c if c.isalnum() or c in ("-", "_", ".", "@") else "_" for c in token)[:120]
 
 
 class CaptureSpool:

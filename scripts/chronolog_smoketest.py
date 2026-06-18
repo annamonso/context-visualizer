@@ -129,8 +129,16 @@ def main() -> int:
     (failures.append("recovery") if not rec_ok else None)
     _p("path-a", f"  recovery event read back: {'OK' if rec_ok else 'MISSING'}")
 
-    sessions = par.get_sessions().get(par.VIRTUAL_NODE_ID, {})
-    sess_ok = session in sessions
+    # get_sessions() returns {node: [{"session_id": sid}, ...]} — a list of
+    # dicts, so we must extract the ids before membership-testing (a bare
+    # `session in sessions` compares the str against dicts and is always False).
+    # Polled like the other read-backs: the session index drains on the same
+    # ~180s keeper→grapher window.
+    def _session_ids():
+        raw = par.get_sessions().get(par.VIRTUAL_NODE_ID, []) or []
+        return {s.get("session_id") for s in raw if isinstance(s, dict)}
+    sess_ids = _poll(_session_ids, lambda s: session in s, timeout)
+    sess_ok = session in sess_ids
     (failures.append("session-index") if not sess_ok else None)
     _p("path-a", f"  session in index: {'OK' if sess_ok else 'MISSING'}")
 
