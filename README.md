@@ -40,8 +40,9 @@ src/chronolog_observability/
 └── static/workspace/ # built React SPA lands here (gitignored build artifact)
 ```
 
-The React dashboard lives in `frontend/` (Vite). Its three tabs — Workspace,
-Scenarios, Interactions — are all ChronoLog-served.
+The React dashboard lives in `frontend/` (Vite). Its tabs — Workspace,
+Scenarios, Interactions, Cluster, and Memory — are served from ChronoLog and,
+for the real-time views, from an in-process **hot store** (see *Live views*).
 
 ## Install & run
 
@@ -112,6 +113,36 @@ Agents emit via `chronolog_observability.collector.emit(event)` or plain
 `POST http://127.0.0.1:5650/ingest`; if the collector is down, `emit()` falls
 back to the dashboard's ingest endpoint directly.
 
+## Live views (real-time, instant reads)
+
+ChronoLog is the durable cold path but is unreadable in real time: the
+keeper→grapher drain lags ~180 s, and a `ReplayStory` on an un-drained story
+blocks the process for *minutes* holding the GIL. So the live views are served
+from a **local hot store** written at ingest, with ChronoLog as the cold path:
+
+- **Inter-agent hot store** — `capture/inter_agent/store.py` keeps a local JSONL
+  copy of every edge (live mode too, not just offline) and reads it first;
+  `read_stitched` / `list_scenarios` are instant and never block.
+- **Scenarios → Live mode** — subscribes to `/api/_inter-agent/stream` (the SSE
+  bus) plus the hot-store backlog and builds the agent-to-agent graph in real
+  time (`hooks/useLiveScenario.ts`). *Full* mode is the older `/graph` (per-agent
+  token metrics) for already-drained scenarios.
+- **Cluster → node communication** — `/api/chronolog/comms` aggregates
+  host-pair traffic from the hot store; the Cluster tab draws a live graph of
+  which nodes are active and which are exchanging messages.
+- **Memory tab** — `/api/memory/*` reads the capture spool directly, so each
+  agent's working-memory (context-graph) tokens are shown growing/evicting live.
+
+Two robustness fixes make a *fresh* cluster work out of the box:
+`backend.client.index_list` is CSV-archive-first (a `ReplayStory` on a
+never-written index blocks forever — this used to wedge the dashboard + capture
+worker on a pristine cluster), and `chronolog_view._short_host` canonicalises
+node-name digit padding (ARES reverse-DNS `ares-comp-3` vs SLURM `ares-comp-03`,
+which otherwise hid every single-digit node from the Cluster tab).
+
+Drive the live views with **no LLM cost** via `scripts/synth_live_traffic.py`
+(synthetic inter-agent edges + Path-A context, over the real ingest path).
+
 ## Live end-to-end test (real agents on a ChronoLog cluster)
 
 `scripts/` ships a harness that exercises the whole stack against a **live**
@@ -164,6 +195,9 @@ and 8-node** ChronoLog clusters.
 
 Functional, and validated end-to-end with real agents on live multi-node
 ChronoLog clusters (see the live-test harness above — 28/28 on 4 and 8 nodes).
+Real-time observation of inter-agent comms, node-to-node cluster traffic, and
+agent working-memory is served live from the hot store (see *Live views*),
+verified on a 4-node cluster with both synthetic and real Claude agents.
 Backend, shape adapters, all generic blueprints (conversations, interactions,
 provenance, semantic, scenarios, inter_agent), capture stores, the chimaera-free
 Path-A capture worker (spool → ChronoLog), and the React frontend are ported and

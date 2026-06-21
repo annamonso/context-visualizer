@@ -23,6 +23,96 @@ def _source():
     return registry.source_for(Capability.PROVENANCE)
 
 
+# ──────────────────────────────────────────────────────────────────────────
+# Live agent memory (spool-backed — instant, GIL-safe)
+# ──────────────────────────────────────────────────────────────────────────
+#
+# The provenance reads below go through the adapter (ChronoLog), which lags the
+# live run by the ~180s drain and whose ReplayStory blocks the process on an
+# un-drained story. For the *real-time* Memory view we read the capture spool
+# the agents write to directly: instant, never blocks, always current.
+
+
+@bp.route("/memory/sessions")
+def memory_sessions():
+    """Live agent-memory index from the capture spool (no ChronoLog).
+
+    One row per agent (session) that has spooled context-graph / interaction
+    events this run, with running totals — the source for the Memory tab.
+    """
+    from ..capture.spool import (
+        KIND_CONTEXT_GRAPH,
+        KIND_INTERACTIONS,
+        get_spool,
+    )
+
+    spool = get_spool()
+    out = []
+    for sid in spool.list_sessions():
+        ctx = spool.read(sid, KIND_CONTEXT_GRAPH)
+        inter = spool.read(sid, KIND_INTERACTIONS)
+        live = 0
+        for n in ctx:
+            live += -1 if str(n.get("op") or "add") == "evict" else 1
+        role, _, scenario = sid.partition("@")
+        last_ts = ctx[-1].get("timestamp") if ctx else ""
+        if inter and (inter[-1].get("timestamp") or "") > (last_ts or ""):
+            last_ts = inter[-1].get("timestamp")
+        out.append({
+            "session_id": sid,
+            "role": role or sid,
+            "scenario": scenario or "",
+            "context_nodes": len(ctx),
+            "live_nodes": max(0, live),
+            "interactions": len(inter),
+            "total_tokens": sum(int(n.get("tokens") or 0) for n in ctx),
+            "last_ts": last_ts or "",
+        })
+    out.sort(key=lambda x: x["session_id"])
+    return jsonify({"sessions": out})
+
+
+@bp.route("/memory/<session_id>/context")
+def memory_context(session_id):
+    """Context-graph evolution for one agent, from the spool (instant).
+
+    Ordered diff nodes (add/evict with token deltas) plus a running live token
+    total, so the Memory tab shows working memory growing and being evicted in
+    real time.
+    """
+    from ..capture.spool import (
+        KIND_CONTEXT_GRAPH,
+        KIND_INTERACTIONS,
+        get_spool,
+    )
+
+    spool = get_spool()
+    ctx = spool.read(session_id, KIND_CONTEXT_GRAPH)
+    inter = spool.read(session_id, KIND_INTERACTIONS)
+    running = 0
+    nodes = []
+    for n in ctx:
+        tok = int(n.get("tokens") or 0)
+        op = str(n.get("op") or "add")
+        running += -tok if op == "evict" else tok
+        nodes.append({
+            "sequence_id": n.get("sequence_id"),
+            "op": op,
+            "node": n.get("node"),
+            "summary": n.get("summary"),
+            "tokens": tok,
+            "running_tokens": max(0, running),
+            "timestamp": n.get("timestamp"),
+        })
+    return jsonify({
+        "session_id": session_id,
+        "nodes": nodes,
+        "interaction_count": len(inter),
+        "total_tokens": sum(int(n.get("tokens") or 0) for n in ctx),
+        "live_tokens": max(0, running),
+    })
+
+
 def _flatten_results(raw):
     """Extract data from container-keyed monitor results."""
     for _cid, data in raw.items():

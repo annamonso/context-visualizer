@@ -93,13 +93,22 @@ def _host_for_ip(ip: str) -> Optional[str]:
 
 def _short_host(name: Optional[str]) -> Optional[str]:
     """Normalize a hostname for allocation comparison: drop domain + ``-40g``
-    interface suffix, lowercase. Returns None for falsy input."""
+    interface suffix, lowercase, and canonicalise digit groups. Returns None
+    for falsy input.
+
+    The digit canonicalisation is load-bearing: ARES reverse-DNS returns
+    *unpadded* names (``ares-comp-3``) while ``scontrol`` / ``SLURM_JOB_NODELIST``
+    zero-pad (``ares-comp-03``). Without normalising, an in-allocation keeper on
+    a single-digit node compares unequal to its allocation entry and is wrongly
+    flagged out-of-allocation — so the Cluster tab hides every keeper on nodes
+    03–09 and shows no active nodes at all."""
     if not name:
         return None
     s = name.split(".")[0]
     if s.endswith("-40g"):
         s = s[: -len("-40g")]
-    return s.lower()
+    s = s.lower()
+    return re.sub(r"\d+", lambda m: str(int(m.group(0))), s)
 
 
 def _parse_nodelist(spec: str) -> List[str]:
@@ -356,6 +365,106 @@ def topology():
         "hidden_stale_keepers": hidden,
         "keepers":           keepers,
         "chronicles":        topo["chronicles"],
+    })
+
+
+@bp.route("/chronolog/comms", methods=["GET"])
+def comms():
+    """Node-to-node inter-agent communication for the Cluster tab.
+
+    Answers "which ARES nodes are active, and which are passing messages to
+    each other" — aggregated by (from_host, to_host) across the current run's
+    scenarios. Served entirely from the dashboard's local hot store (instant,
+    GIL-safe): it never touches the ~180s-lagged ChronoLog ReplayStory path, so
+    it is safe to poll on a tick. ``?scenario=<sid>`` narrows to one scenario.
+
+    Host keys are canonicalised (``_short_host``) so the unpadded reverse-DNS
+    form and the zero-padded SLURM form collapse to one node per physical host,
+    and every allocation node appears even before it has exchanged a message —
+    so an idle-but-alive node still shows as active.
+    """
+    from ..capture.inter_agent import get_store
+
+    store = get_store()
+    scenario = (request.args.get("scenario") or "").strip()
+    scenarios = [scenario] if scenario else store.list_local_scenarios()
+
+    def norm(h: str) -> str:
+        return _short_host(h) or "unknown"
+
+    hosts: Dict[str, Dict] = {}
+    pairs: Dict[tuple, Dict] = {}
+
+    def host_slot(h: str) -> Dict:
+        return hosts.setdefault(h, {
+            "host": h, "out": 0, "in": 0, "errors": 0, "agents": set(),
+        })
+
+    contributing: List[str] = []
+    for sid in scenarios:
+        try:
+            edges = store.read_stitched(sid)
+        except Exception:
+            continue
+        if edges:
+            contributing.append(sid)
+        for e in edges:
+            fh = norm(e.get("from_host") or "")
+            th = norm(e.get("to_host") or "")
+            is_err = str(e.get("status") or "").startswith("error")
+            sf = host_slot(fh)
+            st = host_slot(th)
+            sf["out"] += 1
+            st["in"] += 1
+            if e.get("from_session"):
+                sf["agents"].add(e["from_session"])
+            if e.get("to_session"):
+                st["agents"].add(e["to_session"])
+            if is_err:
+                sf["errors"] += 1
+            if fh == th:
+                continue  # intra-host traffic: counted per host, not drawn
+            key = (fh, th)
+            p = pairs.setdefault(key, {
+                "from_host": fh, "to_host": th, "count": 0, "errors": 0,
+                "last_ts": "", "tools": set(), "scenarios": set(),
+            })
+            p["count"] += 1
+            if is_err:
+                p["errors"] += 1
+            ts = e.get("ts_done") or e.get("ts_start") or ""
+            if ts and ts > p["last_ts"]:
+                p["last_ts"] = ts
+            if e.get("tool_name"):
+                p["tools"].add(e["tool_name"])
+            p["scenarios"].add(sid)
+
+    allocation = _allocation_nodes()
+    alloc_set = set(allocation)
+    for h in allocation:           # every allocation node is shown, even if idle
+        host_slot(h)
+
+    host_list = []
+    for h in hosts.values():
+        h["agents"] = len(h["agents"])
+        h["in_allocation"] = (h["host"] in alloc_set)
+        host_list.append(h)
+    host_list.sort(key=lambda x: (not x["in_allocation"], x["host"]))
+
+    edge_list = []
+    for p in pairs.values():
+        p["tools"] = sorted(p["tools"])
+        p["scenarios"] = sorted(p["scenarios"])
+        edge_list.append(p)
+    edge_list.sort(key=lambda x: -x["count"])
+
+    return jsonify({
+        "allocation": allocation,
+        "hosts": host_list,
+        "edges": edge_list,
+        "scenarios": contributing,
+        "scenario_filter": scenario or None,
+        "now_ns": time.time_ns(),
     })
 
 

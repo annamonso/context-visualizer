@@ -376,12 +376,27 @@ class ChronoLogBackend:
         self.append_event(CHRONICLE_INDEX, story, {"v": value})
 
     def index_list(self, story: str) -> List[str]:
+        """List the distinct values appended to (CHRONICLE_INDEX, story).
+
+        CSV-archive-first, by necessity. A live ``ReplayStory`` against an index
+        story that was never written blocks *forever* holding the GIL — the
+        client does not release it and there is no Python-level timeout — which
+        wedges the whole dashboard/capture process on a fresh cluster (the
+        dashboard's topology read and the sync worker's warm-up both land here).
+        The index chronicle drains to the grapher CSVs like any other story, so
+        we read those instead: fast, never blocks, and at-worst ~drain-window
+        stale (acceptable for an eventually-consistent listing index). A live
+        replay is opt-in via ``CHRONOLOG_INDEX_LIVE=1`` for callers that have
+        already ensured the story is drained.
+        """
         from .constants import CHRONICLE_INDEX
-        try:
-            evs = self.replay_events(CHRONICLE_INDEX, story)
-        except RuntimeError:
-            return []
-        seen = []
+        evs = _csv_archive_events(CHRONICLE_INDEX, story)
+        if not evs and _env("CHRONOLOG_INDEX_LIVE").lower() in ("1", "true", "yes"):
+            try:
+                evs = self.replay_events(CHRONICLE_INDEX, story)
+            except RuntimeError:
+                evs = []
+        seen: List[str] = []
         seen_set: set[str] = set()
         for ev in evs:
             v = ev.get("v")

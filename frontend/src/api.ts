@@ -139,6 +139,85 @@ export async function getScenarioGraph(scenarioId: string): Promise<ScenarioGrap
   };
 }
 
+// ── Live inter-agent edges (hot-store backlog + SSE) ───────────────────────
+//
+// The scenario graph above (/graph) reconstructs per-agent LLM subtrees from
+// ChronoLog, which is unreadable for ~180s on an in-flight scenario (and a
+// ReplayStory mid-drain blocks the dashboard). For the *live* view we instead
+// read the inter-agent edges directly: the backlog from the dashboard's hot
+// store (instant, GIL-safe) and live updates from the in-process SSE bus.
+
+/** One merged call (start+done stitched on correlation_id). */
+export interface InterAgentStitched {
+  correlation_id: string;
+  scenario_id: string;
+  from_host: string;
+  from_session: string;
+  to_host: string;
+  to_session: string;
+  kind: string;
+  tool_name: string;
+  payload_digest: string;
+  payload_preview: string;
+  ts_start: string | null;
+  ts_done: string | null;
+  status: string;
+  latency_ms: number;
+}
+
+/** One raw SSE frame — a single start or done phase. */
+export interface InterAgentEvent {
+  event_id: string;
+  scenario_id: string;
+  correlation_id: string;
+  phase: "start" | "done";
+  from_host: string;
+  from_session: string;
+  to_host: string;
+  to_session: string;
+  ts: string;
+  kind: string;
+  tool_name: string;
+  payload_digest: string;
+  payload_preview: string;
+  status: string;
+  latency_ms: number;
+  ingest_ns: number;
+}
+
+/** Stitched backlog for a scenario — instant (served from the hot store). */
+export async function getInterAgentEdges(scenarioId: string): Promise<InterAgentStitched[]> {
+  const res = await fetch(`/api/scenarios/${encodeURIComponent(scenarioId)}/inter-agent`);
+  if (!res.ok) throw new Error(`Failed to get inter-agent edges: ${res.status}`);
+  const data = await res.json();
+  return Array.isArray(data?.events) ? (data.events as InterAgentStitched[]) : [];
+}
+
+/**
+ * Live SSE feed of inter-agent events for one scenario. Emits ``message``
+ * frames as calls start/complete; the EventSource auto-reconnects on drop.
+ */
+export function openInterAgentStream(
+  scenarioId: string,
+  onEvent: (ev: InterAgentEvent) => void,
+  onError: () => void,
+): EventSource {
+  const source = new EventSource(
+    `/api/_inter-agent/stream?scenario=${encodeURIComponent(scenarioId)}`,
+  );
+  const handle = (ev: Event) => {
+    try {
+      onEvent(JSON.parse((ev as MessageEvent).data) as InterAgentEvent);
+    } catch {
+      // Bad frame — backlog refetch / next event will resync.
+    }
+  };
+  source.addEventListener("message", handle); // live events
+  source.addEventListener("backlog", handle); // stored backlog (if ?backlog=1)
+  source.addEventListener("error", () => onError());
+  return source;
+}
+
 // ── Cluster tab: ChronoLog deployment topology ────────────────────────────
 
 export interface ClusterKeeperStory {
@@ -193,6 +272,48 @@ export async function getClusterTopology(includeStale = false): Promise<ClusterT
   return res.json();
 }
 
+// ── Cluster tab: live node-to-node communication ──────────────────────────
+
+export interface ClusterCommsHost {
+  host: string;
+  out: number;
+  in: number;
+  errors: number;
+  agents: number;
+  in_allocation: boolean;
+}
+
+export interface ClusterCommsEdge {
+  from_host: string;
+  to_host: string;
+  count: number;
+  errors: number;
+  last_ts: string;
+  tools: string[];
+  scenarios: string[];
+}
+
+export interface ClusterComms {
+  allocation: string[];
+  hosts: ClusterCommsHost[];
+  edges: ClusterCommsEdge[];
+  scenarios: string[];
+  scenario_filter: string | null;
+  now_ns: number;
+}
+
+/**
+ * Node-to-node inter-agent comms, aggregated from the dashboard's hot store
+ * (instant, GIL-safe — safe to poll on a tick). Optionally narrowed to one
+ * scenario.
+ */
+export async function getClusterComms(scenario?: string): Promise<ClusterComms> {
+  const qs = scenario ? `?scenario=${encodeURIComponent(scenario)}` : "";
+  const res = await fetch(`/api/chronolog/comms${qs}`);
+  if (!res.ok) throw new Error(`Failed to get cluster comms: ${res.status}`);
+  return res.json();
+}
+
 export interface ChronologEvents {
   chronicle: string;
   story: string;
@@ -208,6 +329,78 @@ export async function getChronologEvents(
   const qs = new URLSearchParams({ chronicle, story });
   const res = await fetch(`/api/chronolog/events?${qs}`);
   if (!res.ok) throw new Error(`Failed to get story events: ${res.status}`);
+  return res.json();
+}
+
+// ── Memory tab: live agent context, served from the capture spool ──────────
+
+export interface MemorySession {
+  session_id: string;
+  role: string;
+  scenario: string;
+  context_nodes: number;
+  live_nodes: number;
+  interactions: number;
+  total_tokens: number;
+  last_ts: string;
+}
+
+export interface MemoryContextNode {
+  sequence_id: number | null;
+  op: string;
+  node: string;
+  summary: string;
+  tokens: number;
+  running_tokens: number;
+  timestamp: string;
+}
+
+export interface MemoryContext {
+  session_id: string;
+  nodes: MemoryContextNode[];
+  interaction_count: number;
+  total_tokens: number;
+  live_tokens: number;
+}
+
+export async function getMemorySessions(): Promise<MemorySession[]> {
+  const res = await fetch("/api/memory/sessions");
+  if (!res.ok) throw new Error(`Failed to get memory sessions: ${res.status}`);
+  const d = await res.json();
+  return Array.isArray(d?.sessions) ? (d.sessions as MemorySession[]) : [];
+}
+
+export async function getMemoryContext(sessionId: string): Promise<MemoryContext> {
+  const res = await fetch(`/api/memory/${encodeURIComponent(sessionId)}/context`);
+  if (!res.ok) throw new Error(`Failed to get memory context: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Fire a synthetic inter-agent burst on the server (NO LLM cost) — backs the
+ * "Generate traffic" button. Edges then stream into the Live views.
+ */
+export interface DemoBurstOpts {
+  scenario?: string;
+  agents?: number;
+  rounds?: number;
+  interval?: number;
+  pattern?: string; // mesh | star | pipeline | ring
+  errRate?: number; // 0..1
+}
+
+export async function triggerDemoBurst(
+  opts: DemoBurstOpts = {},
+): Promise<{ started: boolean; scenario: string }> {
+  const { errRate, ...rest } = opts;
+  const body: Record<string, unknown> = { ...rest };
+  if (errRate != null) body.err_rate = errRate;
+  const res = await fetch("/api/_demo/burst", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Failed to start demo burst: ${res.status}`);
   return res.json();
 }
 

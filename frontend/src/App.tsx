@@ -3,11 +3,12 @@ import WorkspacePage from "./pages/WorkspacePage";
 import ScenarioPage from "./pages/ScenarioPage";
 import InteractionsPage from "./pages/InteractionsPage";
 import ClusterPage from "./pages/ClusterPage";
+import MemoryPage from "./pages/MemoryPage";
 import Toast, { type ToastState } from "./components/ui/Toast";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { getConfig } from "./api";
 
-type Tab = "workspace" | "scenarios" | "interactions" | "cluster";
+type Tab = "workspace" | "scenarios" | "interactions" | "cluster" | "memory";
 
 // Each tab maps to the backend capability that powers it. A tab is only shown
 // when an active adapter provides its capability (see /api/config). On a bare
@@ -17,9 +18,10 @@ const TAB_CAPABILITY: Record<Tab, string> = {
   scenarios: "scenarios",
   interactions: "interactions",
   cluster: "cluster",
+  memory: "provenance",
 };
 
-const ALL_TABS: Tab[] = ["workspace", "scenarios", "interactions", "cluster"];
+const ALL_TABS: Tab[] = ["workspace", "scenarios", "interactions", "cluster", "memory"];
 
 function getInitialTab(): Tab {
   const params = new URLSearchParams(window.location.search);
@@ -27,6 +29,7 @@ function getInitialTab(): Tab {
   if (v === "scenarios") return "scenarios";
   if (v === "interactions") return "interactions";
   if (v === "cluster") return "cluster";
+  if (v === "memory") return "memory";
   return "workspace";
 }
 
@@ -112,6 +115,9 @@ export default function App() {
           {enabledTabs.includes("cluster") && (
             <TabButton label="Cluster"      active={tab === "cluster"}      onClick={() => setTab("cluster")} />
           )}
+          {enabledTabs.includes("memory") && (
+            <TabButton label="Memory"       active={tab === "memory"}       onClick={() => setTab("memory")} />
+          )}
         </nav>
       </header>
 
@@ -124,7 +130,9 @@ export default function App() {
                 ? "Interactions"
                 : tab === "cluster"
                   ? "Cluster"
-                  : "Workspace"
+                  : tab === "memory"
+                    ? "Memory"
+                    : "Workspace"
           }
         >
           {tab === "scenarios" ? (
@@ -165,6 +173,8 @@ export default function App() {
             <InteractionsPage />
           ) : tab === "cluster" ? (
             <ClusterPage />
+          ) : tab === "memory" ? (
+            <MemoryPage />
           ) : (
             <WorkspacePage />
           )}

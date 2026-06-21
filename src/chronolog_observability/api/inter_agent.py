@@ -21,6 +21,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import threading
 import time
 import uuid
 from typing import Any
@@ -366,5 +367,175 @@ def list_inter_agent_raw(scenario_id):
             "scenario_id": scenario_id,
             "events": [ev.to_dict() for ev in events],
         }),
+        content_type="application/json",
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Demo traffic generator — synthetic, NO LLM cost (backs the dashboard button)
+# ──────────────────────────────────────────────────────────────────────────
+
+_DEMO_ROLES = ["planner", "executor", "fetcher", "summarizer",
+               "retriever", "analyst", "validator", "coordinator"]
+_DEMO_TOOLS = ["call_remote_agent", "shard_query", "merge_results", "fetch_chunk", "broadcast_plan"]
+_DEMO_MODELS = ["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5"]
+_DEMO_THOUGHTS = ["Selecting which peer to delegate to.", "Merging shard results.",
+                  "Estimating the token budget.", "Checking the retrieved chunk.",
+                  "Drafting the downstream prompt."]
+
+
+def _demo_role(n: int) -> str:
+    base = _DEMO_ROLES[n % len(_DEMO_ROLES)]
+    rep = n // len(_DEMO_ROLES)
+    return base if rep == 0 else f"{base}{rep + 1}"
+
+
+def _demo_hosts() -> list:
+    """Allocation nodes so the burst lands on real cluster nodes; else a default."""
+    try:
+        from .chronolog_view import _allocation_nodes
+        h = _allocation_nodes()
+        if h:
+            return h
+    except Exception:
+        pass
+    return ["ares-comp-03", "ares-comp-04", "ares-comp-05", "ares-comp-06"]
+
+
+def _demo_pair(agents, pattern, r, rng):
+    """Pick (from, to) agents for round r given a topology pattern."""
+    n = len(agents)
+    if pattern == "star":
+        fa = agents[0]
+        ta = rng.choice([a for a in agents if a is not fa])
+    elif pattern == "pipeline":
+        i = r % max(1, n - 1)
+        fa, ta = agents[i], agents[i + 1]
+    elif pattern == "ring":
+        i = r % n
+        fa, ta = agents[i], agents[(i + 1) % n]
+    else:  # mesh — 35% coordinator-out, else random peer-to-peer
+        fa = agents[0] if rng.random() < 0.35 else rng.choice(agents)
+        ta = rng.choice([a for a in agents if a is not fa])
+    return fa, ta
+
+
+def _run_demo_burst(scenario: str, n_agents: int, rounds: int, interval: float,
+                    with_spool: bool, err_rate: float, pattern: str) -> None:
+    import random
+    from datetime import datetime, timezone
+
+    rng = random.Random()
+    hosts = _demo_hosts()
+    agents = [{"sid": f"{_demo_role(n)}@{scenario}", "role": _demo_role(n), "host": hosts[n % len(hosts)]}
+              for n in range(n_agents)]
+    store = get_store()
+    spool = None
+    if with_spool:
+        try:
+            from ..capture.spool import get_spool
+            spool = get_spool()
+        except Exception:
+            spool = None
+    seq = {a["sid"]: 0 for a in agents}
+
+    def _emit(msg):
+        try:
+            store.append(msg)
+            _publish(msg)
+        except Exception:
+            log.warning("demo burst emit failed", exc_info=True)
+
+    for r in range(rounds):
+        fa, ta = _demo_pair(agents, pattern, r, rng)
+        if fa is ta:
+            continue
+        cid = uuid.uuid4().hex
+        tool = rng.choice(_DEMO_TOOLS)
+        _emit(new_message(
+            scenario_id=scenario, from_host=fa["host"], from_session=fa["sid"],
+            to_host=ta["host"], to_session=ta["sid"], phase="start",
+            correlation_id=cid, kind="mcp_call", tool_name=tool, ingest_ns=time.time_ns()))
+        time.sleep(min(0.4, interval / 3))
+        err = rng.random() < err_rate
+        _emit(new_message(
+            scenario_id=scenario, from_host=fa["host"], from_session=fa["sid"],
+            to_host=ta["host"], to_session=ta["sid"], phase="done",
+            correlation_id=cid, kind="mcp_call", tool_name=tool,
+            status=("error:peer timed out" if err else "ok"),
+            latency_ms=round(rng.uniform(80, 1900), 1), ingest_ns=time.time_ns()))
+        if spool is not None:
+            ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            for a, peer in ((fa, ta), (ta, fa)):
+                seq[a["sid"]] += 1
+                s = seq[a["sid"]]
+                in_tok = rng.randint(400, 4000)
+                out_tok = rng.randint(40, 600)
+                thought = rng.choice(_DEMO_THOUGHTS)
+                failed = err and a is ta
+                # Real-agent record shape so the convo renders fully in the
+                # Workspace + Interactions detail (request body, response text,
+                # token metrics) — not just an empty skeleton.
+                try:
+                    spool.record_interaction(a["sid"], {
+                        "session_id": a["sid"], "sequence_id": s, "scenario_id": scenario,
+                        "host": a["host"], "timestamp": ts, "provider": "anthropic",
+                        "model": rng.choice(_DEMO_MODELS),
+                        "request": {"method": "POST", "path": "/v1/messages",
+                                    "body": {"system": f"You are the {a['role']} agent on {a['host']}.",
+                                             "messages": [{"role": "user",
+                                                           "content": f"[turn {s}] {thought} "
+                                                                      f"(peer: {peer['role']}, tool: {tool})"}]}},
+                        "response": {"status_code": 500 if failed else 200,
+                                     "text": ("peer timed out" if failed else f"{a['role']}: {thought}"),
+                                     "is_streaming": False},
+                        "metrics": {"total_latency_ms": round(rng.uniform(200, 2400)),
+                                    "delta_input_tokens": in_tok, "delta_output_tokens": out_tok,
+                                    "delta_cost_usd": round(in_tok * 3e-6 + out_tok * 1.5e-5, 6)},
+                    }, sequence_id=s)
+                    spool.record_context_node(a["sid"], {
+                        "op": rng.choice(["add", "add", "add", "evict"]), "node": f"ctx-{s}",
+                        "summary": f"{a['role']}: {thought}", "timestamp": ts,
+                        "tokens": rng.randint(50, 600),
+                        "delta_input_tokens": in_tok, "delta_output_tokens": out_tok}, sequence_id=s)
+                except Exception:
+                    pass
+        time.sleep(interval)
+    log.info("demo burst done: scenario=%s agents=%d rounds=%d pattern=%s", scenario, n_agents, rounds, pattern)
+
+
+@bp.route("/_demo/burst", methods=["POST"])
+def demo_burst():
+    """Fire a synthetic inter-agent burst (NO LLM cost) so the live views light
+    up on demand — backs the dashboard's "Generate demo traffic" button. Runs in
+    a background thread; edges stream to the SSE bus + hot store, and the convo
+    (LLM turns + context) is spooled so it lands in Workspace/Interactions/Memory.
+
+    Body (all optional): {scenario, agents, rounds, interval, err_rate, pattern, spool}.
+    ``pattern`` is one of mesh | star | pipeline | ring.
+    """
+    data = request.get_json(silent=True) or {}
+    scenario = (str(data.get("scenario") or "demo-live").strip() or "demo-live")
+    pattern = str(data.get("pattern") or "mesh").strip().lower()
+    if pattern not in ("mesh", "star", "pipeline", "ring"):
+        pattern = "mesh"
+    try:
+        n_agents = max(2, min(int(data.get("agents") or 8), 32))
+        rounds = max(1, min(int(data.get("rounds") or 30), 300))
+        interval = max(0.1, min(float(data.get("interval") or 1.0), 5.0))
+        raw_err = data.get("err_rate")
+        err_rate = 0.12 if raw_err is None else max(0.0, min(float(raw_err), 1.0))
+    except (TypeError, ValueError):
+        return Response(json.dumps({"error": "agents/rounds/interval/err_rate must be numeric"}),
+                        status=400, content_type="application/json")
+    with_spool = bool(data.get("spool", True))
+    threading.Thread(
+        target=_run_demo_burst,
+        args=(scenario, n_agents, rounds, interval, with_spool, err_rate, pattern),
+        name="demo-burst", daemon=True,
+    ).start()
+    return Response(
+        json.dumps({"started": True, "scenario": scenario, "agents": n_agents, "rounds": rounds,
+                    "interval": interval, "pattern": pattern, "err_rate": err_rate}),
         content_type="application/json",
     )

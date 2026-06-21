@@ -251,10 +251,17 @@ class InterAgentStore:
             raise ValueError("scenario_id is required")
 
         backend = self._chronolog()
-        if backend is None:
-            self._append_jsonl(msg)
-            return
-        if skip_chronolog:
+        # Always keep a local hot copy. The live view cannot wait out the
+        # ~180s keeper->grapher drain, and a ReplayStory on an un-drained story
+        # blocks for *minutes* holding the GIL — so reads must be served from a
+        # local, instant, GIL-safe store. ChronoLog stays the durable cold path.
+        self._append_jsonl(msg)
+        if backend is None or skip_chronolog:
+            # Offline: JSONL is the only copy. Collector-forwarded events
+            # (skip_chronolog) are already durable in ChronoLog via the
+            # node-local keeper, so we keep only the hot copy and don't
+            # double-write — but we DO keep it, so the dashboard can serve the
+            # full picture instantly instead of waiting on the drain.
             return
         # ChronoLog append failures bubble up to the ingest API as 5xx.
         self._append_chronolog(msg, backend)
@@ -275,13 +282,39 @@ class InterAgentStore:
         backend = self._chronolog()
         if backend is None:
             return self._list_scenarios_jsonl()
-        return self._list_scenarios_chronolog(backend)
+        # Union of the local hot store (instant; the current run) and the
+        # ChronoLog index (CSV-backed, GIL-safe; historical runs). Either may
+        # lag the other within the drain window, so merge both.
+        merged = set(self._list_scenarios_jsonl())
+        merged.update(self._list_scenarios_chronolog(backend))
+        return sorted(merged)
+
+    def list_local_scenarios(self) -> List[str]:
+        """Scenario ids with a local hot-store (JSONL) copy.
+
+        These are the current run's live scenarios — readable instantly and
+        without ANY ChronoLog replay, so callers that poll frequently (the
+        Cluster comms view) stay completely off the GIL-blocking path.
+        """
+        return self._list_scenarios_jsonl()
 
     def read(self, scenario_id: str) -> List[InterAgentMessage]:
-        """Read all events for one scenario, in chronological order."""
+        """Read all events for one scenario, in chronological order.
+
+        Hot local copy first: it is instant and GIL-safe, and holds everything
+        this dashboard ingested (it survives a restart — the JSONL lives on the
+        shared state dir). ChronoLog is consulted only for scenarios absent
+        locally (historical runs, or events this process never saw), where the
+        story is long drained so the replay returns promptly (or hits the CSV
+        archive fallback). This keeps the live view off the GIL-blocking
+        ReplayStory path for anything currently in flight.
+        """
+        local = self._read_jsonl(scenario_id)
+        if local:
+            return local
         backend = self._chronolog()
         if backend is None:
-            return self._read_jsonl(scenario_id)
+            return []
         return self._read_chronolog(scenario_id, backend)
 
     def read_stitched(self, scenario_id: str) -> List[dict]:

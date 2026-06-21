@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   getChronologEvents,
+  getClusterComms,
   getClusterTopology,
   type ClusterChronicle,
+  type ClusterComms,
   type ClusterKeeper,
   type ClusterTopology,
 } from "../api";
+import ClusterCommsGraph from "../components/workspace/ClusterCommsGraph";
+import DemoBurstButton from "../components/DemoBurstButton";
 
 const REFRESH_MS = 10_000;
 
@@ -22,6 +26,8 @@ export default function ClusterPage() {
   const [error, setError] = useState<string | null>(null);
   const [showStale, setShowStale] = useState(false);
   const [openStory, setOpenStory] = useState<{ chronicle: string; story: string } | null>(null);
+  const [comms, setComms] = useState<ClusterComms | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -38,6 +44,27 @@ export default function ClusterPage() {
     const id = setInterval(refresh, REFRESH_MS);
     return () => clearInterval(id);
   }, [refresh]);
+
+  // Node-to-node comms polls faster than the keeper topology — it is the live
+  // answer to "which nodes are talking to each other", served from the instant
+  // hot store, so a tighter tick keeps it feeling real-time.
+  useEffect(() => {
+    let cancelled = false;
+    const tick = () =>
+      getClusterComms()
+        .then((c) => {
+          if (!cancelled) setComms(c);
+        })
+        .catch(() => {
+          /* transient — keep the last good comms */
+        });
+    void tick();
+    const id = setInterval(tick, 2500);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
 
   if (error && !topo) {
     return <div className="p-6 text-xs text-fg-muted">Cluster view unavailable: {error}</div>;
@@ -80,6 +107,43 @@ export default function ClusterPage() {
         <Kpi label="Chronicles" value={String(new Set(topo.chronicles.map((c) => c.chronicle)).size)} />
         <Kpi label="Scenarios" value={String(topo.scenarios.length)} />
         <Kpi label="Drain window" value={`${topo.drain_window_sec}s`} />
+      </section>
+
+      <section className="px-5 py-4 border-b border-border-soft">
+        <div className="flex items-center gap-2 mb-2">
+          <SectionTitle>Node communication (live)</SectionTitle>
+          {comms && comms.edges.length > 0 && (
+            <span
+              className="flex items-center gap-1 text-[10px] font-medium -mt-1.5"
+              style={{ color: "rgb(var(--accent))" }}
+            >
+              <span
+                className="inline-block w-1.5 h-1.5 rounded-full animate-pulse"
+                style={{ backgroundColor: "currentColor" }}
+              />
+              {comms.edges.reduce((n, e) => n + e.count, 0)} msgs ·{" "}
+              {comms.scenarios.length} scenario{comms.scenarios.length === 1 ? "" : "s"}
+            </span>
+          )}
+          <label className="ml-auto flex items-center gap-1.5 text-[11px] text-fg-muted cursor-pointer select-none">
+            <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
+            show all flows
+          </label>
+          <DemoBurstButton defaultScenario="demo-live" />
+        </div>
+        {comms ? (
+          comms.edges.length === 0 ? (
+            <div className="text-xs text-fg-muted">
+              {comms.hosts.length} node{comms.hosts.length === 1 ? "" : "s"} in the
+              allocation; no inter-agent messages observed yet. Edges appear here
+              the moment agents start communicating.
+            </div>
+          ) : (
+            <ClusterCommsGraph comms={comms} activeOnly={!showAll} />
+          )
+        ) : (
+          <div className="text-xs text-fg-muted">Loading node communication…</div>
+        )}
       </section>
 
       <section className="px-5 py-4 border-b border-border-soft">

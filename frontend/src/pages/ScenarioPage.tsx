@@ -8,6 +8,8 @@ import ScenarioDetailPanel, {
 } from "../components/workspace/ScenarioDetailPanel";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { getScenarioGraph } from "../api";
+import DemoBurstButton from "../components/DemoBurstButton";
+import { useLiveScenario } from "../hooks/useLiveScenario";
 import type { ScenarioGraph } from "../types";
 
 interface Props {
@@ -76,7 +78,15 @@ export default function ScenarioPage({ onOpenAgent, onOpenHost }: Props) {
     window.history.replaceState(null, "", url);
   }, [scenarioId]);
 
-  const { graph, loading, error } = useScenario(scenarioId);
+  // Live (inter-agent edges, real-time, GIL-safe) vs Full (/graph with Path-A
+  // token metrics, for already-drained scenarios). Live is the default so the
+  // graph populates instantly and lights up as agents communicate.
+  const [mode, setMode] = useState<"live" | "full">("live");
+  const live = useLiveScenario(mode === "live" ? scenarioId : null);
+  const full = useScenario(mode === "full" ? scenarioId : null);
+  const graph = mode === "live" ? live.graph : full.graph;
+  const loading = mode === "live" ? live.loading : full.loading;
+  const error = mode === "live" ? live.error : full.error;
   const [view, setView] = useState<TopologyView>("auto");
 
   // Cluster-level KPIs for the strip under the header — cheap aggregates
@@ -204,8 +214,38 @@ export default function ScenarioPage({ onOpenAgent, onOpenHost }: Props) {
               <span className="text-fg-muted">No scenario selected</span>
             )}
           </span>
+          <div className="ml-auto">
+            <DemoBurstButton
+              defaultScenario={scenarioId || "demo-live"}
+              onFired={(s) => {
+                if (scenarioId !== s) setScenarioId(s);
+              }}
+            />
+          </div>
+          {scenarioId && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase tracking-widest text-fg-muted">mode</span>
+              <div className="flex items-center gap-0.5 text-[10px] rounded border border-border-soft overflow-hidden">
+                <ViewButton label="Live" active={mode === "live"} onClick={() => setMode("live")} />
+                <ViewButton label="Full" active={mode === "full"} onClick={() => setMode("full")} />
+              </div>
+              {mode === "live" && (
+                <span
+                  className="flex items-center gap-1 text-[10px] font-medium"
+                  style={{ color: live.isLive ? "rgb(var(--accent))" : "rgb(var(--fg-muted))" }}
+                  title="Inter-agent edges stream in real time from the live bus"
+                >
+                  <span
+                    className={`inline-block w-1.5 h-1.5 rounded-full ${live.isLive ? "animate-pulse" : ""}`}
+                    style={{ backgroundColor: "currentColor" }}
+                  />
+                  {live.isLive ? `LIVE · ${live.edgeCount} msg` : "connecting…"}
+                </span>
+              )}
+            </div>
+          )}
           {graph && (
-            <div className="ml-auto flex items-center gap-3">
+            <div className="flex items-center gap-3">
               {timeDomain && !replayOn && (
                 <button
                   type="button"
