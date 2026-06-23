@@ -32,6 +32,9 @@ _BLUEPRINTS = [
     ("chronolog_observability.api.semantic", "bp", "/api", Capability.SEMANTIC),
     ("chronolog_observability.api.inter_agent", "bp", "/api", Capability.INTER_AGENT),
     ("chronolog_observability.api.chronolog_view", "bp", "/api", Capability.CLUSTER),
+    ("chronolog_observability.api.diagnostics", "bp", "/api", Capability.DIAGNOSTICS),
+    ("chronolog_observability.api.fleet", "bp", "/api", Capability.FLEET),
+    ("chronolog_observability.api.tracing", "bp", "/api", Capability.TRACING),
 ]
 
 
@@ -67,6 +70,7 @@ def create_app(config: Config | None = None) -> Flask:
         )
 
     _maybe_start_capture(config)
+    _maybe_start_doctor(config)
     _register_spa(app)
     return app
 
@@ -93,6 +97,30 @@ def _maybe_start_capture(config: Config) -> None:
             log.info("path-a capture worker started (interval=%.1fs)", interval)
     except Exception as exc:  # never let capture wiring break the dashboard
         log.warning("path-a capture worker not started: %s", exc)
+
+
+def _maybe_start_doctor(config: Config) -> None:
+    """Start the ChronoDoctor background scanner if opted in via ``CHRONOLOG_DOCTOR=1``.
+
+    ChronoDoctor's detection always runs on demand (the Doctor tab / API trigger
+    a scan). The daemon is the *live* mode: it scans on a timer so incidents pop
+    in without a click and the incident-memory digest accrues across the run. Off
+    by default — like capture, the dashboard is a reader first.
+    """
+    import os
+
+    flag = os.environ.get("CHRONOLOG_DOCTOR", "")
+    if flag.strip().lower() not in ("1", "true", "yes", "on"):
+        return
+    try:
+        from .diagnostics.worker import start_doctor_worker
+
+        interval = float(os.environ.get("CHRONOLOG_DOCTOR_INTERVAL", "30"))
+        worker = start_doctor_worker(interval_sec=interval)
+        if worker is not None:
+            log.info("chronodoctor worker started (interval=%.1fs)", interval)
+    except Exception as exc:  # never let diagnostics wiring break the dashboard
+        log.warning("chronodoctor worker not started: %s", exc)
 
 
 def _register_spa(app: Flask) -> None:

@@ -3,6 +3,7 @@ import {
   getChronologEvents,
   getClusterComms,
   getClusterTopology,
+  getClusterCapacity,
   type ClusterChronicle,
   type ClusterComms,
   type ClusterKeeper,
@@ -28,6 +29,22 @@ export default function ClusterPage() {
   const [openStory, setOpenStory] = useState<{ chronicle: string; story: string } | null>(null);
   const [comms, setComms] = useState<ClusterComms | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [idleHosts, setIdleHosts] = useState<string[]>([]);
+
+  // The cluster's currently-idle/available nodes, shown as free nodes in the graph.
+  useEffect(() => {
+    let cancelled = false;
+    const tick = () =>
+      getClusterCapacity()
+        .then((c) => !cancelled && setIdleHosts(c.available ? c.idle ?? [] : []))
+        .catch(() => {});
+    void tick();
+    const id = setInterval(tick, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -139,7 +156,7 @@ export default function ClusterPage() {
               the moment agents start communicating.
             </div>
           ) : (
-            <ClusterCommsGraph comms={comms} activeOnly={!showAll} />
+            <ClusterCommsGraph comms={comms} activeOnly={!showAll} idleHosts={idleHosts} />
           )
         ) : (
           <div className="text-xs text-fg-muted">Loading node communication…</div>

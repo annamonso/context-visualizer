@@ -35,6 +35,9 @@ class Capability(enum.Enum):
     INTER_AGENT = "inter_agent"
     RECOVERY = "recovery"
     CLUSTER = "cluster"  # ChronoLog deployment view: keepers per node, chronicles
+    DIAGNOSTICS = "diagnostics"  # ChronoDoctor: detect/diagnose errors across stories
+    FLEET = "fleet"  # Fleet health: per-node rollups, scales to 100+ nodes
+    TRACING = "tracing"  # Distributed critical-path tracing across inter-agent edges
 
 
 @runtime_checkable

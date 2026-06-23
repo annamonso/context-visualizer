@@ -113,6 +113,7 @@ def _parse_event(data: dict, forwarded: bool = False) -> InterAgentMessage:
         status=status,
         latency_ms=latency_ms,
         ingest_ns=time.time_ns(),
+        parent_correlation_id=str(data.get("parent_correlation_id") or ""),
     )
     if forwarded:
         if data.get("event_id"):
@@ -390,16 +391,25 @@ def _demo_role(n: int) -> str:
     return base if rep == 0 else f"{base}{rep + 1}"
 
 
-def _demo_hosts() -> list:
-    """Allocation nodes so the burst lands on real cluster nodes; else a default."""
+def _demo_hosts(n_nodes: int = 0) -> list:
+    """REAL hosts to spread the burst across — never invented names.
+
+    Preference order: the live SLURM allocation, then the cluster's currently
+    idle nodes (from ``sinfo``). ``n_nodes`` caps how many are used (the UI
+    already caps it to the idle count). Only if there is no SLURM client at all
+    do we fall back to a labelled placeholder set, so demos still run offline.
+    """
+    pool: list = []
     try:
-        from .chronolog_view import _allocation_nodes
-        h = _allocation_nodes()
-        if h:
-            return h
+        from .chronolog_view import _allocation_nodes, idle_node_names
+        pool = _allocation_nodes() or idle_node_names()
     except Exception:
-        pass
-    return ["ares-comp-03", "ares-comp-04", "ares-comp-05", "ares-comp-06"]
+        pool = []
+    if pool:
+        return pool[:n_nodes] if n_nodes and n_nodes > 0 else pool
+    # No SLURM client (pure offline demo): use clearly-synthetic placeholders.
+    count = n_nodes if n_nodes and n_nodes > 0 else 4
+    return [f"demo-node-{i:02d}" for i in range(count)]
 
 
 def _demo_pair(agents, pattern, r, rng):
@@ -421,12 +431,13 @@ def _demo_pair(agents, pattern, r, rng):
 
 
 def _run_demo_burst(scenario: str, n_agents: int, rounds: int, interval: float,
-                    with_spool: bool, err_rate: float, pattern: str) -> None:
+                    with_spool: bool, err_rate: float, pattern: str,
+                    n_nodes: int = 0) -> None:
     import random
     from datetime import datetime, timezone
 
     rng = random.Random()
-    hosts = _demo_hosts()
+    hosts = _demo_hosts(n_nodes)
     agents = [{"sid": f"{_demo_role(n)}@{scenario}", "role": _demo_role(n), "host": hosts[n % len(hosts)]}
               for n in range(n_agents)]
     store = get_store()
@@ -438,6 +449,11 @@ def _run_demo_burst(scenario: str, n_agents: int, rounds: int, interval: float,
         except Exception:
             spool = None
     seq = {a["sid"]: 0 for a in agents}
+    # Track the call each agent is currently servicing, so when it makes an
+    # outbound call we can stamp parent_correlation_id and the tracer builds a
+    # real multi-hop call tree (otherwise every span is a flat sibling and the
+    # Traces view looks "all the same").
+    servicing: dict = {}
 
     def _emit(msg):
         try:
@@ -452,10 +468,15 @@ def _run_demo_burst(scenario: str, n_agents: int, rounds: int, interval: float,
             continue
         cid = uuid.uuid4().hex
         tool = rng.choice(_DEMO_TOOLS)
+        parent = servicing.get(fa["sid"], "")
         _emit(new_message(
             scenario_id=scenario, from_host=fa["host"], from_session=fa["sid"],
             to_host=ta["host"], to_session=ta["sid"], phase="start",
-            correlation_id=cid, kind="mcp_call", tool_name=tool, ingest_ns=time.time_ns()))
+            correlation_id=cid, kind="mcp_call", tool_name=tool,
+            parent_correlation_id=parent, ingest_ns=time.time_ns()))
+        # The callee is now servicing this call — its next outbound call nests
+        # under it. Cleared after the call completes below.
+        servicing[ta["sid"]] = cid
         time.sleep(min(0.4, interval / 3))
         err = rng.random() < err_rate
         _emit(new_message(
@@ -463,7 +484,9 @@ def _run_demo_burst(scenario: str, n_agents: int, rounds: int, interval: float,
             to_host=ta["host"], to_session=ta["sid"], phase="done",
             correlation_id=cid, kind="mcp_call", tool_name=tool,
             status=("error:peer timed out" if err else "ok"),
+            parent_correlation_id=parent,
             latency_ms=round(rng.uniform(80, 1900), 1), ingest_ns=time.time_ns()))
+        servicing.pop(ta["sid"], None)
         if spool is not None:
             ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             for a, peer in ((fa, ta), (ta, fa)):
@@ -511,8 +534,9 @@ def demo_burst():
     a background thread; edges stream to the SSE bus + hot store, and the convo
     (LLM turns + context) is spooled so it lands in Workspace/Interactions/Memory.
 
-    Body (all optional): {scenario, agents, rounds, interval, err_rate, pattern, spool}.
-    ``pattern`` is one of mesh | star | pipeline | ring.
+    Body (all optional): {scenario, agents, nodes, rounds, interval, err_rate, pattern, spool}.
+    ``pattern`` is one of mesh | star | pipeline | ring. ``nodes`` spreads the
+    agents across that many synthetic hosts (0 = use the real allocation).
     """
     data = request.get_json(silent=True) or {}
     scenario = (str(data.get("scenario") or "demo-live").strip() or "demo-live")
@@ -520,22 +544,23 @@ def demo_burst():
     if pattern not in ("mesh", "star", "pipeline", "ring"):
         pattern = "mesh"
     try:
-        n_agents = max(2, min(int(data.get("agents") or 8), 32))
-        rounds = max(1, min(int(data.get("rounds") or 30), 300))
-        interval = max(0.1, min(float(data.get("interval") or 1.0), 5.0))
+        n_agents = max(2, min(int(data.get("agents") or 8), 200))
+        n_nodes = max(0, min(int(data.get("nodes") or 0), 200))
+        rounds = max(1, min(int(data.get("rounds") or 30), 1000))
+        interval = max(0.0, min(float(data.get("interval") or 1.0), 5.0))
         raw_err = data.get("err_rate")
         err_rate = 0.12 if raw_err is None else max(0.0, min(float(raw_err), 1.0))
     except (TypeError, ValueError):
-        return Response(json.dumps({"error": "agents/rounds/interval/err_rate must be numeric"}),
+        return Response(json.dumps({"error": "agents/nodes/rounds/interval/err_rate must be numeric"}),
                         status=400, content_type="application/json")
     with_spool = bool(data.get("spool", True))
     threading.Thread(
         target=_run_demo_burst,
-        args=(scenario, n_agents, rounds, interval, with_spool, err_rate, pattern),
+        args=(scenario, n_agents, rounds, interval, with_spool, err_rate, pattern, n_nodes),
         name="demo-burst", daemon=True,
     ).start()
     return Response(
-        json.dumps({"started": True, "scenario": scenario, "agents": n_agents, "rounds": rounds,
-                    "interval": interval, "pattern": pattern, "err_rate": err_rate}),
+        json.dumps({"started": True, "scenario": scenario, "agents": n_agents, "nodes": n_nodes,
+                    "rounds": rounds, "interval": interval, "pattern": pattern, "err_rate": err_rate}),
         content_type="application/json",
     )

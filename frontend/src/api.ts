@@ -272,6 +272,29 @@ export async function getClusterTopology(includeStale = false): Promise<ClusterT
   return res.json();
 }
 
+// ── Cluster capacity (SLURM): total / idle / busy / down ───────────────────
+
+export interface ClusterCapacity {
+  available: boolean;
+  reason?: string;
+  total?: number;
+  idle_count?: number;
+  busy_count?: number;
+  down_count?: number;
+  idle?: string[];
+  busy?: string[];
+  down?: string[];
+  partitions?: string[];
+  /** Full per-node status map: name -> { status: idle|busy|down, partitions }. */
+  nodes?: Record<string, { status: "idle" | "busy" | "down"; partitions: string[] }>;
+}
+
+export async function getClusterCapacity(): Promise<ClusterCapacity> {
+  const res = await fetch("/api/cluster/capacity");
+  if (!res.ok) throw new Error(`Failed to get cluster capacity: ${res.status}`);
+  return res.json();
+}
+
 // ── Cluster tab: live node-to-node communication ──────────────────────────
 
 export interface ClusterCommsHost {
@@ -383,6 +406,7 @@ export async function getMemoryContext(sessionId: string): Promise<MemoryContext
 export interface DemoBurstOpts {
   scenario?: string;
   agents?: number;
+  nodes?: number; // spread the agents across this many synthetic hosts
   rounds?: number;
   interval?: number;
   pattern?: string; // mesh | star | pipeline | ring
@@ -414,5 +438,219 @@ export async function clearInteractions(
     body: JSON.stringify({ scope, sessionId }),
   });
   if (!res.ok) throw new Error(`Clear failed: ${res.status}`);
+  return res.json();
+}
+
+// ── Doctor tab: ChronoDoctor error detection & diagnosis ───────────────────
+
+export interface IncidentDiagnosis {
+  root_cause: string;
+  blast_radius: string;
+  remediation: string;
+  confidence: number;
+  source: string;
+}
+
+export interface Incident {
+  signature: string;
+  kind: string;
+  title: string;
+  severity: "info" | "warning" | "error" | "critical";
+  count: number;
+  first_ts: string;
+  last_ts: string;
+  hosts: string[];
+  sessions: string[];
+  tools: string[];
+  models: string[];
+  scenarios: string[];
+  samples: Record<string, unknown>[];
+  diagnosis: IncidentDiagnosis;
+  recurring?: boolean;
+  prior_count?: number;
+}
+
+export interface DoctorReport {
+  generated_ns: number;
+  incidents: Incident[];
+  totals: Record<string, number>;
+  scanned: Record<string, number>;
+  error: string | null;
+}
+
+export async function getIncidents(): Promise<DoctorReport> {
+  const res = await fetch("/api/diagnostics/incidents");
+  if (!res.ok) throw new Error(`Failed to get incidents: ${res.status}`);
+  return res.json();
+}
+
+export async function runDoctorScan(): Promise<DoctorReport> {
+  const res = await fetch("/api/diagnostics/scan", { method: "POST" });
+  if (!res.ok) throw new Error(`Doctor scan failed: ${res.status}`);
+  return res.json();
+}
+
+export interface DoctorStatus {
+  running: boolean;
+  generated_ns: number;
+  totals: Record<string, number>;
+}
+
+export async function getDoctorStatus(): Promise<DoctorStatus> {
+  const res = await fetch("/api/diagnostics/status");
+  if (!res.ok) throw new Error(`Failed to get doctor status: ${res.status}`);
+  return res.json();
+}
+
+/** Activate / deactivate ChronoDoctor's live background scanner. */
+export async function setDoctorWatch(enabled: boolean): Promise<{ running: boolean }> {
+  const res = await fetch("/api/diagnostics/watch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled }),
+  });
+  if (!res.ok) throw new Error(`Failed to set doctor watch: ${res.status}`);
+  return res.json();
+}
+
+export async function getIncidentMemory(): Promise<string> {
+  const res = await fetch("/api/diagnostics/memory");
+  if (!res.ok) throw new Error(`Failed to get incident memory: ${res.status}`);
+  return res.text();
+}
+
+/** SSE: the latest Doctor report whenever it changes. */
+export function openDoctorStream(
+  onReport: (rep: DoctorReport) => void,
+  onError: () => void,
+): EventSource {
+  const source = new EventSource("/api/diagnostics/stream");
+  source.addEventListener("report", (ev) => {
+    try {
+      onReport(JSON.parse((ev as MessageEvent).data) as DoctorReport);
+    } catch {
+      /* next frame resyncs */
+    }
+  });
+  source.addEventListener("error", () => onError());
+  return source;
+}
+
+// ── Fleet tab: per-node health rollups (scales to 100+ nodes) ──────────────
+
+export interface NodeHealth {
+  host: string;
+  events: number;
+  errors: number;
+  error_rate: number;
+  avg_latency_ms: number;
+  p95_latency_ms: number;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  cost_usd: number;
+  agents: number;
+  last_minute: number;
+  in_allocation: boolean;
+  status: "ok" | "warn" | "crit";
+}
+
+export interface FleetHealth {
+  window_sec: number;
+  now_ns: number;
+  allocation: string[];
+  summary: Record<string, number>;
+  nodes: NodeHealth[];
+}
+
+export async function getFleetHealth(window?: string): Promise<FleetHealth> {
+  const qs = window ? `?window=${encodeURIComponent(window)}` : "";
+  const res = await fetch(`/api/fleet/health${qs}`);
+  if (!res.ok) throw new Error(`Failed to get fleet health: ${res.status}`);
+  return res.json();
+}
+
+export interface FleetBucket {
+  host: string;
+  minute: number;
+  events: number;
+  errors: number;
+  latency_p95: number;
+  cost_usd: number;
+  agents: number;
+}
+
+export interface FleetNodeDetail {
+  host: string;
+  health: NodeHealth;
+  series: FleetBucket[];
+}
+
+export async function getFleetNode(host: string, window?: string): Promise<FleetNodeDetail> {
+  const qs = window ? `?window=${encodeURIComponent(window)}` : "";
+  const res = await fetch(`/api/fleet/node/${encodeURIComponent(host)}${qs}`);
+  if (!res.ok) throw new Error(`Failed to get fleet node: ${res.status}`);
+  return res.json();
+}
+
+// ── Traces tab: distributed critical-path tracing ──────────────────────────
+
+export interface TraceSpan {
+  correlation_id: string;
+  parent_id: string | null;
+  from_host: string;
+  from_session: string;
+  to_host: string;
+  to_session: string;
+  tool_name: string;
+  status: string;
+  is_error: boolean;
+  latency_ms: number;
+  start_offset_ms: number;
+  depth: number;
+  children: string[];
+  /** Exclusive time (set on critical-path chain spans). */
+  self_time_ms?: number;
+}
+
+export interface CriticalPath {
+  total_latency_ms: number;
+  hops: number;
+  chain: TraceSpan[];
+  bottleneck: TraceSpan | null;
+  root_id?: string;
+  wall_ms?: number;
+  scenario_id?: string;
+}
+
+export interface Trace {
+  root_id: string;
+  scenario_id: string;
+  span_count: number;
+  start_ns: number;
+  end_ns: number;
+  wall_ms: number;
+  error_count: number;
+  spans: TraceSpan[];
+  critical_path: CriticalPath;
+}
+
+export async function getTraceScenarios(): Promise<string[]> {
+  const res = await fetch("/api/tracing/scenarios");
+  if (!res.ok) throw new Error(`Failed to get trace scenarios: ${res.status}`);
+  const d = await res.json();
+  return Array.isArray(d?.scenarios) ? d.scenarios : [];
+}
+
+export async function getTraces(scenario: string): Promise<Trace[]> {
+  const res = await fetch(`/api/tracing/${encodeURIComponent(scenario)}/traces`);
+  if (!res.ok) throw new Error(`Failed to get traces: ${res.status}`);
+  const d = await res.json();
+  return Array.isArray(d?.traces) ? (d.traces as Trace[]) : [];
+}
+
+export async function getCriticalPath(scenario: string): Promise<CriticalPath> {
+  const res = await fetch(`/api/tracing/${encodeURIComponent(scenario)}/critical-path`);
+  if (!res.ok) throw new Error(`Failed to get critical path: ${res.status}`);
   return res.json();
 }
