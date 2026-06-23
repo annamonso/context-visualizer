@@ -130,8 +130,7 @@ from a **local hot store** written at ingest, with ChronoLog as the cold path:
 - **Cluster → node communication** — `/api/chronolog/comms` aggregates
   host-pair traffic from the hot store; the Cluster tab draws a live graph of
   which nodes are active and which are exchanging messages.
-- **Memory tab** — `/api/memory/*` reads the capture spool directly, so each
-  agent's working-memory (context-graph) tokens are shown growing/evicting live.
+
 
 Two robustness fixes make a *fresh* cluster work out of the box:
 `backend.client.index_list` is CSV-archive-first (a `ReplayStory` on a
