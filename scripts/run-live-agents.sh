@@ -41,20 +41,33 @@ fi
 
 VISOR_NODE="${NODES[0]}"
 FLASK_NODE="${NODES[1]}"
-# One real agent per node, scaling with the cluster: up to len(ROLES) agents,
-# capped at NUM-1 so we never put an agent on a node we don't have. The grapher
-# node (NODES[last]) is left agent-free. 4 nodes -> 3 agents; 8 nodes -> 6.
+# Agents per node. Default 1 (one role per node). Set AGENTS_PER_NODE=K to run K
+# REAL agents on EVERY node — each writes through that node's local collector +
+# keeper, so ChronoLog records every agent's turns/memory/edges per host. Roles
+# cycle with a numeric suffix so every agent has a unique role@scenario id.
 ALL_ROLES=(planner executor fetcher analyst retriever summarizer)
-NUM_AGENTS=$(( NUM-1 < ${#ALL_ROLES[@]} ? NUM-1 : ${#ALL_ROLES[@]} ))
-AGENT_NODES=( "${NODES[@]:0:$NUM_AGENTS}" )
-ROLES=( "${ALL_ROLES[@]:0:$NUM_AGENTS}" )
+AGENTS_PER_NODE="${AGENTS_PER_NODE:-1}"
+AGENT_NODES=()
+ROLES=()
+_idx=0
+for _node in "${NODES[@]}"; do
+  for (( _k=0; _k<AGENTS_PER_NODE; _k++ )); do
+    _base="${ALL_ROLES[$(( _idx % ${#ALL_ROLES[@]} ))]}"
+    _rep=$(( _idx / ${#ALL_ROLES[@]} ))
+    _role="$_base"; (( _rep > 0 )) && _role="${_base}${_rep}"
+    AGENT_NODES+=( "$_node" )
+    ROLES+=( "$_role" )
+    _idx=$(( _idx + 1 ))
+  done
+done
+NUM_AGENTS=${#AGENT_NODES[@]}
 FLASK_URL="http://${FLASK_NODE}:${FLASK_PORT}"
 
 echo "=================================================================="
 echo "  REAL-agent live test (chronolog-observability plugin)"
 echo "    SLURM job:  $JOB_ID   nodes($NUM): ${NODES[*]}"
 echo "    Dashboard:  $FLASK_URL   (capture-on, spool $STATE_DIR)"
-echo "    Agents:     ${AGENT_NODES[*]} as ${ROLES[*]}"
+echo "    Agents:     $NUM_AGENTS total ($AGENTS_PER_NODE per node) — ${ROLES[*]}"
 echo "    Model:      $AGENT_MODEL   rounds: $ROUNDS   scenario: $SCENARIO"
 echo "=================================================================="
 

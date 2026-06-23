@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { triggerDemoBurst } from "../api";
+import { useEffect, useState } from "react";
+import { triggerDemoBurst, getClusterCapacity } from "../api";
 
 /**
  * Configurable "Generate traffic" control. The button fires a burst with the
@@ -32,11 +32,29 @@ export default function DemoBurstButton(
   const [open, setOpen] = useState(false);
   const [scenario, setScenario] = useState(defaultScenario);
   const [agents, setAgents] = useState(8);
+  const [nodes, setNodes] = useState(0);
   const [rounds, setRounds] = useState(30);
   const [pattern, setPattern] = useState("mesh");
   const [errIdx, setErrIdx] = useState(1);
   const [speedIdx, setSpeedIdx] = useState(1);
   const [running, setRunning] = useState(false);
+  const [idleMax, setIdleMax] = useState<number | null>(null);
+
+  // When the panel opens, probe real cluster capacity so the Nodes field can be
+  // capped to the number of idle nodes ("Max").
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    getClusterCapacity()
+      .then((c) => {
+        if (cancelled) return;
+        if (c.available && typeof c.idle_count === "number") setIdleMax(c.idle_count);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   const run = async () => {
     const sc = (scenario || "demo-live").trim();
@@ -45,6 +63,7 @@ export default function DemoBurstButton(
       await triggerDemoBurst({
         scenario: sc,
         agents,
+        nodes,
         rounds,
         interval: SPEEDS[speedIdx].v,
         pattern,
@@ -101,11 +120,40 @@ export default function DemoBurstButton(
           </Row>
           <Row label="Agents">
             <input
-              type="number" min={2} max={32} value={agents}
-              onChange={(e) => setAgents(Math.max(2, Math.min(32, Number(e.target.value) || 2)))}
+              type="number" min={2} max={200} value={agents}
+              onChange={(e) => setAgents(Math.max(2, Math.min(200, Number(e.target.value) || 2)))}
               className="w-20 px-1.5 py-0.5 rounded border border-border-soft bg-transparent tabular-nums"
             />
           </Row>
+          <Row label="Nodes">
+            <div className="flex items-center gap-1.5">
+              <input
+                type="number" min={0} max={idleMax ?? 200}
+                value={nodes}
+                onChange={(e) => {
+                  const cap = idleMax ?? 200;
+                  setNodes(Math.max(0, Math.min(cap, Number(e.target.value) || 0)));
+                }}
+                title="How many hosts to spread the agents across. 0 = use the real SLURM allocation."
+                className="w-16 px-1.5 py-0.5 rounded border border-border-soft bg-transparent tabular-nums"
+              />
+              {idleMax != null && (
+                <button
+                  type="button"
+                  onClick={() => setNodes(idleMax)}
+                  className="px-1.5 py-0.5 rounded border border-border-soft text-[10px] hover:bg-canvas"
+                  title={`Use all ${idleMax} idle node(s)`}
+                >
+                  Max {idleMax}
+                </button>
+              )}
+            </div>
+          </Row>
+          {idleMax != null && (
+            <p className="text-[10px] text-fg-muted -mt-1">
+              {idleMax} node{idleMax === 1 ? "" : "s"} idle on the cluster right now.
+            </p>
+          )}
           <Row label="Rounds">
             <input
               type="number" min={1} max={300} value={rounds}

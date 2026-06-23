@@ -69,6 +69,10 @@ class InterAgentMessage:
     status: str = ""  # "ok" | "error:<msg>" | "" while in-flight
     latency_ms: float = 0.0
     ingest_ns: int = 0  # server-side monotonic stamp; survives collector relays
+    # Optional explicit parent link: the correlation_id of the call this one was
+    # made *while servicing*. Lets the tracer build exact call trees; when absent
+    # the tracer infers parents from session + time nesting. Additive, default "".
+    parent_correlation_id: str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -93,6 +97,7 @@ class InterAgentMessage:
             status=str(d.get("status") or ""),
             latency_ms=float(d.get("latency_ms") or 0.0),
             ingest_ns=int(d.get("ingest_ns") or 0),
+            parent_correlation_id=str(d.get("parent_correlation_id") or ""),
         )
 
 
@@ -342,6 +347,7 @@ class InterAgentStore:
                     "tool_name": ev.tool_name,
                     "payload_digest": ev.payload_digest,
                     "payload_preview": ev.payload_preview,
+                    "parent_correlation_id": ev.parent_correlation_id,
                     "ts_start": None,
                     "ts_done": None,
                     "status": "",
@@ -354,7 +360,8 @@ class InterAgentStore:
                 # Start events seed routing / payload info if not yet set.
                 for key in ("from_host", "from_session", "to_host",
                             "to_session", "kind", "tool_name",
-                            "payload_digest", "payload_preview"):
+                            "payload_digest", "payload_preview",
+                            "parent_correlation_id"):
                     if not slot[key]:
                         slot[key] = getattr(ev, key)
             else:  # done
@@ -399,6 +406,7 @@ def new_message(
     status: str = "",
     latency_ms: float = 0.0,
     ingest_ns: int = 0,
+    parent_correlation_id: str = "",
 ) -> InterAgentMessage:
     """Construct a new event with auto-generated event_id + timestamp."""
     return InterAgentMessage(
@@ -418,4 +426,5 @@ def new_message(
         status=status,
         latency_ms=latency_ms,
         ingest_ns=ingest_ns,
+        parent_correlation_id=parent_correlation_id,
     )

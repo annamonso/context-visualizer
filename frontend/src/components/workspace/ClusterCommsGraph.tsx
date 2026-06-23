@@ -28,6 +28,25 @@ const RADIUS = 200;
 const CENTER = { x: 300, y: 240 };
 const RECENT_MS = 9000;
 
+// Above this many nodes a ring is unreadable (labels overlap, edges cross into a
+// hairball), so we lay the nodes out on a grid instead. Below it the ring reads
+// better for a small cluster.
+const GRID_THRESHOLD = 10;
+const GRID_DX = 180;
+const GRID_DY = 96;
+
+/** Position node i: ring for small clusters, grid for large ones. */
+function nodePosition(i: number, n: number): { x: number; y: number } {
+  if (n <= GRID_THRESHOLD) {
+    const ang = (2 * Math.PI * i) / n - Math.PI / 2;
+    return { x: CENTER.x + RADIUS * Math.cos(ang), y: CENTER.y + RADIUS * Math.sin(ang) };
+  }
+  const cols = Math.ceil(Math.sqrt(n));
+  const row = Math.floor(i / cols);
+  const col = i % cols;
+  return { x: 40 + col * GRID_DX, y: 40 + row * GRID_DY };
+}
+
 function HostLabel({ h }: { h: ClusterCommsHost }) {
   return (
     <div className="text-left leading-tight">
@@ -48,19 +67,25 @@ function HostLabel({ h }: { h: ClusterCommsHost }) {
   );
 }
 
-function build(comms: ClusterComms, activeOnly: boolean): { nodes: Node[]; edges: Edge[] } {
+function build(
+  comms: ClusterComms,
+  activeOnly: boolean,
+  idleHosts: string[] = [],
+): { nodes: Node[]; edges: Edge[] } {
   const hosts = comms.hosts;
-  const n = Math.max(hosts.length, 1);
+  const norm = (h: string) => h.replace(/-40g$/, "").split(".")[0];
+  // Idle nodes the cluster has free, that aren't already part of our deployment
+  // — drawn as standalone "available" nodes so the Cluster page shows free
+  // capacity alongside the live deployment.
+  const present = new Set(hosts.map((h) => norm(h.host)));
+  const freeHosts = idleHosts.filter((h) => !present.has(norm(h)));
+  const n = Math.max(hosts.length + freeHosts.length, 1);
   const now = comms.now_ns ? comms.now_ns / 1e6 : Date.now();
 
   const nodes: Node[] = hosts.map((h, i) => {
-    const ang = (2 * Math.PI * i) / n - Math.PI / 2;
     return {
       id: h.host,
-      position: {
-        x: CENTER.x + RADIUS * Math.cos(ang),
-        y: CENTER.y + RADIUS * Math.sin(ang),
-      },
+      position: nodePosition(i, n),
       data: { label: <HostLabel h={h} /> },
       draggable: true,
       style: {
@@ -73,6 +98,35 @@ function build(comms: ClusterComms, activeOnly: boolean): { nodes: Node[]; edges
         padding: 6,
       },
     };
+  });
+
+  // Free/idle nodes: green dashed outline, labelled "idle · available".
+  freeHosts.forEach((host, j) => {
+    nodes.push({
+      id: host,
+      position: nodePosition(hosts.length + j, n),
+      data: {
+        label: (
+          <div className="text-left leading-tight">
+            <div className="flex items-center gap-1">
+              <span className="inline-block w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: "rgb(34 197 94)" }} />
+              <span className="font-mono text-[11px] font-semibold truncate">{host.split(".")[0]}</span>
+            </div>
+            <div className="text-[9px] text-fg-muted mt-0.5">idle · available</div>
+          </div>
+        ),
+      },
+      draggable: true,
+      style: {
+        width: 152,
+        borderRadius: 10,
+        border: "2px dashed rgb(34 197 94)",
+        background: "rgb(var(--bg-surface))",
+        color: "rgb(var(--fg-primary))",
+        opacity: 0.7,
+        padding: 6,
+      },
+    });
   });
 
   const edges: Edge[] = [];
@@ -106,11 +160,15 @@ function build(comms: ClusterComms, activeOnly: boolean): { nodes: Node[]; edges
 }
 
 export default function ClusterCommsGraph(
-  { comms, activeOnly = true }: { comms: ClusterComms; activeOnly?: boolean },
+  { comms, activeOnly = true, idleHosts = [] }:
+    { comms: ClusterComms; activeOnly?: boolean; idleHosts?: string[] },
 ) {
+  const idleKey = idleHosts.join(",");
   const { nodes: builtNodes, edges: builtEdges } = useMemo(
-    () => build(comms, activeOnly),
-    [comms, activeOnly],
+    () => build(comms, activeOnly, idleHosts),
+    // idleKey stands in for idleHosts (array identity changes each poll).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [comms, activeOnly, idleKey],
   );
   const [nodes, setNodes, onNodesChange] = useNodesState(builtNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(builtEdges);

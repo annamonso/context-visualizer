@@ -70,11 +70,15 @@ def _now_iso() -> str:
 
 
 def emit_edge(cfg: "Cfg", peer_host: str, peer_role: str, ask: str,
-              latency_ms: float, ok: bool = True) -> bool:
+              latency_ms: float, ok: bool = True, parent_corr: str = "") -> bool:
     """Emit a start+done inter-agent edge through the node-local collector.
 
     Falls back to the dashboard's ingest endpoint if the collector is
     unreachable (collector down / not launched). Returns True on success.
+
+    ``parent_corr`` is the correlation_id of the inbound call this agent is
+    servicing, if any — emitting it lets the critical-path tracer build exact
+    call trees instead of inferring parents from session + time nesting.
     """
     corr = uuid.uuid4().hex
     # from_session/to_session MUST be the scenario-scoped session ids
@@ -92,6 +96,7 @@ def emit_edge(cfg: "Cfg", peer_host: str, peer_role: str, ask: str,
         "to_session":     f"{peer_role}@{cfg.scenario}",
         "kind":           "mcp_call",
         "tool_name":      "call_remote_agent",
+        "parent_correlation_id": parent_corr or "",
     }
     start = dict(base, phase="start", payload={"role": cfg.my_role, "ask": ask})
     done = dict(base, phase="done", status="ok" if ok else "error",
@@ -168,6 +173,10 @@ def spool_turn(spool, cfg: Cfg, seq: int, kind: str, system: str, prompt: str,
     spool.record_interaction(session, record, sequence_id=seq)
     spool.record_context_node(session, {
         "op": "add", "node": f"{kind}-{seq}", "timestamp": ts, "model": model,
+        "summary": f"{kind} turn {seq}",
+        # `tokens` = content this turn added to working memory (so the Memory tab
+        # shows real growth); deltas kept for cost/metrics.
+        "tokens": out_tok,
         "delta_input_tokens": in_tok, "delta_output_tokens": out_tok,
         "delta_cost_usd": round(cost, 6), "latency_ms": round(latency_ms),
     }, sequence_id=seq)

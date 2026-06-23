@@ -504,3 +504,96 @@ def list_events():
         "events":    events,
         "count":     len(events),
     })
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Cluster capacity — what the underlying SLURM cluster looks like right now
+# ──────────────────────────────────────────────────────────────────────────
+#
+# Single source of truth for "what nodes exist and what state are they in",
+# from a live `sinfo`. The capacity badge, the Fleet/Cluster greying of
+# unavailable nodes, and the demo-traffic host selection all read from here, so
+# the dashboard never invents node names — it uses the cluster's real ones.
+# Degrades to available=False where the SLURM CLI is absent.
+
+def sinfo_nodes() -> Optional[Dict[str, Dict]]:
+    """Real per-node SLURM state, or None if `sinfo` is unavailable.
+
+    Returns ``{"nodes": {name: {"status": idle|busy|down, "partitions": [...]}},
+    "idle": [...], "busy": [...], "down": [...], "partitions": [...]}``.
+    """
+    import shutil
+    import subprocess
+
+    if not shutil.which("sinfo"):
+        return None
+    try:
+        out = subprocess.run(
+            ["sinfo", "-h", "-N", "-o", "%N|%t|%P"],
+            capture_output=True, text=True, timeout=10,
+        ).stdout
+    except Exception:
+        return None
+
+    raw: Dict[str, Dict] = {}
+    for line in out.splitlines():
+        parts = line.strip().split("|")
+        if len(parts) < 2:
+            continue
+        name, state = parts[0], parts[1].strip().rstrip("*")
+        partition = (parts[2].rstrip("*") if len(parts) > 2 else "").strip()
+        rec = raw.setdefault(name, {"state": state, "partitions": set()})
+        if partition:
+            rec["partitions"].add(partition)
+        order = {"idle": 0, "mix": 1, "alloc": 2}  # prefer the most-usable state
+        if order.get(state, 9) < order.get(rec["state"], 9):
+            rec["state"] = state
+
+    down_states = ("down", "drain", "drng", "draining", "inval", "fail", "maint")
+
+    def _cat(state: str) -> str:
+        if state.startswith("idle"):
+            return "idle"
+        if state.startswith(("mix", "alloc")):
+            return "busy"
+        if state in down_states:
+            return "down"
+        return "busy"  # unknown -> treat as unavailable (grey)
+
+    nodes = {
+        name: {"status": _cat(r["state"]), "partitions": sorted(r["partitions"])}
+        for name, r in raw.items()
+    }
+    idle = sorted(n for n, r in nodes.items() if r["status"] == "idle")
+    busy = sorted(n for n, r in nodes.items() if r["status"] == "busy")
+    down = sorted(n for n, r in nodes.items() if r["status"] == "down")
+    partitions = sorted({p for r in nodes.values() for p in r["partitions"]})
+    return {"nodes": nodes, "idle": idle, "busy": busy, "down": down, "partitions": partitions}
+
+
+def idle_node_names() -> List[str]:
+    """The cluster's currently-idle node names (real), or [] if unknown."""
+    info = sinfo_nodes()
+    return info["idle"] if info else []
+
+
+@bp.route("/cluster/capacity")
+def cluster_capacity():
+    """Per-node SLURM state for the whole cluster (real, from sinfo)."""
+    info = sinfo_nodes()
+    if info is None:
+        return jsonify({"available": False, "reason": "sinfo not found (no SLURM client here)"})
+    return jsonify({
+        "available": True,
+        "total": len(info["nodes"]),
+        "idle_count": len(info["idle"]),
+        "busy_count": len(info["busy"]),
+        "down_count": len(info["down"]),
+        "idle": info["idle"],
+        "busy": info["busy"],
+        "down": info["down"],
+        "partitions": info["partitions"],
+        # Full per-node status map so the Fleet/Cluster views can render EVERY
+        # real node and grey the unavailable ones.
+        "nodes": info["nodes"],
+    })

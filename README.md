@@ -191,6 +191,66 @@ Reusable pieces: `real_agent_chronolog.py` (the agent), `launch-dashboard.sh`,
 Verified **28/28** checks (all four tabs + the click-through) on live **4-node
 and 8-node** ChronoLog clusters.
 
+## Analytics features (ChronoDoctor · Fleet · Tracing)
+
+Three analytics views build on the same ChronoLog stories — each is served by
+the default adapter (advertised in `/api/config`) and appears as its own tab.
+
+- **Doctor — ChronoDoctor** (`diagnostics/`, `api/diagnostics.py`). Scans every
+  story for failures (LLM 4xx/5xx, latency outliers, retry storms, failed *and
+  hung/dropped* inter-agent calls, recovery/backtracks), **clusters** them by
+  signature so a fleet-wide symptom is one ranked incident, and attaches a
+  root-cause + remediation. Diagnosis is a deterministic heuristic engine by
+  default (zero cost); `CHRONOLOG_DOCTOR_LLM=1` swaps in a Claude-backed
+  diagnoser. A **self-compacting `incident_memory.md`** makes repeat offenders
+  recognisable across runs. Detection runs on demand (Doctor tab / `POST
+  /api/diagnostics/scan`); `CHRONOLOG_DOCTOR=1` starts a background scanner
+  (`chronolog-doctor`).
+- **Fleet — Fleet Health** (`fleet/`, `api/fleet.py`). Per-`(host, minute)`
+  **rollup buckets** (`metrics_rollup` chronicle) make the fleet overview
+  `O(nodes × buckets)` instead of `O(events)`, so a **heatmap** stays instant at
+  100+ nodes where the node-link graph can't. The emitter is opt-in
+  (`CHRONOLOG_FLEET_ROLLUP=1` / `chronolog-fleet-rollup`); the API falls back to
+  computing health from raw on demand, so the tab is never empty.
+- **Traces — Critical-Path Tracing** (`analysis/trace.py`, `api/tracing.py`).
+  Reconstructs cross-host call trees from inter-agent edges (explicit
+  `parent_correlation_id` when present, else inferred from session + time
+  nesting) and computes the **critical path** — the long-pole chain — naming the
+  bottleneck hop by *self-time*. Renders as a waterfall.
+
+**Demos (offline, no cluster, no API keys):** `scripts/demos/` ships one
+narrated demo per feature plus a [README](./scripts/demos/README.md):
+
+```bash
+python3 scripts/demos/demo_doctor.py        # error detection, diagnosis & memory
+python3 scripts/demos/demo_fleet_scale.py   # 100 nodes summarised in milliseconds
+python3 scripts/demos/demo_tracing.py       # find the bottleneck hop in a 6-host mesh
+python3 -m pytest tests/ -q                 # 16 unit tests over the pure logic
+```
+
+Each demo seeds the same stores the dashboard reads and prints the exact command
+to open its data live. On ARES, point the dashboard at the real visor and the
+same three tabs render over the live cluster — the analysis path is identical.
+
+### Cluster awareness, real nodes & live bring-up
+
+- **Cluster-capacity badge** — the header shows the underlying SLURM cluster
+  (total / idle / busy / down), live from `sinfo` (`/api/cluster/capacity`),
+  refreshed every 30 s.
+- **Real node names everywhere** — Generate Traffic spreads agents across the
+  live allocation / idle nodes (never invented names); the **Fleet** grid draws
+  every node, greying the unavailable by real SLURM state; the **Cluster** tab
+  shows the deployment **plus idle/available** nodes (green-dashed).
+- **`scripts/chronolog-live.sh [N]`** — one command to bring **ChronoLog live**:
+  allocate N idle nodes → deploy ChronoLog (keeper on each) → start collectors +
+  capture worker + a dashboard connected to the live visor. No LLM. Drive it from
+  the Generate-Traffic button for real ChronoLog data at zero cost.
+- **`AGENTS_PER_NODE=K`** — the real-agent harness runs K genuine agents per node,
+  each captured through its node's collector + keeper.
+
+See **[`FEATURES.md`](./FEATURES.md)** for the complete feature reference (all
+tabs, the capture model, scripts, capacity, tests, and operational notes).
+
 ## Status
 
 Functional, and validated end-to-end with real agents on live multi-node

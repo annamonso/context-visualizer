@@ -25,6 +25,8 @@ dev = ["pytest", "ruff"]
 chronolog-observe = "chronolog_observability.app:main"
 chronolog-capture = "chronolog_observability.capture.sync_worker:main"
 chronolog-collector = "chronolog_observability.collector.__main__:main"
+chronolog-doctor = "chronolog_observability.diagnostics.worker:main"
+chronolog-fleet-rollup = "chronolog_observability.fleet.worker:main"
 
 # Adapters are discovered via this entry-point group. Third parties can ship
 # their own data source as a separate distribution by registering here.

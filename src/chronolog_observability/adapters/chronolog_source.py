@@ -23,6 +23,12 @@ _GENERIC_CAPS = frozenset(
         Capability.INTER_AGENT,
         Capability.RECOVERY,
         Capability.CLUSTER,
+        # New analytics views — all reconstructable from the same ChronoLog
+        # stories (interactions + inter-agent edges + recovery events), so the
+        # default adapter serves them on any deployment.
+        Capability.DIAGNOSTICS,
+        Capability.FLEET,
+        Capability.TRACING,
     }
 )
 

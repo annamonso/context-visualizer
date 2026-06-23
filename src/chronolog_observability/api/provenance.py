@@ -65,7 +65,7 @@ def memory_sessions():
             "context_nodes": len(ctx),
             "live_nodes": max(0, live),
             "interactions": len(inter),
-            "total_tokens": sum(int(n.get("tokens") or 0) for n in ctx),
+            "total_tokens": sum(_node_tokens(n) for n in ctx),
             "last_ts": last_ts or "",
         })
     out.sort(key=lambda x: x["session_id"])
@@ -92,7 +92,7 @@ def memory_context(session_id):
     running = 0
     nodes = []
     for n in ctx:
-        tok = int(n.get("tokens") or 0)
+        tok = _node_tokens(n)
         op = str(n.get("op") or "add")
         running += -tok if op == "evict" else tok
         nodes.append({
@@ -108,9 +108,25 @@ def memory_context(session_id):
         "session_id": session_id,
         "nodes": nodes,
         "interaction_count": len(inter),
-        "total_tokens": sum(int(n.get("tokens") or 0) for n in ctx),
+        "total_tokens": sum(_node_tokens(n) for n in ctx),
         "live_tokens": max(0, running),
     })
+
+
+def _node_tokens(n: dict) -> int:
+    """Tokens a context node contributes to working memory.
+
+    Demo data sets an explicit ``tokens``; real agents record per-turn
+    ``delta_output_tokens`` (the new content added to context). Fall back to the
+    output delta (then input) so the Memory tab shows real token growth without
+    re-running anything.
+    """
+    try:
+        if n.get("tokens") is not None:
+            return int(n.get("tokens") or 0)
+        return int(n.get("delta_output_tokens") or n.get("delta_input_tokens") or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _flatten_results(raw):

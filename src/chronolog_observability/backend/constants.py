@@ -11,6 +11,13 @@ CHRONICLE_CONTEXT_GRAPHS   = "context_graphs"
 CHRONICLE_RECOVERY_EVENTS  = "recovery_events"
 CHRONICLE_CHECKPOINTS      = "checkpoints"
 
+# Fleet rollups: one Chronicle holding pre-aggregated per-(host, minute) metric
+# buckets. Reading these is O(nodes x buckets) instead of O(events), which is
+# what lets the Fleet Health view stay responsive at 100+ nodes. One Story per
+# bucket granularity; only "minute" is emitted today.
+CHRONICLE_METRICS_ROLLUP   = "metrics_rollup"
+ROLLUP_STORY_MINUTE        = "minute"
+
 # Inter-agent edges are one Chronicle per scenario, one Story (edges) per chronicle.
 INTER_AGENT_CHRONICLE_PREFIX = "ia_"
 INTER_AGENT_STORY_EDGES      = "edges"
