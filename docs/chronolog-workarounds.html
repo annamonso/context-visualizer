@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Workarounds de ChronoLog — explicado</title>
+<style>
+  :root{
+    --bg:#eef2f1; --ink:#0f3b3a; --sub:#4a6764; --line:#d7e2e0;
+    --teal:#0d9488; --teal-d:#0f766e; --teal-l:#d7eeec; --teal-b:#8fd6cf;
+    --amber:#d97706; --amber-l:#fde9cf; --amber-b:#f1c27d;
+    --red:#c0392b; --red-l:#fbe1dd; --green:#1e8e5a; --green-l:#d8f0e2;
+    --card:#ffffff;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.55;}
+  .wrap{max-width:1080px;margin:0 auto;padding:34px 22px 90px;}
+  h1{font-size:27px;margin:0 0 6px;}
+  .lead{color:var(--sub);font-size:15px;max-width:840px;margin:0 0 6px;}
+  h2{font-size:20px;margin:0 0 4px;}
+  .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.8px;
+    text-transform:uppercase;color:var(--teal-d);background:var(--teal-l);
+    border:1px solid var(--teal-b);border-radius:20px;padding:3px 11px;margin-bottom:10px;}
+  .tag.amber{color:var(--amber);background:var(--amber-l);border-color:var(--amber-b);}
+  section{background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:24px 26px;margin:18px 0;box-shadow:0 1px 2px rgba(15,59,58,.04);}
+  p{margin:0 0 12px;font-size:14.5px;color:#234d4a;}
+  strong{color:var(--ink);}
+  code{background:#eaf3f1;border:1px solid #d4e6e3;border-radius:5px;
+    padding:1px 6px;font-size:13px;color:#0a5f57;font-family:"SF Mono",Menlo,Consolas,monospace;}
+  .nav{position:sticky;top:0;z-index:50;background:rgba(238,242,241,.92);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+    margin:-34px -22px 0;padding:12px 22px;display:flex;gap:8px;flex-wrap:wrap;}
+  .nav a{font-size:12.5px;text-decoration:none;color:var(--teal-d);
+    background:var(--teal-l);border:1px solid var(--teal-b);border-radius:18px;
+    padding:5px 12px;font-weight:600;transition:.15s;}
+  .nav a:hover{background:var(--teal);color:#fff;}
+
+  /* ---- GIL demo ---- */
+  .demo{background:#f7faf9;border:1px solid var(--line);border-radius:12px;padding:18px;margin:14px 0;}
+  .threads{display:flex;gap:14px;justify-content:center;margin:14px 0 6px;flex-wrap:wrap;}
+  .thread{flex:1;min-width:140px;max-width:200px;border:2px solid var(--line);border-radius:12px;
+    padding:14px 10px;text-align:center;transition:.3s;background:#fff;position:relative;}
+  .thread .name{font-weight:700;font-size:13px;margin-bottom:6px;}
+  .thread .state{font-size:12px;color:var(--sub);min-height:18px;}
+  .thread.working{border-color:var(--green);background:var(--green-l);}
+  .thread.working .state{color:var(--green);font-weight:700;}
+  .thread.blocked{border-color:#cfd8d6;background:#f0f3f2;opacity:.7;}
+  .thread.blocked .state{color:#90a3a0;}
+  .thread.stuck{border-color:var(--red);background:var(--red-l);}
+  .thread.stuck .state{color:var(--red);font-weight:700;}
+  .stick{font-size:22px;position:absolute;top:-14px;right:-8px;
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,.2));}
+  .controls{display:flex;gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap;}
+  button{font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;border-radius:10px;
+    padding:9px 18px;border:1px solid var(--teal-b);background:#fff;color:var(--teal-d);transition:.15s;}
+  button:hover{background:var(--teal-l);}
+  button.primary{background:var(--teal);color:#fff;border-color:var(--teal);}
+  button.primary:hover{background:var(--teal-d);}
+  button.danger{background:var(--red);color:#fff;border-color:var(--red);}
+  button.danger:hover{filter:brightness(.92);}
+  .status{text-align:center;font-size:13.5px;font-weight:600;margin-top:10px;min-height:22px;}
+  .status.ok{color:var(--green);}
+  .status.bad{color:var(--red);}
+
+  /* ---- drain bar ---- */
+  .drain{margin:16px 0;}
+  .drainbar{display:flex;height:64px;border-radius:12px;overflow:hidden;border:1px solid var(--line);}
+  .seg{display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:12px;text-align:center;color:#fff;padding:4px;font-weight:600;position:relative;}
+  .seg small{font-weight:400;opacity:.9;font-size:10.5px;}
+  .s-keep{background:var(--amber);flex:0 0 22%;}
+  .s-drain{background:repeating-linear-gradient(45deg,#c0392b,#c0392b 10px,#a83224 10px,#a83224 20px);flex:1;}
+  .s-graph{background:var(--green);flex:0 0 26%;}
+  .danger-label{text-align:center;color:var(--red);font-weight:700;font-size:13px;margin-top:8px;}
+
+  /* ---- toggle solution ---- */
+  .flow{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;margin:14px 0;}
+  .node{border:2px solid var(--line);border-radius:12px;padding:14px;text-align:center;background:#fff;}
+  .node.local{border-color:var(--green);background:var(--green-l);}
+  .node.cold{border-color:#cdd6d4;background:#f4f7f6;}
+  .node .t{font-weight:700;font-size:14px;margin-bottom:4px;}
+  .node .d{font-size:12px;color:var(--sub);}
+  .arrow{font-size:24px;color:var(--teal);text-align:center;}
+  @media(max-width:640px){.flow{grid-template-columns:1fr;}.arrow{transform:rotate(90deg);}}
+
+  /* ---- summary table ---- */
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;}
+  th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{background:var(--teal-l);color:var(--teal-d);font-size:12px;text-transform:uppercase;letter-spacing:.5px;}
+  tr:last-child td{border-bottom:none;}
+  .pill{display:inline-block;font-size:11px;font-weight:700;border-radius:12px;padding:2px 9px;}
+  .pill.gil{background:var(--red-l);color:var(--red);}
+  .pill.cat{background:var(--amber-l);color:var(--amber);}
+
+  /* ---- accordion problems ---- */
+  details{border:1px solid var(--line);border-radius:12px;margin:10px 0;overflow:hidden;background:#fff;}
+  details[open]{box-shadow:0 2px 8px rgba(15,59,58,.06);}
+  summary{cursor:pointer;padding:14px 18px;font-weight:700;font-size:14.5px;
+    list-style:none;display:flex;align-items:center;gap:10px;background:#f7faf9;}
+  summary::-webkit-details-marker{display:none;}
+  summary .chev{margin-left:auto;transition:.2s;color:var(--sub);}
+  details[open] summary .chev{transform:rotate(90deg);}
+  .badge{font-size:10.5px;font-weight:700;border-radius:10px;padding:2px 8px;}
+  .badge.gil{background:var(--red-l);color:var(--red);}
+  .badge.cat{background:var(--amber-l);color:var(--amber);}
+  .pbody{padding:6px 18px 18px;}
+  .pbody .row{display:flex;gap:10px;margin:8px 0;font-size:13.5px;}
+  .pbody .row b{flex:0 0 92px;color:var(--sub);font-weight:600;}
+  .file{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12px;color:#0a5f57;}
+
+  .say{background:var(--teal-d);color:#eafffb;border-radius:14px;padding:20px 24px;margin:14px 0;}
+  .say p{color:#d6fbf3;font-size:14.5px;font-style:italic;}
+  .say strong{color:#fff;}
+  .foot{text-align:center;color:#90a3a0;font-size:12px;margin-top:30px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav class="nav">
+    <a href="#intro">Resumen</a>
+    <a href="#gil">¿Qué es el GIL?</a>
+    <a href="#bug">El bug</a>
+    <a href="#drain">La ventana de drenado</a>
+    <a href="#fix">Mi solución</a>
+    <a href="#catalogo">El catálogo</a>
+    <a href="#problemas">Caso por caso</a>
+    <a href="#tabla">Resumen</a>
+    <a href="#reunion">Qué decir</a>
+  </nav>
+
+  <header style="margin-top:26px;">
+    <h1>Workarounds de ChronoLog, explicados</h1>
+    <p class="lead">Los apaños de mi app de observabilidad existen para tapar <strong>dos averías de fondo</strong> de ChronoLog. Aquí está, paso a paso y con dibujos, qué falla, por qué, y cómo lo soluciono.</p>
+  </header>
+
+  <section id="intro">
+    <span class="tag">Resumen en 10 segundos</span>
+    <h2>Solo hay dos problemas reales</h2>
+    <p>Todo lo demás son consecuencias de estos dos:</p>
+    <table>
+      <tr><th style="width:38%">Avería de ChronoLog</th><th>En cristiano</th><th style="width:30%">Mi apaño</th></tr>
+      <tr>
+        <td><span class="pill gil">GIL</span> <code>ReplayStory</code> se cuelga reteniendo el GIL</td>
+        <td>Congela Python entero cuando los datos aún no están listos, y sin posibilidad de rendirse (no hay timeout).</td>
+        <td>Leer de <strong>copias locales / CSV de disco</strong> en vez de pedir en vivo.</td>
+      </tr>
+      <tr>
+        <td><span class="pill cat">CATÁLOGO</span> No existe <code>ShowChronicles</code></td>
+        <td>No puedo preguntarle a ChronoLog «¿qué tienes guardado?». Es una biblioteca sin catálogo.</td>
+        <td>Montarme <strong>mi propio catálogo</strong> a mano (<code>__index__</code>).</td>
+      </tr>
+    </table>
+  </section>
+
+  <section id="gil">
+    <span class="tag">Concepto base</span>
+    <h2>¿Qué es el GIL? → el «bastón de hablar» de Python</h2>
+    <p>Imagina una reunión donde <strong>solo puede hablar quien tiene el bastón</strong>. En Python pasa eso: aunque haya varios hilos trabajando, <strong>solo uno ejecuta código a la vez</strong> — el que tiene el bastón (el <em>GIL</em>, Global Interpreter Lock). Se lo van pasando tan rápido que parece que trabajan a la vez.</p>
+    <p><strong>La regla de oro:</strong> un hilo educado, cuando se va a quedar esperando algo lento (disco, red), <strong>suelta el bastón</strong> para que los demás trabajen mientras él espera.</p>
+
+    <div class="demo">
+      <div class="threads" id="gThreads">
+        <div class="thread" data-i="0"><div class="name">🧵 Hilo 1</div><div class="state">en espera</div></div>
+        <div class="thread" data-i="1"><div class="name">🧵 Hilo 2</div><div class="state">en espera</div></div>
+        <div class="thread" data-i="2"><div class="name">🧵 Hilo 3</div><div class="state">en espera</div></div>
+        <div class="thread" data-i="3"><div class="name">🧵 Hilo 4</div><div class="state">en espera</div></div>
+      </div>
+      <div class="status" id="gStatus">Pulsa «Funcionamiento normal» para ver cómo se pasan el bastón.</div>
+      <div class="controls">
+        <button class="primary" id="btnNormal">▶ Funcionamiento normal</button>
+        <button class="danger" id="btnBug">💀 Simular el bug (ReplayStory)</button>
+        <button id="btnReset">↺ Reiniciar</button>
+      </div>
+    </div>
+    <p style="font-size:13px;color:var(--sub);margin:0;">🪄 = el bastón (GIL). Verde = trabajando · gris = esperando su turno · rojo = bloqueado para siempre.</p>
+  </section>
+
+  <section id="bug">
+    <span class="tag amber" style="color:var(--red);background:var(--red-l);border-color:var(--amber-b);">El bug</span>
+    <h2>ChronoLog agarra el bastón y no lo suelta</h2>
+    <p>El cliente de Python de ChronoLog (<code>py_chronolog_client</code>) está mal educado. Cuando llamas a <code>ReplayStory</code> («dame los eventos de esta story») y esa story <strong>todavía no está lista</strong>, la llamada se queda esperando… <strong>pero NO suelta el bastón</strong>.</p>
+    <p>Resultado: se queda con el bastón agarrado esperando <strong>para siempre</strong> (no hay timeout). Y como nadie más puede cogerlo, <strong>se congela TODO el dashboard</strong> — no solo un hilo, todos. Pulsa el botón rojo del demo de arriba para verlo.</p>
+  </section>
+
+  <section id="drain">
+    <span class="tag">Por qué pasa</span>
+    <h2>La ventana de drenado (~180 s)</h2>
+    <p>¿Por qué una story «no está lista»? Porque ChronoLog guarda los datos en fases. Durante el tránsito hay una zona en la que la story está «sin drenar» = en tierra de nadie. Si la pides justo ahí → cuelgue.</p>
+    <div class="drain">
+      <div class="drainbar">
+        <div class="seg s-keep">KEEPER<small>lo recibe (memoria)</small></div>
+        <div class="seg s-drain">DRENANDO… ~180 s<small>⚠ zona peligrosa</small></div>
+        <div class="seg s-graph">GRAPHER<small>CSV en disco (listo ✓)</small></div>
+      </div>
+      <div class="danger-label">Si pides la story dentro de la zona rayada → 💀 cuelgue del GIL</div>
+    </div>
+    <p>Las <strong>vistas en vivo</strong> siempre caen aquí, porque enseñan lo que <em>acaba</em> de pasar — justo dentro de la zona peligrosa.</p>
+  </section>
+
+  <section id="fix">
+    <span class="tag" style="color:var(--green);background:var(--green-l);border-color:#a9e0c2;">La solución</span>
+    <h2>No preguntes en la zona peligrosa: lee de tu propia copia</h2>
+    <p>En lugar de pedirle a ChronoLog en vivo (riesgo de cuelgue), guardo <strong>una copia local</strong> de cada evento. El dashboard lee de mi copia: instantáneo y sin bastón. ChronoLog queda solo para el histórico viejo, que ya está drenado y es seguro.</p>
+    <div class="flow">
+      <div class="node local">
+        <div class="t">📓 Mi copia local</div>
+        <div class="d">JSONL / CSV en disco · lectura instantánea · GIL-safe ✓</div>
+      </div>
+      <div class="arrow">→ lee aquí</div>
+      <div class="node cold">
+        <div class="t">❄️ ChronoLog</div>
+        <div class="d">solo histórico viejo (ruta fría, ya drenada)</div>
+      </div>
+    </div>
+    <p style="margin:0;"><strong>Regla:</strong> nunca pidas en vivo algo que pueda estar sin drenar. Lee tu copia; ChronoLog solo para lo antiguo.</p>
+  </section>
+
+  <section id="catalogo">
+    <span class="tag amber">El otro problema (sin GIL)</span>
+    <h2>ChronoLog es una biblioteca sin catálogo</h2>
+    <p>Esto no tiene nada que ver con el GIL. ChronoLog <strong>no tiene una función en Python para listar lo que guarda</strong> (le falta el binding <code>ShowChronicles</code>). Puedes sacar un libro si sabes el título exacto, pero no puedes pedir «la lista de todos los libros».</p>
+    <p><strong>Mi apaño:</strong> me monto mi propio catálogo a mano. Cada vez que aparece un escenario / sesión / host nuevo, lo apunto en un chronicle especial llamado <code>__index__</code>. Cuando quiero la lista, leo mi catálogo en vez de preguntarle a ChronoLog (que no sabe responder).</p>
+    <div class="demo" style="text-align:center;">
+      <div style="font-size:13px;color:var(--sub);margin-bottom:8px;">chronicle <code>__index__</code> — mi catálogo</div>
+      <div style="display:inline-block;text-align:left;background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 20px;font-family:'SF Mono',Menlo,monospace;font-size:13px;color:#0a5f57;">
+        escenario nuevo&nbsp;&nbsp;→ apuntado ✓<br>
+        sesión nueva&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ apuntado ✓<br>
+        host nuevo&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ apuntado ✓
+      </div>
+    </div>
+  </section>
+
+  <section id="problemas">
+    <span class="tag">Caso por caso</span>
+    <h2>Los apaños del código, uno a uno</h2>
+    <p>Despliega cada uno. La etiqueta indica de cuál de las dos averías viene.</p>
+
+    <details open>
+      <summary><span class="badge gil">GIL</span> A · El dashboard se congelaba al arrancar <span class="chev">▶</span></summary>
+      <div class="pbody">
+        <div class="row"><b>Qué pasaba</b><span>Al arrancar (cluster recién encendido), el dashboard pedía la lista con <code>ReplayStory</code>. Como acababa de arrancar, la story estaba sin drenar → cuelgue total, ni cargaba.</span></div>
+        <div class="row"><b>Solución</b><span>Leo los <strong>CSV ya escritos en disco</strong> (instantáneos, sin bastón). El replay en vivo pasa a ser opcional (variable <code>CHRONOLOG_INDEX_LIVE</code>).</span></div>
+        <div class="row"><b>Código</b><span class="file">backend/client.py → index_list()</span></div>
+      </div>
+    </details>
+
+    <details>
+      <summary><span class="badge gil">GIL</span> B · Las vistas en vivo no podían esperar 180 s <span class="chev">▶</span></summary>
+      <div class="pbody">
+        <div class="row"><b>Qué pasaba</b><span>Para enseñar mensajes entre agentes en vivo no puedo esperar los ~180 s de drenado. Y pedir la story en vivo → cuelgue del GIL.</span></div>
+        <div class="row"><b>Solución</b><span>Mantengo una <strong>copia local en JSONL</strong> (hot-store). Las vistas en vivo leen de mi copia. ChronoLog queda como ruta fría.</span></div>
+        <div class="row"><b>Código</b><span class="file">capture/inter_agent/store.py</span></div>
+      </div>
+    </details>
+
+    <details>
+      <summary><span class="badge gil">GIL</span> C · ChronoLog «aceptaba» datos pero devolvía vacío <span class="chev">▶</span></summary>
+      <div class="pbody">
+        <div class="row"><b>Qué pasaba</b><span>Le mandabas eventos, decía «recibido», pero al pedírselos de vuelta devolvía vacío (fallo intermitente: el trozo nunca llegó a ser reproducible).</span></div>
+        <div class="row"><b>Solución</b><span>Si devuelve vacío, <strong>caigo a leer los CSV de disco</strong>, que sí tienen los datos. La pantalla nunca sale vacía cuando los datos existen.</span></div>
+        <div class="row"><b>Código</b><span class="file">backend/client.py → replay_events()</span></div>
+      </div>
+    </details>
+
+    <details>
+      <summary><span class="badge cat">CATÁLOGO</span> D · No podía listar lo que hay dentro <span class="chev">▶</span></summary>
+      <div class="pbody">
+        <div class="row"><b>Qué pasaba</b><span>ChronoLog no tiene función para listar chronicles/escenarios guardados (falta <code>ShowChronicles</code>). Biblioteca sin catálogo.</span></div>
+        <div class="row"><b>Solución</b><span>Me monto <strong>mi propio catálogo a mano</strong>: el chronicle <code>__index__</code>. Apunto cada escenario/sesión/host nuevo y leo de ahí.</span></div>
+        <div class="row"><b>Código</b><span class="file">backend/client.py (index_add/index_list) · constants.py</span></div>
+      </div>
+    </details>
+  </section>
+
+  <section id="tabla">
+    <span class="tag">La propuesta de plugins</span>
+    <h2>Qué se queda en mi app y qué se saca a ChronoLog</h2>
+    <p>La idea de colaboración: la <strong>lógica de análisis se queda</strong> en mi app; la <strong>fontanería se saca</strong> como plugins nativos de ChronoLog. Así la integración es más limpia, contribuyo a su repo y mi proyecto les sirve de caso de uso.</p>
+    <table>
+      <tr><th>Se queda en mi app (análisis)</th><th>Se saca como plugin nativo (fontanería)</th></tr>
+      <tr>
+        <td>
+          ChronoDoctor (diagnóstico) · Fleet Health · grafos y trazas · rollback semántico · checkpoints.
+          <br><br><em style="color:var(--sub);font-size:12.5px;">Esto es mi aportación, mi valor.</em>
+        </td>
+        <td>
+          <strong>1.</strong> Listado de chronicles (<code>ShowChronicles</code> / mi <code>__index__</code>) — <span class="pill cat">fácil</span><br><br>
+          <strong>2.</strong> Lectura durable con fallback a CSV — <span class="pill cat">fácil</span><br><br>
+          <strong>3.</strong> Hot-store local GIL-safe — <span class="pill gil">media</span>
+          <br><br><em style="color:var(--sub);font-size:12.5px;">Existen solo para tapar huecos de ChronoLog → si los arreglan, los borro.</em>
+        </td>
+      </tr>
+    </table>
+  </section>
+
+  <section id="reunion">
+    <span class="tag">Para la reunión</span>
+    <h2>Las dos frases que lo resumen todo</h2>
+    <div class="say">
+      <p><strong>1.</strong> «<code style="background:rgba(255,255,255,.15);color:#fff;border-color:transparent;">ReplayStory</code> agarra el GIL y no lo suelta cuando los datos aún se están drenando → me congela Python entero. Lo esquivo leyendo copias locales/CSV en vez de pedir en vivo.»</p>
+      <p style="margin:0;"><strong>2.</strong> «ChronoLog no tiene <code style="background:rgba(255,255,255,.15);color:#fff;border-color:transparent;">ShowChronicles</code>, así que no puedo listar lo que hay → me monté mi propio catálogo <code style="background:rgba(255,255,255,.15);color:#fff;border-color:transparent;">__index__</code> a mano.»</p>
+    </div>
+    <p><strong>Lo que pido:</strong> si arregláis esto en ChronoLog (que suelte el GIL / meta un timeout, y que exponga <code>ShowChronicles</code>), yo borro la mayoría de estos apaños — y de paso los saco como plugins nativos.</p>
+    <p style="margin:0;"><strong>Dos preguntas para ellos:</strong> ¿cuáles de estos bugs ya están arreglados (para quitar esos apaños ya)? · ¿cómo empaquetamos los plugins — dentro del repo de ChronoLog o como paquete aparte?</p>
+  </section>
+
+  <div class="foot">ChronoLog Observability · documento de apoyo para la reunión · 2026</div>
+</div>
+
+<script>
+(function(){
+  var threads = Array.prototype.slice.call(document.querySelectorAll('#gThreads .thread'));
+  var status = document.getElementById('gStatus');
+  var timer = null;
+
+  function clearAll(){
+    if(timer){clearInterval(timer);timer=null;}
+    threads.forEach(function(t){
+      t.className='thread';
+      t.querySelector('.state').textContent='en espera';
+      var s=t.querySelector('.stick'); if(s) s.remove();
+    });
+    status.className='status';
+  }
+  function giveStick(i){
+    threads.forEach(function(t){
+      var s=t.querySelector('.stick'); if(s) s.remove();
+    });
+    var el=threads[i];
+    var span=document.createElement('span');
+    span.className='stick'; span.textContent='🪄';
+    el.appendChild(span);
+  }
+
+  document.getElementById('btnReset').onclick=function(){
+    clearAll();
+    status.textContent='Pulsa «Funcionamiento normal» para ver cómo se pasan el bastón.';
+  };
+
+  document.getElementById('btnNormal').onclick=function(){
+    clearAll();
+    status.className='status ok';
+    status.textContent='✓ Cada hilo coge el bastón, trabaja un poco y lo suelta. Todos avanzan.';
+    var i=0;
+    function step(){
+      threads.forEach(function(t,k){
+        t.className = 'thread' + (k<i%4 ? '' : '');
+      });
+      threads.forEach(function(t){t.className='thread';t.querySelector('.state').textContent='en espera';});
+      var cur=i%4;
+      threads[cur].className='thread working';
+      threads[cur].querySelector('.state').textContent='trabajando ✓';
+      giveStick(cur);
+      i++;
+    }
+    step();
+    timer=setInterval(step,700);
+  };
+
+  document.getElementById('btnBug').onclick=function(){
+    clearAll();
+    status.className='status bad';
+    var stuck=1;
+    threads[stuck].className='thread stuck';
+    threads[stuck].querySelector('.state').textContent='ReplayStory… ⏳ colgado';
+    giveStick(stuck);
+    threads.forEach(function(t,k){
+      if(k!==stuck){
+        t.className='thread blocked';
+        t.querySelector('.state').textContent='🚫 bloqueado';
+      }
+    });
+    var dots=0;
+    status.textContent='💀 El Hilo 2 pidió una story sin drenar y NO suelta el bastón. Todo lo demás bloqueado para siempre';
+    timer=setInterval(function(){
+      dots=(dots+1)%4;
+      threads[stuck].querySelector('.state').textContent='ReplayStory'+Array(dots+1).join('.')+' ⏳ colgado';
+    },450);
+  };
+})();
+</script>
+</body>
+</html>
