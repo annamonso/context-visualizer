@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>ChronoLog Observability, System Architecture</title>
+<style>
+  html,body{margin:0;background:#eef2f1;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:1520px;margin:0 auto;padding:30px 22px 50px;}
+  h1{font-size:23px;color:#0f3b3a;margin:0 0 4px;}
+  .sub{color:#4a6764;font-size:13.5px;margin:0 0 16px;max-width:1100px;line-height:1.5;}
+  svg{width:100%;height:auto;display:block;background:#ffffff;border:1px solid #d7e2e0;border-radius:14px;}
+  .cap{color:#4a6764;font-size:12.5px;margin-top:16px;line-height:1.6;max-width:1180px;}
+  .cap strong{color:#0f3b3a;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ChronoLog Observability, System Architecture</h1>
+  <p class="sub">A workflow observability and provenance system. Heterogeneous sources at the top, a single write pipeline on the left, one shared store at the bottom, and three consumers on the right. Teal is the write and storage side, amber is the read and consume side. Every layer has interchangeable, decoupled backends.</p>
+
+<svg viewBox="0 0 1520 1140" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="aWrite" markerWidth="13" markerHeight="13" refX="6.5" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#0f766e"/>
+    </marker>
+    <marker id="aRead" markerWidth="13" markerHeight="13" refX="6.5" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#d97706"/>
+    </marker>
+    <marker id="aFlow" markerWidth="12" markerHeight="12" refX="6" refY="5" orient="auto">
+      <path d="M0,0 L9,5 L0,9 Z" fill="#0f766e"/>
+    </marker>
+  </defs>
+
+  <!-- ============ LEGEND ============ -->
+  <g font-size="12">
+    <rect x="1140" y="26" width="350" height="64" rx="10" fill="#f7faf9" stroke="#d7e2e0"/>
+    <rect x="1158" y="42" width="26" height="12" rx="3" fill="#0d9488"/>
+    <text x="1192" y="52" fill="#244c49" font-weight="600">Write and storage path</text>
+    <rect x="1158" y="66" width="26" height="12" rx="3" fill="#d97706"/>
+    <text x="1192" y="76" fill="#244c49" font-weight="600">Read and consume path</text>
+    <text x="1330" y="52" fill="#5b8a86">darker box</text>
+    <text x="1330" y="68" fill="#5b8a86">= deeper in</text>
+    <text x="1330" y="84" fill="#5b8a86">the pipeline</text>
+  </g>
+
+  <!-- ============ TOP: SOURCES / INTEGRATIONS ============ -->
+  <text x="40" y="44" font-size="14" font-weight="700" fill="#0f3b3a" letter-spacing="1.2">SOURCES AND INTEGRATIONS</text>
+  <text x="40" y="62" font-size="11.5" fill="#6b8783">Pluggable capture points. The system records data from many interchangeable tools.</text>
+
+  <text x="44" y="90" font-size="11" font-weight="700" fill="#5b8a86">AGENTS</text>
+  <g font-size="11.5" fill="#0f3b3a">
+    <rect x="40"  y="98" width="178" height="32" rx="16" fill="#d7eeec" stroke="#8fd6cf"/>
+    <text x="129" y="118" text-anchor="middle">Claude Agent SDK agents</text>
+    <rect x="228" y="98" width="160" height="32" rx="16" fill="#d7eeec" stroke="#8fd6cf"/>
+    <text x="308" y="118" text-anchor="middle">MCP inter-agent relay</text>
+    <rect x="398" y="98" width="190" height="32" rx="16" fill="#d7eeec" stroke="#8fd6cf"/>
+    <text x="493" y="118" text-anchor="middle">real-agent test harness</text>
+  </g>
+
+  <text x="630" y="90" font-size="11" font-weight="700" fill="#5b8a86">CLUSTER</text>
+  <g font-size="11.5" fill="#0f3b3a">
+    <rect x="626" y="98" width="146" height="32" rx="16" fill="#cce8e5" stroke="#8fd6cf"/>
+    <text x="699" y="118" text-anchor="middle">SLURM nodes</text>
+    <rect x="782" y="98" width="172" height="32" rx="16" fill="#cce8e5" stroke="#8fd6cf"/>
+    <text x="868" y="118" text-anchor="middle">sinfo, capacity state</text>
+  </g>
+
+  <text x="996" y="90" font-size="11" font-weight="700" fill="#5b8a86">SYNTHETIC</text>
+  <g font-size="11.5" fill="#0f3b3a">
+    <rect x="992"  y="98" width="196" height="32" rx="16" fill="#e3f2f0" stroke="#8fd6cf"/>
+    <text x="1090" y="118" text-anchor="middle">demo traffic generator</text>
+    <rect x="1198" y="98" width="170" height="32" rx="16" fill="#e3f2f0" stroke="#8fd6cf"/>
+    <text x="1283" y="118" text-anchor="middle">offline CSV replay</text>
+  </g>
+
+  <!-- arrows from sources down into capture -->
+  <line x1="320" y1="132" x2="320" y2="182" stroke="#0f766e" stroke-width="2" marker-end="url(#aFlow)"/>
+  <line x1="720" y1="132" x2="380" y2="182" stroke="#0f766e" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#aFlow)"/>
+  <line x1="1090" y1="132" x2="400" y2="182" stroke="#0f766e" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#aFlow)"/>
+
+  <!-- ============ LEFT: VERTICAL WRITE PIPELINE ============ -->
+  <text x="40" y="172" font-size="14" font-weight="700" fill="#0f3b3a" letter-spacing="1.2">WRITE PIPELINE</text>
+  <text x="200" y="172" font-size="11.5" fill="#6b8783">one isolated responsibility per box, data flows downward</text>
+
+  <!-- Box 1: CAPTURE -->
+  <g>
+    <rect x="40" y="186" width="620" height="98" rx="14" fill="#a7e3dc" stroke="#5eccc1"/>
+    <circle cx="74" cy="220" r="15" fill="#0f766e"/><text x="74" y="225" font-size="15" font-weight="800" fill="#ffffff" text-anchor="middle">1</text>
+    <text x="100" y="218" font-size="17" font-weight="800" fill="#063b37">Capture</text>
+    <text x="100" y="242" font-size="13" fill="#0c4a45">Instrument agents and append events to fast local spools.</text>
+    <text x="100" y="264" font-size="11" fill="#1a5a54" font-style="italic">capture/spool.py  (Path A: LLM turns, context graph, recovery)   ·   capture/inter_agent/store.py  (Path B edges)</text>
+  </g>
+  <line x1="350" y1="284" x2="350" y2="312" stroke="#0f766e" stroke-width="2.5" marker-end="url(#aFlow)"/>
+
+  <!-- Box 2: PUBLISH / INGEST -->
+  <g>
+    <rect x="40" y="314" width="620" height="98" rx="14" fill="#54c9bd" stroke="#14b8a6"/>
+    <circle cx="74" cy="348" r="15" fill="#0c4a45"/><text x="74" y="353" font-size="15" font-weight="800" fill="#ffffff" text-anchor="middle">2</text>
+    <text x="100" y="346" font-size="17" font-weight="800" fill="#06302c">Publish and Ingest</text>
+    <text x="100" y="370" font-size="13" fill="#06302c">Stamp event id and timestamp, validate, enqueue. A single writer never blocks.</text>
+    <text x="100" y="392" font-size="11" fill="#0a3d38" font-style="italic">collector/daemon.py  (per-node HTTP on :5650)   ·   api/inter_agent.py  POST /ingest</text>
+  </g>
+  <line x1="350" y1="412" x2="350" y2="440" stroke="#0f766e" stroke-width="2.5" marker-end="url(#aFlow)"/>
+
+  <!-- Box 3: TRANSPORT (pluggable) -->
+  <g>
+    <rect x="40" y="442" width="620" height="108" rx="14" fill="#0d9488" stroke="#0f766e"/>
+    <circle cx="74" cy="476" r="15" fill="#063b37"/><text x="74" y="481" font-size="15" font-weight="800" fill="#ffffff" text-anchor="middle">3</text>
+    <text x="100" y="474" font-size="17" font-weight="800" fill="#ffffff">Transport</text>
+    <text x="100" y="498" font-size="13" fill="#e6fffb">Move events between processes. Fan out live, forward exactly once.</text>
+    <text x="100" y="520" font-size="11" fill="#c7f3ed" font-style="italic">capture/inter_agent/bus.py  (SSE EventBus)   ·   collector forward  (X-DTP-Forwarded)</text>
+    <text x="100" y="540" font-size="10.5" fill="#9fe7df" font-weight="700">SWAPPABLE:</text>
+    <rect x="178" y="529" width="72" height="20" rx="10" fill="#063b37"/><text x="214" y="543" font-size="10.5" fill="#bdeee8" text-anchor="middle">SSE bus</text>
+    <rect x="256" y="529" width="60" height="20" rx="10" fill="#063b37"/><text x="286" y="543" font-size="10.5" fill="#bdeee8" text-anchor="middle">HTTP</text>
+    <rect x="322" y="529" width="74" height="20" rx="10" fill="#063b37"/><text x="359" y="543" font-size="10.5" fill="#bdeee8" text-anchor="middle">collector</text>
+  </g>
+  <line x1="350" y1="550" x2="350" y2="578" stroke="#0f766e" stroke-width="2.5" marker-end="url(#aFlow)"/>
+
+  <!-- Box 4: PERSIST -->
+  <g>
+    <rect x="40" y="580" width="620" height="108" rx="14" fill="#115e59" stroke="#0c4a45"/>
+    <circle cx="74" cy="614" r="15" fill="#042f2e"/><text x="74" y="619" font-size="15" font-weight="800" fill="#ffffff" text-anchor="middle">4</text>
+    <text x="100" y="612" font-size="17" font-weight="800" fill="#ffffff">Persist</text>
+    <text x="100" y="636" font-size="13" fill="#dff6f3">Deduplicate against high-water marks, then append durably. Exactly once.</text>
+    <text x="100" y="658" font-size="11" fill="#9fdbd5" font-style="italic">capture/sync_worker.py  (Path A drain)   ·   backend/client.py  append_event()  via py_chronolog_client</text>
+  </g>
+
+  <!-- WRITE arrow down to store -->
+  <line x1="350" y1="688" x2="350" y2="968" stroke="#0f766e" stroke-width="5" marker-end="url(#aWrite)"/>
+  <rect x="366" y="814" width="80" height="28" rx="14" fill="#0c4a45"/>
+  <text x="406" y="833" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">WRITE</text>
+
+  <!-- ============ RIGHT: CONSUMERS (READ SIDE) ============ -->
+  <text x="800" y="172" font-size="14" font-weight="700" fill="#92400e" letter-spacing="1.2">CONSUMERS</text>
+  <text x="918" y="172" font-size="11.5" fill="#a06a2a">three independent ways to read what was stored</text>
+
+  <!-- Consumer A: ChronoDoctor + analysis -->
+  <g>
+    <rect x="800" y="186" width="226" height="600" rx="14" fill="#fef6e9" stroke="#f1b454" stroke-width="1.5"/>
+    <rect x="800" y="186" width="226" height="54" rx="14" fill="#b45309"/>
+    <rect x="800" y="226" width="226" height="14" fill="#b45309"/>
+    <text x="913" y="212" font-size="15" font-weight="800" fill="#ffffff" text-anchor="middle">ChronoDoctor</text>
+    <text x="913" y="230" font-size="10.5" fill="#fde9cf" text-anchor="middle">AI agent and analysis engines</text>
+    <g fill="#7c4710">
+      <text x="822" y="272" font-size="12.5" font-weight="700">Diagnostics scan</text>
+      <text x="822" y="290" font-size="10.5" fill="#a06a2a">errors, latency, retry storms</text>
+      <text x="822" y="326" font-size="12.5" font-weight="700">Critical-path tracer</text>
+      <text x="822" y="344" font-size="10.5" fill="#a06a2a">cross-host bottleneck hop</text>
+      <text x="822" y="380" font-size="12.5" font-weight="700">Fleet health rollup</text>
+      <text x="822" y="398" font-size="10.5" fill="#a06a2a">per host and minute heatmap</text>
+      <text x="822" y="434" font-size="12.5" font-weight="700">Semantic checkers</text>
+      <text x="822" y="452" font-size="10.5" fill="#a06a2a">rollback-loop rules</text>
+      <text x="822" y="488" font-size="12.5" font-weight="700">Call-graph builder</text>
+      <text x="822" y="506" font-size="10.5" fill="#a06a2a">conversation derivation</text>
+    </g>
+    <rect x="822" y="722" width="182" height="46" rx="9" fill="#fbe6c4" stroke="#f1b454"/>
+    <text x="913" y="742" font-size="10.5" fill="#7c4710" text-anchor="middle">swappable diagnoser</text>
+    <text x="913" y="758" font-size="11" font-weight="700" fill="#92400e" text-anchor="middle">heuristic  /  Claude-backed</text>
+  </g>
+
+  <!-- Consumer B: Query API -->
+  <g>
+    <rect x="1046" y="186" width="226" height="600" rx="14" fill="#fef6e9" stroke="#f1b454" stroke-width="1.5"/>
+    <rect x="1046" y="186" width="226" height="54" rx="14" fill="#c2670d"/>
+    <rect x="1046" y="226" width="226" height="14" fill="#c2670d"/>
+    <text x="1159" y="212" font-size="15" font-weight="800" fill="#ffffff" text-anchor="middle">Query API</text>
+    <text x="1159" y="230" font-size="10.5" fill="#fde9cf" text-anchor="middle">Flask blueprints, REST and SSE</text>
+    <g fill="#7c4710" font-size="12">
+      <text x="1066" y="274" font-weight="700">/conversations</text>
+      <text x="1066" y="304" font-weight="700">/interactions</text>
+      <text x="1066" y="334" font-weight="700">/scenarios, inter-agent</text>
+      <text x="1066" y="364" font-weight="700">/tracing/critical-path</text>
+      <text x="1066" y="394" font-weight="700">/fleet/health</text>
+      <text x="1066" y="424" font-weight="700">/diagnostics/scan</text>
+      <text x="1066" y="454" font-weight="700">/cluster/capacity, /comms</text>
+      <text x="1066" y="484" font-weight="700">/provenance, /semantic</text>
+    </g>
+    <rect x="1068" y="722" width="182" height="46" rx="9" fill="#fbe6c4" stroke="#f1b454"/>
+    <text x="1159" y="742" font-size="10.5" fill="#7c4710" text-anchor="middle">swappable read adapter</text>
+    <text x="1159" y="758" font-size="11" font-weight="700" fill="#92400e" text-anchor="middle">ChronoLog  /  custom</text>
+  </g>
+
+  <!-- Consumer C: Dashboards -->
+  <g>
+    <rect x="1292" y="186" width="186" height="600" rx="14" fill="#fef6e9" stroke="#f1b454" stroke-width="1.5"/>
+    <rect x="1292" y="186" width="186" height="54" rx="14" fill="#92400e"/>
+    <rect x="1292" y="226" width="186" height="14" fill="#92400e"/>
+    <text x="1385" y="212" font-size="15" font-weight="800" fill="#ffffff" text-anchor="middle">Dashboards</text>
+    <text x="1385" y="230" font-size="10.5" fill="#fde9cf" text-anchor="middle">React SPA, live tabs</text>
+    <g fill="#7c4710" font-size="12">
+      <text x="1312" y="276">Workspace</text>
+      <text x="1312" y="306">Interactions (SSE)</text>
+      <text x="1312" y="336">Scenarios (live)</text>
+      <text x="1312" y="366">Cluster (comms)</text>
+      <text x="1312" y="396">Memory (context)</text>
+      <text x="1312" y="426">Doctor (incidents)</text>
+      <text x="1312" y="456">Fleet (heatmap)</text>
+      <text x="1312" y="486">Traces (waterfall)</text>
+    </g>
+    <rect x="1312" y="722" width="146" height="46" rx="9" fill="#fbe6c4" stroke="#f1b454"/>
+    <text x="1385" y="742" font-size="10.5" fill="#7c4710" text-anchor="middle">live path skips the</text>
+    <text x="1385" y="758" font-size="11" font-weight="700" fill="#92400e" text-anchor="middle">cold drain window</text>
+  </g>
+
+  <!-- READ arrows up from store to each consumer -->
+  <line x1="913"  y1="968" x2="913"  y2="790" stroke="#d97706" stroke-width="5" marker-end="url(#aRead)"/>
+  <line x1="1159" y1="968" x2="1159" y2="790" stroke="#d97706" stroke-width="5" marker-end="url(#aRead)"/>
+  <line x1="1385" y1="968" x2="1385" y2="790" stroke="#d97706" stroke-width="5" marker-end="url(#aRead)"/>
+  <rect x="927" y="864" width="70" height="28" rx="14" fill="#b45309"/>
+  <text x="962" y="883" font-size="12.5" font-weight="800" fill="#ffffff" text-anchor="middle">READ</text>
+
+  <!-- ============ BOTTOM: SHARED STORE ============ -->
+  <g>
+    <rect x="40" y="970" width="1438" height="158" rx="16" fill="#0c2b29" stroke="#06201e"/>
+    <text x="66" y="1008" font-size="18" font-weight="800" fill="#ffffff">Shared Provenance Store</text>
+    <text x="66" y="1030" font-size="12.5" fill="#9fdbd5">One durable backbone. The pipeline writes into it, every consumer reads from it. Storage backends are interchangeable.</text>
+
+    <rect x="66"   y="1048" width="320" height="58" rx="11" fill="#115e59" stroke="#14b8a6"/>
+    <text x="226" y="1073" font-size="13.5" font-weight="800" fill="#ffffff" text-anchor="middle">ChronoLog keepers</text>
+    <text x="226" y="1092" font-size="10.5" fill="#aee5df" text-anchor="middle">one per SLURM node, cold durable path</text>
+
+    <rect x="402"  y="1048" width="320" height="58" rx="11" fill="#0d9488" stroke="#5eccc1"/>
+    <text x="562" y="1073" font-size="13.5" font-weight="800" fill="#ffffff" text-anchor="middle">JSONL hot store</text>
+    <text x="562" y="1092" font-size="10.5" fill="#d3f5f1" text-anchor="middle">~/.dt_provenance, instant live reads</text>
+
+    <rect x="738"  y="1048" width="320" height="58" rx="11" fill="#115e59" stroke="#14b8a6"/>
+    <text x="898" y="1073" font-size="13.5" font-weight="800" fill="#ffffff" text-anchor="middle">CSV archive</text>
+    <text x="898" y="1092" font-size="10.5" fill="#aee5df" text-anchor="middle">grapher drain near 180s, offline replay</text>
+
+    <rect x="1074" y="1048" width="382" height="58" rx="11" fill="#0d9488" stroke="#5eccc1"/>
+    <text x="1265" y="1073" font-size="13.5" font-weight="800" fill="#ffffff" text-anchor="middle">index and metrics_rollup chronicles</text>
+    <text x="1265" y="1092" font-size="10.5" fill="#d3f5f1" text-anchor="middle">scenarios, sessions, hosts, pre-aggregated fleet metrics</text>
+  </g>
+</svg>
+
+  <p class="cap"><strong>How to read it.</strong> Interchangeable <strong>sources</strong> sit at the top. Data falls down the single <strong>write pipeline</strong> on the left, Capture then Publish then Transport then Persist, where each box is one isolated job and a darker box means deeper in the pipeline. The pipeline <strong>writes</strong> down into the <strong>Shared Provenance Store</strong> at the bottom (teal arrow). The three tall <strong>consumer</strong> cards on the right, the ChronoDoctor AI plus analysis, the Query API, and the live Dashboards, <strong>read</strong> back up from that store (amber arrows). Swappable backends appear at every layer: SSE, HTTP or collector for transport; ChronoLog, JSONL or CSV for storage; heuristic or Claude for the diagnoser; ChronoLog or custom for the read adapter. The design goal is modularity, any backend can be replaced without touching the others.</p>
+</div>
+</body>
+</html>
