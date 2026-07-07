@@ -6,7 +6,7 @@ step leaves the package importable.
 
 ## File map (old → new)
 
-| old (`context-visualizer/context_visualizer/…`) | new (`src/chronolog_observability/…`) | notes |
+| old (`context-visualizer/context_visualizer/…`) | new (`backend/…`) | notes |
 |---|---|---|
 | `chronolog/client.py` | `backend/client.py` | drop the `DTP_CHRONOLOG_BACKEND` on/off gate; ChronoLog is now assumed. Keep `CHRONOLOG_OFFLINE` CSV fallback. |
 | `chronolog/constants.py` | `backend/constants.py` | |
@@ -59,7 +59,7 @@ plugin is ChronoLog-only.
 **Invariant to enforce:** nothing may `import chimaera` anywhere. A grep gate:
 
 ```bash
-grep -rn "import chimaera" src/chronolog_observability \
+grep -rn "import chimaera" backend \
   --include='*.py' && echo "LEAK" || echo "clean"
 ```
 

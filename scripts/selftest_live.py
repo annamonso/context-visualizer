@@ -62,8 +62,8 @@ def sse_events(body_iter, max_frames: int, timeout_s: float = 10.0):
 
 
 def main() -> int:
-    from chronolog_observability.app import create_app
-    from chronolog_observability.config import Config
+    from backend.app import create_app
+    from backend.config import Config
 
     app = create_app(Config.from_env())
     client = app.test_client()
@@ -120,7 +120,7 @@ def main() -> int:
     check("live route registered", "/_interceptor/live" in rules, str(sorted(rules))[:200])
 
     # 6. collector daemon: fake backend + forward capture
-    from chronolog_observability.collector.daemon import CollectorDaemon
+    from backend.collector.daemon import CollectorDaemon
 
     writes, forwards = [], []
 

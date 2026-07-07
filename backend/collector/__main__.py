@@ -1,4 +1,4 @@
-"""CLI: python3 -m chronolog_observability.collector --flask-url http://node:5000
+"""CLI: python3 -m backend.collector --flask-url http://node:5000
 
 Environment expected on ARES (scripts/launch-collectors.sh sets these):
   CHRONOLOG_VISOR_IP=...     raw 40g IP of the visor node (NOT the -40g hostname)

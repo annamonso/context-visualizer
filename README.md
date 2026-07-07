@@ -13,7 +13,7 @@ the chimaera C++ runtime was removed — every view is served from ChronoLog.
 ## How it works
 
 Data sources are **adapters** selected at runtime via the
-`chronolog_observability.adapters` entry-point group (plus a built-in default):
+`backend.adapters` entry-point group (plus a built-in default):
 
 - **`ChronoLogAdapter`** (default) — serves every view from ChronoLog stories.
   Available on any ChronoLog host.
@@ -24,7 +24,7 @@ adapter interface is the seam for third parties to add their own data source
 without forking.
 
 ```
-src/chronolog_observability/
+backend/
 ├── app.py            # Flask factory: discover adapters, mount blueprints, serve SPA
 ├── config.py         # visor endpoint, offline mode, bind
 ├── backend/          # ChronoLog substrate (client, constants, path_a_reader)
@@ -67,7 +67,7 @@ agents to append events to the local capture spool, and run the Path-A sync
 worker to drain that spool into ChronoLog:
 
 ```python
-from chronolog_observability.capture.spool import get_spool
+from backend.capture.spool import get_spool
 spool = get_spool()
 spool.record_interaction("my-session", {"prompt": "...", "response": "...", "model": "claude-opus-4-8"})
 spool.record_context_node("my-session", {"op": "add", "node": "..."})
@@ -109,7 +109,7 @@ scripts/launch-collectors.sh <SLURM_JOBID> http://<dashboard-node>:5000   # all 
 chronolog-collector --flask-url http://<dashboard-node>:5000 --port 5650
 ```
 
-Agents emit via `chronolog_observability.collector.emit(event)` or plain
+Agents emit via `backend.collector.emit(event)` or plain
 `POST http://127.0.0.1:5650/ingest`; if the collector is down, `emit()` falls
 back to the dashboard's ingest endpoint directly.
 

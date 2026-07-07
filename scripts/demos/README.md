@@ -24,7 +24,7 @@ To view any demo live afterwards, run the command the demo prints, e.g.:
 
 ```bash
 CHRONOLOG_OFFLINE=1 DTP_STATE_DIR=/tmp/chronolog_demo_doctor \
-  PYTHONPATH=src python3 -m chronolog_observability
+  PYTHONPATH=src python3 -m backend
 # then open http://<host>:5000/?tab=doctor
 ```
 

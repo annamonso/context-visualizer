@@ -232,24 +232,39 @@ class ChronoLogBackend:
     def _client_inst(self):
         if self._client is not None:
             return self._client
-        cl = self._import()
-        portal = cl.ClientPortalServiceConf(
-            self.cfg.portal.protocol, self.cfg.portal.ip,
-            self.cfg.portal.port, self.cfg.portal.provider_id,
-        )
-        query  = cl.ClientQueryServiceConf(
-            self.cfg.query.protocol, self.cfg.query.ip,
-            self.cfg.query.port, self.cfg.query.provider_id,
-        )
-        client = cl.Client(portal, query)
-        rc = client.Connect()
-        if rc != CL_SUCCESS:
-            raise ChronoLogUnavailable(f"chronolog Connect() returned {rc}")
-        self._client = client
-        log.info("chronolog client connected: portal=%s:%d query=%s:%d",
-                 self.cfg.portal.ip, self.cfg.portal.port,
-                 self.cfg.query.ip,  self.cfg.query.port)
-        return client
+        # Double-checked locking: without this, two request threads that both
+        # find ``_client is None`` each construct a Client and Connect() on the
+        # SAME query endpoint (:5557) concurrently, which segfaults the native
+        # client. Serialize the one-time construction.
+        with self._lock:
+            if self._client is not None:
+                return self._client
+            cl = self._import()
+            portal = cl.ClientPortalServiceConf(
+                self.cfg.portal.protocol, self.cfg.portal.ip,
+                self.cfg.portal.port, self.cfg.portal.provider_id,
+            )
+            # Reads are archive-first, so unless live replay is explicitly
+            # enabled we never call ReplayStory and don't need the client-side
+            # query service. Constructing writer-only (portal-only) drops the
+            # query-callback machinery entirely — which is timing-unstable on
+            # this client build and was intermittently crashing the write path.
+            if _env("CHRONOLOG_REPLAY_LIVE").lower() in ("1", "true", "yes", "on"):
+                query = cl.ClientQueryServiceConf(
+                    self.cfg.query.protocol, self.cfg.query.ip,
+                    self.cfg.query.port, self.cfg.query.provider_id,
+                )
+                client = cl.Client(portal, query)
+            else:
+                client = cl.Client(portal)
+            rc = client.Connect()
+            if rc != CL_SUCCESS:
+                raise ChronoLogUnavailable(f"chronolog Connect() returned {rc}")
+            self._client = client
+            log.info("chronolog client connected: portal=%s:%d query=%s:%d",
+                     self.cfg.portal.ip, self.cfg.portal.port,
+                     self.cfg.query.ip,  self.cfg.query.port)
+            return client
 
     def close(self):
         with self._lock:
@@ -276,7 +291,12 @@ class ChronoLogBackend:
         if chronicle in self._chronicles_seen:
             return
         client = self._client_inst()
-        rc = client.CreateChronicle(chronicle, {}, 1)
+        # py_chronolog_client API drift: newer builds take CreateChronicle(name);
+        # older ones take CreateChronicle(name, attrs, flags). Support both.
+        try:
+            rc = client.CreateChronicle(chronicle)
+        except TypeError:
+            rc = client.CreateChronicle(chronicle, {}, 1)
         if rc not in (CL_SUCCESS, CL_ERR_CHRONICLE_EXISTS):
             raise RuntimeError(f"CreateChronicle({chronicle}) -> {rc}")
         self._chronicles_seen.add(chronicle)
@@ -288,7 +308,11 @@ class ChronoLogBackend:
             return h
         self._ensure_chronicle(chronicle)
         client = self._client_inst()
-        rc, handle = client.AcquireStory(chronicle, story, {}, 1)
+        # API drift: newer AcquireStory(chronicle, story); older takes (…, attrs, flags).
+        try:
+            rc, handle = client.AcquireStory(chronicle, story)
+        except TypeError:
+            rc, handle = client.AcquireStory(chronicle, story, {}, 1)
         if rc != CL_SUCCESS:
             raise RuntimeError(f"AcquireStory({chronicle}, {story}) -> {rc}")
         self._story_handles[key] = handle
@@ -331,6 +355,17 @@ class ChronoLogBackend:
         if end_ns is None:
             end_ns = time.time_ns() + 60_000_000_000  # +60s of slack
 
+        # Archive-first. The grapher's drained CSV/HDF5 output is the durable,
+        # safe read source; a live ``ReplayStory`` can time out (-12) and, on
+        # some client builds, is unstable under mixed concurrent access. So we
+        # serve the drained archive and only fall through to a live replay when
+        # the archive is empty AND live replay is explicitly opted in.
+        archived = _csv_archive_events(chronicle, story, start_ns, end_ns)
+        if archived:
+            return archived
+        if _env("CHRONOLOG_REPLAY_LIVE").lower() not in ("1", "true", "yes", "on"):
+            return []
+
         cl = self._import()
         with self._lock:
             # AcquireStory is idempotent for this Client; ensure it.
@@ -339,9 +374,6 @@ class ChronoLogBackend:
             ev_list = cl.EventList()
             rc = client.ReplayStory(chronicle, story, start_ns, end_ns, ev_list)
         if rc not in (CL_SUCCESS, CL_ERR_NOT_EXIST):
-            archived = _csv_archive_events(chronicle, story, start_ns, end_ns)
-            if archived:
-                return archived
             raise RuntimeError(f"ReplayStory({chronicle}, {story}) -> {rc}")
 
         out: List[Dict[str, Any]] = []

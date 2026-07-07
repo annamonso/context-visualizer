@@ -114,7 +114,7 @@ def main() -> int:
         if args.state_dir:
             os.environ["DTP_STATE_DIR"] = args.state_dir
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-        from chronolog_observability.capture.spool import get_spool  # noqa: E402
+        from backend.capture.spool import get_spool  # noqa: E402
         spool = get_spool()
 
     rng = random.Random(args.seed)

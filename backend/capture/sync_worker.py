@@ -4,7 +4,7 @@ This is the ChronoLog-native successor of the original
 ``context_visualizer/chronolog/sync_worker.py``. That worker polled the live
 the legacy runtime's CTE blobs and wrote deltas into ChronoLog.
 This plugin has no such runtime, so the source is the local
-:class:`~chronolog_observability.capture.spool.CaptureSpool` (see its module
+:class:`~backend.capture.spool.CaptureSpool` (see its module
 docstring) — whatever instruments the user's agents appends events there, and
 this worker forwards them into the same ChronoLog stories that
 ``backend.path_a_reader`` reads back out.
@@ -18,12 +18,12 @@ Design (unchanged in spirit from the original):
 
 Usage from Flask startup (opt-in via ``CHRONOLOG_CAPTURE=1``):
 
-    from chronolog_observability.capture.sync_worker import start_sync_worker
+    from backend.capture.sync_worker import start_sync_worker
     start_sync_worker(interval_sec=5)
 
 Standalone:
 
-    python3 -m chronolog_observability.capture.sync_worker --interval 5
+    python3 -m backend.capture.sync_worker --interval 5
     chronolog-capture --interval 5        # console-script alias
 """
 
@@ -36,8 +36,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
-from ..backend import constants
-from ..backend.client import ChronoLogBackend, get_backend
+from ..chronolog import constants
+from ..chronolog.client import ChronoLogBackend, get_backend
 from . import spool as _spool
 from .spool import (
     ALL_KINDS,

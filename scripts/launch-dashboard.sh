@@ -62,7 +62,7 @@ JOB_ID="$1"; VISOR_IP="$2"; NODELIST="$3"; REPO_ROOT="$4"; CHRONO_HOME="$5"
 PORT="$6"; QUERY_PORT="$7"; STATE_DIR="$8"
 
 # kill any prior dashboard on this node
-pkill -f 'chronolog_observability.app' 2>/dev/null || true
+pkill -f 'backend.app' 2>/dev/null || true
 pkill -f 'chronolog-observe' 2>/dev/null || true
 sleep 1
 
@@ -91,7 +91,7 @@ cd "$REPO_ROOT"
 LOGDIR="$REPO_ROOT/logs"; mkdir -p "$LOGDIR"
 LOG="$LOGDIR/dashboard-${JOB_ID}-$(hostname).log"
 
-setsid nohup python3 -m chronolog_observability.app > "$LOG" 2>&1 &
+setsid nohup python3 -m backend.app > "$LOG" 2>&1 &
 echo "[remote $(hostname)] dashboard pid=$! port=$PORT query_port=$QUERY_PORT (log $LOG)"
 REMOTE
 

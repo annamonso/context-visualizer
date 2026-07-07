@@ -22,20 +22,20 @@ dependencies = [
 dev = ["pytest", "ruff"]
 
 [project.scripts]
-chronolog-observe = "chronolog_observability.app:main"
-chronolog-capture = "chronolog_observability.capture.sync_worker:main"
-chronolog-collector = "chronolog_observability.collector.__main__:main"
-chronolog-doctor = "chronolog_observability.diagnostics.worker:main"
-chronolog-fleet-rollup = "chronolog_observability.fleet.worker:main"
+chronolog-observe = "backend.app:main"
+chronolog-capture = "backend.capture.sync_worker:main"
+chronolog-collector = "backend.collector.__main__:main"
+chronolog-doctor = "backend.diagnostics.worker:main"
+chronolog-fleet-rollup = "backend.fleet.worker:main"
 
 # Adapters are discovered via this entry-point group. Third parties can ship
 # their own data source as a separate distribution by registering here.
-[project.entry-points."chronolog_observability.adapters"]
-chronolog = "chronolog_observability.adapters.chronolog_source:ChronoLogAdapter"
+[project.entry-points."backend.adapters"]
+chronolog = "backend.adapters.chronolog_source:ChronoLogAdapter"
 
 [tool.setuptools.packages.find]
-where = ["src"]
-include = ["chronolog_observability*"]
+where = ["."]
+include = ["backend*"]
 
 [tool.setuptools.package-data]
-chronolog_observability = ["templates/*.html", "static/**/*"]
+backend = ["templates/*.html", "static/**/*"]

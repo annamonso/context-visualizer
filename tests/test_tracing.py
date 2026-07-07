@@ -3,9 +3,9 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from chronolog_observability.analysis.trace import build_traces, critical_path  # noqa: E402
+from backend.analysis.trace import build_traces, critical_path  # noqa: E402
 
 
 def _nested_scenario():

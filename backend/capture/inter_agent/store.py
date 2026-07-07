@@ -145,7 +145,7 @@ class InterAgentStore:
         """
         if self._chronolog_override is not None:
             return self._chronolog_override
-        from ...backend.client import get_backend
+        from ...chronolog.client import get_backend
         return get_backend()
 
     # ------------------------------------------------------------------
@@ -194,7 +194,7 @@ class InterAgentStore:
     # ------------------------------------------------------------------
 
     def _append_chronolog(self, msg: "InterAgentMessage", backend) -> None:
-        from ...backend import constants
+        from ...chronolog import constants
         ch = constants.inter_agent_chronicle(msg.scenario_id)
         backend.append_event(ch, constants.INTER_AGENT_STORY_EDGES, msg.to_dict())
         # Index the scenario so list_scenarios() has something to enumerate
@@ -206,7 +206,7 @@ class InterAgentStore:
             log.warning("chronolog index_add failed: %s", exc)
 
     def _read_chronolog(self, scenario_id: str, backend) -> List["InterAgentMessage"]:
-        from ...backend import constants
+        from ...chronolog import constants
         ch = constants.inter_agent_chronicle(scenario_id)
         try:
             events = backend.replay_events(ch, constants.INTER_AGENT_STORY_EDGES)
@@ -225,7 +225,7 @@ class InterAgentStore:
         return out
 
     def _list_scenarios_chronolog(self, backend) -> List[str]:
-        from ...backend import constants
+        from ...chronolog import constants
         try:
             ids = backend.index_list(constants.INDEX_STORY_SCENARIOS)
         except RuntimeError as exc:

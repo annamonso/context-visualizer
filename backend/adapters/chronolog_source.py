@@ -40,9 +40,9 @@ class ChronoLogAdapter(BaseAdapter):
         # Available whenever ChronoLog can serve reads (live client present, or
         # offline CSV-replay demo mode). See backend.is_reachable().
         try:
-            from .. import backend
+            from .. import chronolog
 
-            return backend.is_reachable()
+            return chronolog.is_reachable()
         except Exception:
             return False
 
@@ -52,36 +52,36 @@ class ChronoLogAdapter(BaseAdapter):
     # --- generic read primitives (delegate to the ChronoLog read path) ---
 
     def get_sessions(self) -> Dict[str, Dict[str, Any]]:
-        from ..backend import path_a_reader
+        from ..chronolog import path_a_reader
 
         return path_a_reader.get_sessions()
 
     def get_session_interactions(self, session_id: str) -> Dict[str, Dict[str, Any]]:
-        from ..backend import path_a_reader
+        from ..chronolog import path_a_reader
 
         return path_a_reader.get_session_interactions(session_id)
 
     def get_interaction(self, session_id: str, seq_id: Any) -> Dict[str, Dict[str, Any]]:
-        from ..backend import path_a_reader
+        from ..chronolog import path_a_reader
 
         return path_a_reader.get_interaction(session_id, seq_id)
 
     def get_context_graphs(self) -> Dict[str, List[str]]:
-        from ..backend import path_a_reader
+        from ..chronolog import path_a_reader
 
         return path_a_reader.get_context_graphs()
 
     def get_context_graph(self, session_id: str, since: int = 0) -> Dict[str, List[Dict[str, Any]]]:
-        from ..backend import path_a_reader
+        from ..chronolog import path_a_reader
 
         return path_a_reader.get_context_graph(session_id, since)
 
     def get_context_node(self, session_id: str, seq_id: Any) -> Dict[str, Dict[str, Any]]:
-        from ..backend import path_a_reader
+        from ..chronolog import path_a_reader
 
         return path_a_reader.get_context_node(session_id, seq_id)
 
     def get_recovery_events(self, session_id: str) -> List[Dict[str, Any]]:
-        from ..backend import path_a_reader
+        from ..chronolog import path_a_reader
 
         return path_a_reader.get_recovery_events(session_id)

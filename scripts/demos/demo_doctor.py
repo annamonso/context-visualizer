@@ -94,7 +94,7 @@ def report(rep) -> None:
 
 def main() -> None:
     bootstrap(STATE_DIR)
-    from chronolog_observability.diagnostics.scan import run_scan
+    from backend.diagnostics.scan import run_scan
 
     h1("DEMO 1 — ChronoDoctor: error detection, diagnosis & memory")
     print("  Seeding a multi-agent run full of realistic failures into a local,")
@@ -111,7 +111,7 @@ def main() -> None:
     report(run_scan())
 
     h2("Incident memory document")
-    from chronolog_observability.diagnostics.scan import memory_document
+    from backend.diagnostics.scan import memory_document
     doc = memory_document()
     print(color("\n".join("    " + ln for ln in doc.splitlines()[:14]), "dim"))
     print(f"    {color('(full doc: %s/diagnostics/incident_memory.md)' % STATE_DIR, 'dim')}")

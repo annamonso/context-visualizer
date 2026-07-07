@@ -95,7 +95,7 @@ class CollectorDaemon:
         if self._backend_override is not None:
             return self._backend_override
         try:
-            from ..backend.client import get_backend
+            from ..chronolog.client import get_backend
         except ImportError:
             return None
         return get_backend()
@@ -147,7 +147,7 @@ class CollectorDaemon:
         wrote_chronolog = False
         if backend is not None:
             try:
-                from ..backend import constants
+                from ..chronolog import constants
                 for ev in batch:
                     ch = constants.inter_agent_chronicle(ev["scenario_id"])
                     backend.append_event(ch, constants.INTER_AGENT_STORY_EDGES, ev)

@@ -9,15 +9,15 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from chronolog_observability.diagnostics.detectors import (  # noqa: E402
+from backend.diagnostics.detectors import (  # noqa: E402
     detect_all,
     detect_orphan_calls,
     detect_retry_storms,
     normalize_message,
 )
-from chronolog_observability.diagnostics.incidents import cluster_signals  # noqa: E402
-from chronolog_observability.diagnostics.diagnoser import HeuristicDiagnoser  # noqa: E402
-from chronolog_observability.diagnostics.memory import IncidentMemory  # noqa: E402
+from backend.diagnostics.incidents import cluster_signals  # noqa: E402
+from backend.diagnostics.diagnoser import HeuristicDiagnoser  # noqa: E402
+from backend.diagnostics.memory import IncidentMemory  # noqa: E402
 
 
 def test_normalize_message_collapses_numbers_and_ids():

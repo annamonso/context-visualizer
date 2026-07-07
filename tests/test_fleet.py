@@ -3,9 +3,9 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from chronolog_observability.fleet.rollup import (  # noqa: E402
+from backend.fleet.rollup import (  # noqa: E402
     bucketize,
     health_from_raw,
     minute_key,

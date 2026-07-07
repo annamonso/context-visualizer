@@ -79,14 +79,14 @@ def waterfall(trace) -> None:
 
 def main() -> None:
     bootstrap(STATE_DIR)
-    from chronolog_observability.analysis.trace import build_traces, critical_path
+    from backend.analysis.trace import build_traces, critical_path
 
     h1("DEMO 3 — Distributed critical-path tracing")
     print("  Seeding one request that fans out across 6 hosts (orchestrator →")
     print("  retriever → {vectordb, webfetch} → ranker → summarizer)…")
     seed()
 
-    traces = build_traces(__import__("chronolog_observability.capture.inter_agent",
+    traces = build_traces(__import__("backend.capture.inter_agent",
                                      fromlist=["get_store"]).get_store().read_stitched(SCENARIO))
     if not traces:
         print(color("  no traces built", "red"))
@@ -98,7 +98,7 @@ def main() -> None:
     waterfall(trace)
 
     cp = critical_path(
-        __import__("chronolog_observability.capture.inter_agent",
+        __import__("backend.capture.inter_agent",
                    fromlist=["get_store"]).get_store().read_stitched(SCENARIO))
     h2("Critical path (what actually sets the wall-clock)")
     chain = " → ".join(f"{s['tool_name']}→{s['to_host'].split('-')[-1]}({s['latency_ms']/1000:.1f}s)"

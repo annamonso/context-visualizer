@@ -2,7 +2,7 @@
 #
 # Targets:
 #   workspace        Install JS deps and build the React SPA into
-#                    src/chronolog_observability/static/workspace/. Flask serves
+#                    backend/static/workspace/. Flask serves
 #                    it at /. Run before building a wheel so the UI ships in it.
 #   workspace-dev    Vite dev server on :5173 with /api and /_interceptor proxied
 #                    to a locally running `chronolog-observe` (:5000).
@@ -12,7 +12,7 @@
 # `make workspace` includes the UI. The frontend has no chimaera dependency.
 
 FRONTEND_DIR := frontend
-BUNDLE_DIR   := src/chronolog_observability/static/workspace
+BUNDLE_DIR   := backend/static/workspace
 
 .PHONY: workspace workspace-dev workspace-clean
 

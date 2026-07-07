@@ -24,7 +24,7 @@ from pathlib import Path
 def bootstrap(state_dir: str) -> None:
     """Configure offline mode + state dir, then put ``src`` on the path.
 
-    Must be called BEFORE importing ``chronolog_observability`` so the backend
+    Must be called BEFORE importing ``backend`` so the backend
     selects the offline (JSONL/spool) path.
     """
     os.environ["CHRONOLOG_OFFLINE"] = "1"
@@ -43,7 +43,7 @@ def now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-# --- seeding primitives (import chronolog_observability lazily, post-bootstrap) ---
+# --- seeding primitives (import backend lazily, post-bootstrap) ---
 
 def edge(
     scenario: str,
@@ -61,8 +61,8 @@ def edge(
     orphan: bool = False,
 ) -> str:
     """Seed a start (+done unless ``orphan``) inter-agent edge. Returns its corr id."""
-    from chronolog_observability.capture.inter_agent import get_store
-    from chronolog_observability.capture.inter_agent.store import new_message
+    from backend.capture.inter_agent import get_store
+    from backend.capture.inter_agent.store import new_message
 
     store = get_store()
     corr = correlation_id or uuid.uuid4().hex
@@ -99,7 +99,7 @@ def turn(
     when: datetime | None = None,
 ) -> None:
     """Seed one LLM interaction turn into the spool (Path-A)."""
-    from chronolog_observability.capture.spool import get_spool
+    from backend.capture.spool import get_spool
 
     sp = get_spool()
     when = when or now()
@@ -124,7 +124,7 @@ def turn(
 
 
 def recovery(session: str, *, reason: str = "checkpoint-restore", host: str = "", when: datetime | None = None) -> None:
-    from chronolog_observability.capture.spool import get_spool
+    from backend.capture.spool import get_spool
 
     sp = get_spool()
     sp.record_recovery(session, {
@@ -163,7 +163,7 @@ def view_hint(state_dir: str, tab: str, extra: str = "") -> None:
     print(f"  Launch the dashboard against this demo's data:\n")
     print(color(
         f"    CHRONOLOG_OFFLINE=1 DTP_STATE_DIR={state_dir} \\\n"
-        f"      PYTHONPATH=src python3 -m chronolog_observability\n", "green"))
+        f"      PYTHONPATH=src python3 -m backend\n", "green"))
     print(f"  Then open:  http://<host>:5000/?tab={tab}{extra}")
     print(color("  (On ARES, point the dashboard at the real visor instead of "
                 "offline mode to view the same\n   features over a live cluster — "

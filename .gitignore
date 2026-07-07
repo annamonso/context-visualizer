@@ -11,7 +11,7 @@ venv/
 # Frontend
 frontend/node_modules/
 frontend/dist/
-src/chronolog_observability/static/workspace/
+backend/static/workspace/
 
 # Runtime / data
 *.log

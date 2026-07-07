@@ -27,9 +27,9 @@ os.environ.setdefault("DTP_STATE_DIR", "/tmp/chronolog_scale_demo")
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from chronolog_observability.app import create_app  # noqa: E402
-from chronolog_observability.capture.llm_demo_store import get_store as get_llm_store  # noqa: E402
-from chronolog_observability.capture.spool import get_spool  # noqa: E402
+from backend.app import create_app  # noqa: E402
+from backend.capture.llm_demo_store import get_store as get_llm_store  # noqa: E402
+from backend.capture.spool import get_spool  # noqa: E402
 
 TOOLS = ["call_remote_agent", "shard_query", "merge_results", "fetch_chunk", "broadcast_plan"]
 MODELS = ["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5"]

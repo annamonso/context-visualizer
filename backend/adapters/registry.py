@@ -1,6 +1,6 @@
 """Discover, probe, and select data-source adapters at runtime.
 
-Adapters register under the ``chronolog_observability.adapters`` entry-point
+Adapters register under the ``backend.adapters`` entry-point
 group (see pyproject.toml), plus a built-in default. At startup the registry
 instantiates each, calls ``is_available()``, and keeps the ones that say yes.
 Blueprints then resolve a capability to *some* active adapter that provides it.
@@ -19,7 +19,7 @@ from .base import Capability, SourceAdapter
 
 log = logging.getLogger(__name__)
 
-_ENTRY_POINT_GROUP = "chronolog_observability.adapters"
+_ENTRY_POINT_GROUP = "backend.adapters"
 
 
 class SourceUnavailable(RuntimeError):
@@ -29,7 +29,7 @@ class SourceUnavailable(RuntimeError):
 # editable install, so no entry-point metadata). Third parties extend the set
 # by registering under the entry-point group above.
 _BUILTIN = [
-    ("chronolog", "chronolog_observability.adapters.chronolog_source:ChronoLogAdapter"),
+    ("chronolog", "backend.adapters.chronolog_source:ChronoLogAdapter"),
 ]
 
 

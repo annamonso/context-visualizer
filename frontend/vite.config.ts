@@ -17,7 +17,7 @@ export default defineConfig({
   build: {
     outDir: path.resolve(
       __dirname,
-      "../src/chronolog_observability/static/workspace"
+      "../backend/static/workspace"
     ),
     emptyOutDir: true,
   },

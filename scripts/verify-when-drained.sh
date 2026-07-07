@@ -16,7 +16,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 URL="http://${FLASK_NODE}:5000"
 
 echo "=== restart dashboard on $FLASK_NODE (clean, no request backlog) ==="
-ssh -o BatchMode=yes "$FLASK_NODE" "pkill -9 -f chronolog_observability.app 2>/dev/null; true" 2>&1
+ssh -o BatchMode=yes "$FLASK_NODE" "pkill -9 -f backend.app 2>/dev/null; true" 2>&1
 bash "$REPO_ROOT/scripts/launch-dashboard.sh" "$JOB_ID" "$FLASK_NODE" 5000 5557 >/dev/null 2>&1
 for i in $(seq 1 30); do
   curl -sf --max-time 3 "$URL/api/config" >/dev/null 2>&1 && { echo "dashboard up (${i}s)"; break; }

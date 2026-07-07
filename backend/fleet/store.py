@@ -19,7 +19,7 @@ import threading
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from ..backend import constants
+from ..chronolog import constants
 from .rollup import Bucket
 
 log = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ def _local_path() -> Path:
 
 def _backend():
     try:
-        from ..backend.client import get_backend
+        from ..chronolog.client import get_backend
 
         return get_backend()
     except Exception:

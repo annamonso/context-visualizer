@@ -67,12 +67,12 @@ def main() -> int:
     )
 
     # Imported here (not at module top) so --help works without the package env.
-    from chronolog_observability.backend import constants
-    from chronolog_observability.backend.client import BackendConfig, get_backend, reset_backend
-    from chronolog_observability.backend import path_a_reader as par
-    from chronolog_observability.capture.spool import CaptureSpool
-    from chronolog_observability.capture.sync_worker import SpoolToChronoLogSync
-    from chronolog_observability.capture.inter_agent import store as ia
+    from backend.backend import constants
+    from backend.backend.client import BackendConfig, get_backend, reset_backend
+    from backend.backend import path_a_reader as par
+    from backend.capture.spool import CaptureSpool
+    from backend.capture.sync_worker import SpoolToChronoLogSync
+    from backend.capture.inter_agent import store as ia
 
     cfg = BackendConfig.from_env()
     _p("cfg", f"visor portal={cfg.portal.ip}:{cfg.portal.port} "

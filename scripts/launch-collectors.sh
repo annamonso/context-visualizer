@@ -4,7 +4,7 @@
 # Each collector accepts events from local agents on 127.0.0.1:<port>,
 # writes them straight to ChronoLog via the node-local keeper, and forwards
 # a thin copy to the central dashboard for the live SSE view (see
-# chronolog_observability/collector/).
+# backend/collector/).
 #
 # Usage (from the master, after the ChronoLog cluster is up):
 #
@@ -15,7 +15,7 @@
 #
 # Stop:
 #     for n in $(scontrol show hostnames "$(squeue -j <JOBID> -h -o '%N')"); do
-#       ssh "$n" 'pkill -f chronolog_observability.collector'; done
+#       ssh "$n" 'pkill -f backend.collector'; done
 
 set -euo pipefail
 
@@ -81,7 +81,7 @@ LOGDIR="$REPO_ROOT/logs"
 mkdir -p "$LOGDIR"
 LOG="$LOGDIR/collector-${JOB_ID}-$(hostname).log"
 
-nohup python3 -m chronolog_observability.collector \
+nohup python3 -m backend.collector \
       --flask-url "$DASHBOARD_URL" --port "$COLLECTOR_PORT" \
       > "$LOG" 2>&1 &
 
@@ -91,4 +91,4 @@ done
 
 echo
 echo "Agents on each node can now POST to http://127.0.0.1:$COLLECTOR_PORT/ingest"
-echo "(or use chronolog_observability.collector.emit)."
+echo "(or use backend.collector.emit)."

@@ -10,7 +10,7 @@ came from. The shipped adapter is:
     Available on *any* ChronoLog deployment.
 
 The interface is kept so third parties can register additional data sources
-under the ``chronolog_observability.adapters`` entry-point group; each declares
+under the ``backend.adapters`` entry-point group; each declares
 which ``Capability`` values it provides, and ``app.create_app`` mounts only the
 blueprints whose capability some active adapter offers.
 """

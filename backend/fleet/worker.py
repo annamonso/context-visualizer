@@ -7,7 +7,7 @@ view never re-scans raw events.
 
 Standalone::
 
-    python3 -m chronolog_observability.fleet.worker --interval 30 --once
+    python3 -m backend.fleet.worker --interval 30 --once
 """
 
 from __future__ import annotations

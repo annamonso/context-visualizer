@@ -250,7 +250,7 @@ def _backlog_default() -> bool:
     (``?backlog=1``, for already-drained scenarios). Offline mode reads
     JSONL, which is instant, so the backlog defaults on.
     """
-    from ..backend.client import get_backend
+    from ..chronolog.client import get_backend
 
     try:
         return get_backend() is None

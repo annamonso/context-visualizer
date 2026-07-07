@@ -22,8 +22,8 @@ from typing import Dict, List, Optional, Set
 
 from flask import Blueprint, Response, jsonify, request
 
-from ..backend import constants
-from ..backend.client import ChronoLogUnavailable, get_backend
+from ..chronolog import constants
+from ..chronolog.client import ChronoLogUnavailable, get_backend
 
 
 bp = Blueprint("chronolog_view", __name__)
@@ -358,7 +358,7 @@ def topology():
         "output_dir":        str(_output_dir()),
         "scenarios":         scenarios,
         "now_ns":            now_ns,
-        "drain_window_sec":  180,
+        "drain_window_sec":  int(os.environ.get("CHRONOLOG_DRAIN_WINDOW_SEC", "180")),
         "allocation":        allocation,
         "components":        _components(allocation),
         "stale_cutoff_sec":  stale_cutoff,

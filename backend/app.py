@@ -25,16 +25,16 @@ log = logging.getLogger(__name__)
 # declares bare paths and gets ``/api``.
 _BLUEPRINTS = [
     # (import_path, attr, url_prefix, required_capability)
-    ("chronolog_observability.api.conversations", "bp", "", Capability.CONVERSATIONS),
-    ("chronolog_observability.api.interactions", "bp", "", Capability.INTERACTIONS),
-    ("chronolog_observability.api.scenarios", "bp", "/api", Capability.SCENARIOS),
-    ("chronolog_observability.api.provenance", "bp", "/api", Capability.PROVENANCE),
-    ("chronolog_observability.api.semantic", "bp", "/api", Capability.SEMANTIC),
-    ("chronolog_observability.api.inter_agent", "bp", "/api", Capability.INTER_AGENT),
-    ("chronolog_observability.api.chronolog_view", "bp", "/api", Capability.CLUSTER),
-    ("chronolog_observability.api.diagnostics", "bp", "/api", Capability.DIAGNOSTICS),
-    ("chronolog_observability.api.fleet", "bp", "/api", Capability.FLEET),
-    ("chronolog_observability.api.tracing", "bp", "/api", Capability.TRACING),
+    ("backend.api.conversations", "bp", "", Capability.CONVERSATIONS),
+    ("backend.api.interactions", "bp", "", Capability.INTERACTIONS),
+    ("backend.api.scenarios", "bp", "/api", Capability.SCENARIOS),
+    ("backend.api.provenance", "bp", "/api", Capability.PROVENANCE),
+    ("backend.api.semantic", "bp", "/api", Capability.SEMANTIC),
+    ("backend.api.inter_agent", "bp", "/api", Capability.INTER_AGENT),
+    ("backend.api.chronolog_view", "bp", "/api", Capability.CLUSTER),
+    ("backend.api.diagnostics", "bp", "/api", Capability.DIAGNOSTICS),
+    ("backend.api.fleet", "bp", "/api", Capability.FLEET),
+    ("backend.api.tracing", "bp", "/api", Capability.TRACING),
 ]
 
 

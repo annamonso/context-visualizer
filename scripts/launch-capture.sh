@@ -30,7 +30,7 @@ ssh -o BatchMode=yes "$NODE" bash -s -- \
     "$JOB_ID" "$VISOR_IP" "$REPO_ROOT" "$CHRONO_HOME" "$QUERY_PORT" "$STATE_DIR" <<'REMOTE'
 set -euo pipefail
 JOB_ID="$1"; VISOR_IP="$2"; REPO_ROOT="$3"; CHRONO_HOME="$4"; QUERY_PORT="$5"; STATE_DIR="$6"
-pkill -f 'chronolog_observability.capture.sync_worker' 2>/dev/null || true
+pkill -f 'backend.capture.sync_worker' 2>/dev/null || true
 source /etc/profile.d/lmod.sh 2>/dev/null || true
 module load python/3.11.9-zg4555e
 export TMPDIR="/mnt/nvme/$USER/chronolog-tmp"; mkdir -p "$TMPDIR"
@@ -42,7 +42,7 @@ export DTP_STATE_DIR="$STATE_DIR"
 unset CHRONOLOG_OFFLINE
 cd "$REPO_ROOT"; LOGDIR="$REPO_ROOT/logs"; mkdir -p "$LOGDIR"
 LOG="$LOGDIR/capture-${JOB_ID}-$(hostname).log"
-setsid nohup python3 -m chronolog_observability.capture.sync_worker --interval 5 \
+setsid nohup python3 -m backend.capture.sync_worker --interval 5 \
       > "$LOG" 2>&1 &
 echo "[remote $(hostname)] capture worker pid=$! query_port=$QUERY_PORT (log $LOG)"
 REMOTE

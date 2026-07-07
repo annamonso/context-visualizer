@@ -72,7 +72,7 @@ def gather(
         # reader (may block on un-drained stories — acceptable when there is no
         # live run producing spool data).
         try:
-            from ..backend import path_a_reader
+            from ..chronolog import path_a_reader
 
             sessions = [s.get("session_id") for s in _flatten(path_a_reader.get_sessions())]
             for sid in [s for s in sessions if s][:max_sessions]:

@@ -6,7 +6,7 @@ clio-core-era ``/api/_demo/llm-ingest`` endpoint that this plugin removed), this
 runner feeds the chronolog-observability plugin's *actual* data paths:
 
   * Path-A  (Workspace / Interactions tabs): every LLM turn is appended to the
-    plugin's capture spool (``chronolog_observability.capture.spool``). A
+    plugin's capture spool (``backend.capture.spool``). A
     ``chronolog-capture`` worker drains the spool into ChronoLog and the
     dashboard reads it back via ``backend.path_a_reader`` — the same read path
     the blueprints use.
@@ -364,7 +364,7 @@ def main() -> int:
               f"that has it (e.g. `conda run -n iowarp ...`).", file=sys.stderr)
         return 3
     try:
-        from chronolog_observability.capture.spool import get_spool
+        from backend.capture.spool import get_spool
     except Exception as exc:
         print(f"FAIL: cannot import the plugin spool ({exc}). Put <repo>/src on PYTHONPATH.",
               file=sys.stderr)

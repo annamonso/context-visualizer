@@ -78,9 +78,9 @@ def main() -> None:
 
     bootstrap(STATE_DIR)
     import time as _t
-    from chronolog_observability.fleet.worker import emit_once
-    from chronolog_observability.fleet.store import read_buckets
-    from chronolog_observability.fleet import rollup as R
+    from backend.fleet.worker import emit_once
+    from backend.fleet.store import read_buckets
+    from backend.fleet import rollup as R
 
     h1(f"DEMO 2 — Fleet Health: {args.nodes} nodes at a glance")
     print(f"  Seeding ~{args.nodes * args.turns + 40} events across {args.nodes} nodes")

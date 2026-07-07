@@ -7,7 +7,7 @@ so repeat offenders are recognised without anyone clicking.
 
 Standalone::
 
-    python3 -m chronolog_observability.diagnostics.worker --interval 30
+    python3 -m backend.diagnostics.worker --interval 30
     chronolog-doctor --interval 30        # console-script alias
 """
 

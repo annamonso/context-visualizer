@@ -6,7 +6,7 @@ set -euo pipefail
 
 SRC="${1:-/mnt/common/amonsorodriguez/clio-core/context-visualizer}"
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
-PKG="$HERE/src/chronolog_observability"
+PKG="$HERE/backend"
 
 if [[ ! -d "$SRC/context_visualizer" ]]; then
   echo "error: $SRC/context_visualizer not found (pass old repo path as \$1)" >&2
