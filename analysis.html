@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChronoLog Observability — Overview</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --border: #262b36;
+    --text: #d7dce5;
+    --muted: #8b94a7;
+    --accent: #5ea0ff;
+    --code-bg: #0b0d11;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 48px 24px 80px; }
+  h1 { font-size: 1.9rem; margin: 0 0 4px; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); margin: 0 0 40px; font-size: 0.95rem; }
+  section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 28px;
+  }
+  h2 {
+    font-size: 1.25rem;
+    margin: 0 0 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--accent);
+  }
+  h3 { font-size: 1.03rem; margin: 26px 0 9px; color: #dbe2ec; font-weight: 700; letter-spacing: -0.01em; }
+  p { margin: 0 0 14px; }
+  strong { color: #fff; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font: 0.85em "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    overflow-x: auto;
+    font: 0.8rem/1.5 "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    color: #b9c2d4;
+  }
+  pre code { background: none; border: none; padding: 0; }
+  .diagram {
+    display: block;
+    width: 100%;
+    height: auto;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 18px;
+  }
+  ul { margin: 0; padding-left: 20px; }
+  li { margin-bottom: 10px; }
+  li::marker { color: var(--accent); }
+  .fgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 18px; }
+  .fcard { background: #12151c; border: 1px solid var(--border); border-radius: 8px; padding: 13px 16px 15px; }
+  .fcard .ftitle { font-weight: 700; font-size: 0.98rem; }
+  .fcard ul { margin: 9px 0 0; padding-left: 17px; }
+  .fcard li { margin-bottom: 5px; font-size: 0.85rem; line-height: 1.45; color: #c4ccd8; }
+  .ftbl { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .ftbl th, .ftbl td { padding: 6px 9px; border-bottom: 1px solid #21262f; text-align: left; vertical-align: top; }
+  .ftbl th { color: var(--muted); font-weight: 600; }
+  .ftbl .tab { font-weight: 700; white-space: nowrap; }
+  .ftbl .src { color: var(--muted); font-size: 0.82rem; white-space: nowrap; }
+  @media (max-width: 620px) { .fgrid { grid-template-columns: 1fr; } }
+  .layers { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+  .layer { position: relative; display: flex; align-items: center; gap: 20px; border: 1px solid var(--border); border-radius: 14px; padding: 18px 22px; overflow: hidden; }
+  .layer .lnum { position: absolute; right: 22px; top: 50%; transform: translateY(-50%); font-size: 5.5rem; font-weight: 800; line-height: 1; opacity: 0.10; pointer-events: none; }
+  .layer .licon { flex: 0 0 auto; width: 54px; height: 54px; border-radius: 14px; display: flex; align-items: center; justify-content: center; }
+  .layer .lbody { flex: 1; min-width: 0; z-index: 1; }
+  .layer .lmeta { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.18em; font-weight: 700; margin-bottom: 2px; }
+  .layer .lname { font-size: 1.12rem; font-weight: 700; color: #fff; }
+  .layer .ldesc { color: #c4ccd8; font-size: 0.9rem; margin: 6px 0 0; max-width: 640px; }
+  .layer .ltags { margin-top: 11px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .layer .ltag { font-size: 0.72rem; border-radius: 20px; padding: 3px 11px; border: 1px solid; background: rgba(255,255,255,0.035); }
+  .lflow { text-align: center; font-size: 0.74rem; color: var(--muted); letter-spacing: 0.03em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ChronoLog Observability</h1>
+  <p class="sub">Repo overview — what it is &amp; how the data flows.</p>
+
+  <section>
+    <h2>What it is</h2>
+    <p>
+      <strong>ChronoLog Observability is an observability &amp; distributed-tracing tool for
+      fleets of AI agents running across an HPC cluster</strong> — think APM (application
+      performance monitoring), but for many LLM agents on many nodes instead of microservices.
+      You point it at a running <a href="https://github.com/grc-iit/ChronoLog">ChronoLog</a>
+      deployment and it reconstructs <em>how the agents actually ran</em> — their conversations,
+      how they delegated to one another, where time went, and what failed — entirely from
+      ChronoLog stories, with no other backend required.
+    </p>
+    <p>
+      It targets the <strong>multi-agent, multi-node</strong> case specifically. It captures both
+      each agent's <strong>LLM turns</strong> and the <strong>inter-agent calls</strong> between
+      them; it is <strong>SLURM / cluster-aware</strong> (real node names, idle / busy state,
+      scales to 100+ nodes); and it traces <strong>critical paths across hosts</strong>. Where a
+      generic LLM-observability tool watches a single app, this watches a whole
+      <strong>fleet</strong> — surfaced as the classic observability triad (traces, metrics,
+      diagnostics) reframed for agents.
+    </p>
+    <p>
+      Under the hood it's a <strong>Flask (Python) backend + React (TypeScript) SPA</strong>,
+      shipped as a standalone pip-installable plugin (a repackaging of the former
+      <code>clio-core/context-visualizer</code>) with ChronoLog as the required storage substrate.
+      <strong>Design seam:</strong> every view is a <code>Capability</code> served by a pluggable
+      <strong>adapter</strong> — the app mounts only the blueprints some active adapter can serve,
+      so a third party can add their own data source without forking.
+    </p>
+  </section>
+
+  <section>
+    <h2>Layers</h2>
+    <p>
+      One way to look at the whole thing — three layers, top to bottom. Data rises as it
+      becomes meaning: raw events at the bottom, understanding in the middle, a picture at the top.
+    </p>
+
+    <div class="layers">
+
+      <!-- Layer 1 — Dashboard -->
+      <div class="layer" style="background:linear-gradient(135deg,#16233b,#12151c);border-color:#2c4568">
+        <div class="lnum" style="color:#5ea0ff">1</div>
+        <div class="licon" style="background:#12203a;color:#5ea0ff">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <div class="lbody">
+          <div class="lmeta" style="color:#5ea0ff">The eyes</div>
+          <div class="lname">Dashboard</div>
+          <p class="ldesc">Visualizes everything in real time — the eight views you navigate. Pure
+            presentation: it holds no domain logic, it just fetches <code>/api</code> and streams
+            live updates over SSE.</p>
+          <div class="ltags" style="color:#8fb4ee">
+            <span class="ltag" style="border-color:#2c4568">real-time views</span>
+            <span class="ltag" style="border-color:#2c4568">visualization</span>
+            <span class="ltag" style="border-color:#2c4568">no logic</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="lflow">renders insight ↑ &nbsp;·&nbsp; ↓ requests <code>/api</code></div>
+
+      <!-- Layer 2 — Insight -->
+      <div class="layer" style="background:linear-gradient(135deg,#221733,#12151c);border-color:#3a2c52">
+        <div class="lnum" style="color:#b98bff">2</div>
+        <div class="licon" style="background:#1e1533;color:#b98bff">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2Z"/></svg>
+        </div>
+        <div class="lbody">
+          <div class="lmeta" style="color:#b98bff">The brain</div>
+          <div class="lname">Insight</div>
+          <p class="ldesc">Turns raw events into understanding — detects failures, diagnoses root
+            cause, reconstructs distributed traces, rolls up fleet health, and shapes stories into
+            views. Mostly <strong>deterministic analytics</strong>, with <strong>optional LLM
+            reasoning</strong> on top.</p>
+          <div class="ltags" style="color:#c3b0e6">
+            <span class="ltag" style="border-color:#3a2c52">detection &amp; diagnosis</span>
+            <span class="ltag" style="border-color:#3a2c52">distributed tracing</span>
+            <span class="ltag" style="border-color:#3a2c52">fleet health</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="lflow">serves data ↑ &nbsp;·&nbsp; ↓ reads &amp; ingests events</div>
+
+      <!-- Layer 3 — Data engine -->
+      <div class="layer" style="background:linear-gradient(135deg,#241f0e,#12151c);border-color:#4a3f1e">
+        <div class="lnum" style="color:#e3b341">3</div>
+        <div class="licon" style="background:#221d0c;color:#e3b341">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>
+        </div>
+        <div class="lbody">
+          <div class="lmeta" style="color:#e3b341">The engine</div>
+          <div class="lname">ChronoLog</div>
+          <p class="ldesc">Reads, ingests, and stores — <strong>no intelligence</strong>, pure data
+            collection and storage. Distributed, low-latency, HPC-scale, with a keeper on every
+            node. ChronoLog is the engine; this tool's capture path is what feeds it.</p>
+          <div class="ltags" style="color:#e0cd90">
+            <span class="ltag" style="border-color:#4a3f1e">distributed log</span>
+            <span class="ltag" style="border-color:#4a3f1e">durable storage</span>
+            <span class="ltag" style="border-color:#4a3f1e">HPC-scale</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <p style="color:var(--muted);font-size:0.86rem;margin-top:16px">
+      Two honest seams: <strong>① Serving core</strong> sits across Dashboard↔Insight (it hosts the
+      API that invokes the analytics), and <strong>capture / ingest</strong> is the one part of
+      <em>this</em> tool that lives in the data layer, feeding the ChronoLog engine. The
+      observability tool itself is layers 1–2 sitting on top of that engine.
+    </p>
+  </section>
+
+  <section>
+    <h2>Features</h2>
+    <p>
+      Grouped by what they do: the <strong>eight views</strong> you navigate, the
+      <strong>three flagship analytics engines</strong> behind some of them, and the
+      <strong>capture / cluster / tooling</strong> that support the whole thing.
+    </p>
+
+    <table class="ftbl">
+      <thead>
+        <tr><th>Tab</th><th>What you see</th><th>Source</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="tab" style="color:#5ea0ff">Workspace</td><td>Per-agent conversation tree — LLM turns, handoffs, subagents</td><td class="src">Path-A</td></tr>
+        <tr><td class="tab" style="color:#5ea0ff">Scenarios</td><td>Multi-agent scenario graph — peers + inter-agent edges, live</td><td class="src">Path-B · SSE</td></tr>
+        <tr><td class="tab" style="color:#5ea0ff">Interactions</td><td>Flat feed of every LLM turn</td><td class="src">Path-A</td></tr>
+        <tr><td class="tab" style="color:#5ea0ff">Cluster</td><td>ChronoLog topology + node-to-node comms + idle/available nodes</td><td class="src">topology · sinfo</td></tr>
+        <tr><td class="tab" style="color:#ff9e64">Fleet</td><td>Per-node health heatmap (errors / p95 / throughput / cost), 100+ nodes</td><td class="src">rollups · spool</td></tr>
+        <tr><td class="tab" style="color:#ff6b6b">Doctor</td><td>ChronoDoctor — error detection, diagnosis, self-compacting memory</td><td class="src">all stories</td></tr>
+        <tr><td class="tab" style="color:#b98bff">Traces</td><td>Distributed critical-path tracing waterfall</td><td class="src">inter-agent edges</td></tr>
+        <tr><td class="tab" style="color:#41d1a7">Memory</td><td>Per-agent working memory (context-graph tokens growing / evicting)</td><td class="src">Path-A spool</td></tr>
+      </tbody>
+    </table>
+
+    <div class="fgrid">
+      <div class="fcard" style="border-top:2px solid #ff6b6b">
+        <div class="ftitle" style="color:#ff6b6b">🩺 ChronoDoctor <span style="color:var(--muted);font-weight:400;font-size:0.8rem">— Doctor tab</span></div>
+        <ul>
+          <li><strong>Detection</strong> (pure, unit-tested): HTTP 4xx/5xx, latency outliers vs per-model median, retry storms, hung/dropped calls, slow edges, backtracks</li>
+          <li><strong>Clustering</strong>: 500 identical timeouts → <em>one</em> ranked incident (count + affected hosts)</li>
+          <li><strong>Diagnosis</strong>: zero-cost heuristic engine (root cause + fix + blast radius); opt-in Claude engine via <code>CHRONOLOG_DOCTOR_LLM=1</code></li>
+          <li><strong>Self-compacting memory</strong>: cross-run <code>recurring ×N</code> learning that survives restarts</li>
+        </ul>
+      </div>
+
+      <div class="fcard" style="border-top:2px solid #ff9e64">
+        <div class="ftitle" style="color:#ff9e64">📊 Fleet Health <span style="color:var(--muted);font-weight:400;font-size:0.8rem">— Fleet tab</span></div>
+        <ul>
+          <li><strong>Heatmap grid</strong>: one cell per node, worst-first; click to drill into per-minute series</li>
+          <li><strong>Rollups</strong>: per-<code>(host, minute)</code> buckets — <code>O(nodes × buckets)</code>, independent of event volume</li>
+          <li><strong>Real SLURM state</strong>: active nodes colored by health, the rest greyed idle/busy/down — real node names, never invented</li>
+          <li><strong>Persistent</strong>: window defaults to <em>all</em> so data stays visible after a run ends</li>
+        </ul>
+      </div>
+
+      <div class="fcard" style="border-top:2px solid #b98bff">
+        <div class="ftitle" style="color:#b98bff">🕸 Distributed tracing <span style="color:var(--muted);font-weight:400;font-size:0.8rem">— Traces tab</span></div>
+        <ul>
+          <li>Reconstructs cross-host <strong>call trees</strong> from inter-agent edges (explicit parent id, else inferred from session + time nesting)</li>
+          <li>Computes the <strong>critical path</strong> — the long-pole root-to-leaf chain</li>
+          <li>Names the <strong>bottleneck hop by self-time</strong> (exclusive wall-clock), ignoring parent/child overlap</li>
+          <li>Renders as a <strong>waterfall</strong> with the critical path highlighted</li>
+        </ul>
+      </div>
+
+      <div class="fcard" style="border-top:2px solid #41d1a7">
+        <div class="ftitle" style="color:#41d1a7">🔌 Capture &amp; live model</div>
+        <ul>
+          <li><strong>Path-A</strong>: LLM turns → spool → capture worker → ChronoLog</li>
+          <li><strong>Path-B</strong>: inter-agent calls → per-node collector → keeper</li>
+          <li><strong>Live hot store</strong>: instant, GIL-safe, bypasses the ~180 s keeper→grapher drain</li>
+          <li><strong>Source-agnostic seam</strong>: <code>/api/config</code> advertises active capabilities → the SPA shows only those tabs</li>
+        </ul>
+      </div>
+
+      <div class="fcard" style="border-top:2px solid #5ec8ff">
+        <div class="ftitle" style="color:#5ec8ff">🖥 Cluster awareness</div>
+        <ul>
+          <li><code>/api/cluster/capacity</code> shells a live <code>sinfo</code> — total / idle / busy / down + per-node state</li>
+          <li>Header <strong>capacity badge</strong> (30 s refresh)</li>
+          <li><strong>Real node names</strong> everywhere; idle nodes drawn green-dashed alongside the deployment</li>
+          <li>Feeds the traffic-generator node cap and the Fleet greying</li>
+        </ul>
+      </div>
+
+      <div class="fcard" style="border-top:2px solid #9fd356">
+        <div class="ftitle" style="color:#9fd356">🧪 Demo &amp; test tooling</div>
+        <ul>
+          <li><strong>Generate Traffic</strong>: mesh / star / pipeline / ring patterns, <em>no LLM cost</em>, spread over real node names</li>
+          <li><strong>Offline demo mode</strong> (<code>CHRONOLOG_OFFLINE=1</code>): the full UI with no cluster</li>
+          <li><strong>Real-agent harness</strong>: real Claude Agent SDK agents, <code>AGENTS_PER_NODE=K</code> per node</li>
+          <li><strong>Unit tests</strong> over the pure logic + narrated offline demo scripts</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Architecture (three layers)</h2>
+    <svg class="diagram" viewBox="0 0 1000 806" role="img"
+         aria-label="Three-layer architecture: React frontend on top; the Flask backend in the middle with Capture/ingest and a wide Serving core on top, Adapter seam and Analytics in the middle, and a full-width ChronoLog-access funnel at the bottom; ChronoLog storage substrate underneath.">
+      <defs>
+        <marker id="aBlue" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#5ea0ff"/></marker>
+        <marker id="aTeal" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#41d1a7"/></marker>
+        <marker id="aGold" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e3b341"/></marker>
+        <marker id="aGoldS" markerWidth="9" markerHeight="9" refX="2" refY="3" orient="auto"><path d="M7,0 L0,3 L7,6 Z" fill="#e3b341"/></marker>
+        <marker id="aPurple" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#b98bff"/></marker>
+        <marker id="aOrange" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#ff9e64"/></marker>
+        <marker id="aGray" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#8b94a7"/></marker>
+        <marker id="aGrayS" markerWidth="9" markerHeight="9" refX="2" refY="3" orient="auto"><path d="M7,0 L0,3 L7,6 Z" fill="#8b94a7"/></marker>
+      </defs>
+
+      <g font-family="-apple-system, Segoe UI, sans-serif">
+
+        <!-- ============ LAYER TAGS (left rail) ============ -->
+        <g font-size="10.5" font-weight="700" letter-spacing="0.08em">
+          <text x="15" y="88" fill="#5ea0ff" transform="rotate(-90 15 88)" text-anchor="middle">FRONTEND</text>
+          <text x="15" y="400" fill="#c9d2e3" transform="rotate(-90 15 400)" text-anchor="middle">BACKEND</text>
+          <text x="15" y="755" fill="#e3b341" transform="rotate(-90 15 755)" text-anchor="middle">CHRONOLOG</text>
+        </g>
+
+        <!-- ============ agents (external producer, top-left) ============ -->
+        <rect x="156" y="50" width="220" height="70" rx="10" fill="#1b2030" stroke="#8b94a7" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="266" y="78" fill="#fff" font-size="13" font-weight="600" text-anchor="middle">agents</text>
+        <text x="266" y="96" fill="#8b94a7" font-size="10" text-anchor="middle">external producers — instrumented</text>
+        <text x="266" y="110" fill="#8b94a7" font-size="10" text-anchor="middle">LLM turns + inter-agent calls</text>
+        <!-- agents -> capture (append) -->
+        <line x1="266" y1="120" x2="266" y2="204" stroke="#8b94a7" stroke-width="2" marker-end="url(#aGray)"/>
+        <rect x="212" y="152" width="108" height="17" rx="5" fill="#0b0d11"/>
+        <text x="266" y="164" fill="#a9b3c4" font-size="9.5" text-anchor="middle">append events</text>
+
+        <!-- ============ FRONTEND (top layer, right) ============ -->
+        <rect x="398" y="48" width="554" height="72" rx="11" fill="#141b2b" stroke="#5ea0ff" stroke-width="1.75"/>
+        <text x="675" y="74" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">React SPA · Vite + Tailwind — pure view layer</text>
+        <text x="675" y="94" fill="#9fb0cc" font-size="10" text-anchor="middle">8 tabs: Workspace · Scenarios · Interactions · Cluster · Fleet · Doctor · Traces · Memory</text>
+        <text x="675" y="111" fill="#6b7688" font-size="10" text-anchor="middle">no domain logic — hooks fetch <tspan fill="#8b94a7">/api</tspan> and subscribe SSE streams</text>
+
+        <!-- frontend <-> serving core connector -->
+        <line x1="660" y1="120" x2="660" y2="204" stroke="#8b94a7" stroke-width="2" marker-end="url(#aGray)" marker-start="url(#aGrayS)"/>
+        <rect x="570" y="152" width="180" height="19" rx="5" fill="#0b0d11"/>
+        <text x="660" y="165" fill="#a9b3c4" font-size="10.5" text-anchor="middle">HTTP · static SPA · /api · SSE</text>
+
+        <!-- ============ BACKEND (middle layer) container ============ -->
+        <rect x="130" y="156" width="838" height="506" rx="12" fill="#12151c" stroke="#3a4152" stroke-width="1.5"/>
+        <text x="944" y="176" fill="#c9d2e3" font-size="11.5" font-weight="700" text-anchor="end">Flask dashboard · opt-in worker processes</text>
+
+        <!-- ==== ④ Capture / ingest (top-left, tall) ==== -->
+        <rect x="156" y="204" width="252" height="296" rx="9" fill="#0e211b" stroke="#41d1a7" stroke-width="1.5"/>
+        <text x="168" y="225" fill="#fff" font-size="12.5" font-weight="700">④ Capture / ingest</text>
+        <text x="168" y="240" fill="#7fcdb5" font-size="10">write path — data in</text>
+        <g font-size="10.5" fill="#a5ddcb">
+          <text x="168" y="266">collector/daemon — Path-B ⚙</text>
+          <text x="168" y="284">spool → sync_worker — Path-A ⚙</text>
+          <text x="168" y="302">inter_agent: store + bus (SSE)</text>
+          <text x="168" y="320">llm_demo_store — synthetic</text>
+        </g>
+        <line x1="168" y1="344" x2="396" y2="344" stroke="#1f3b32" stroke-width="1"/>
+        <g font-size="9.5" fill="#8b94a7">
+          <text x="168" y="364">external agents append here;</text>
+          <text x="168" y="380">workers drain ↓ into ③ → keepers</text>
+        </g>
+
+        <!-- ==== ① Serving core (top-right, WIDE over analytics) ==== -->
+        <rect x="440" y="204" width="512" height="116" rx="9" fill="#141b2b" stroke="#5ea0ff" stroke-width="1.75"/>
+        <text x="452" y="226" fill="#fff" font-size="12.5" font-weight="700">① Serving core <tspan fill="#8fb4ee" font-weight="400" font-size="10.5">— the only interface to the frontend</tspan></text>
+        <g font-size="10.5" fill="#9fb0cc">
+          <text x="452" y="248">app.py — Flask factory: discover adapters → mount blueprints → serve the SPA</text>
+          <text x="452" y="266">api/ — 10 blueprints, one per tab   ·   config.py — visor · offline · bind</text>
+        </g>
+        <text x="452" y="294" fill="#5ea0ff" font-size="10.5" font-weight="600">► serves the frontend:  static SPA at /  ·  REST /api  ·  SSE /api/…/stream</text>
+
+        <!-- ==== ② Adapter seam (middle-center) ==== -->
+        <rect x="440" y="360" width="248" height="140" rx="9" fill="#191428" stroke="#b98bff" stroke-width="1.5"/>
+        <text x="452" y="382" fill="#fff" font-size="12.5" font-weight="700">② Adapter seam</text>
+        <g font-size="10.5" fill="#c3b0e6">
+          <text x="452" y="404">registry · base (Capability)</text>
+          <text x="452" y="422">chronolog_source (shipped)</text>
+          <text x="452" y="440">shape/ — conversation · scenario</text>
+        </g>
+        <text x="452" y="464" fill="#8b94a7" font-size="9.5">story → view shapes the</text>
+        <text x="452" y="478" fill="#8b94a7" font-size="9.5">blueprints hand to the SPA</text>
+
+        <!-- ==== ⑤ Analytics engines (middle-right) ==== -->
+        <rect x="704" y="360" width="248" height="140" rx="9" fill="#20160e" stroke="#ff9e64" stroke-width="1.5"/>
+        <text x="716" y="382" fill="#fff" font-size="12.5" font-weight="700">⑤ Analytics engines</text>
+        <g font-size="10.5" fill="#ffd7ad">
+          <text x="716" y="404">diagnostics/ — ChronoDoctor ⚙</text>
+          <text x="716" y="422">fleet/ — Fleet Health rollups ⚙</text>
+          <text x="716" y="440">analysis/ — call · context · trace</text>
+          <text x="716" y="458">semantic/ · checkpointing/</text>
+        </g>
+        <text x="716" y="480" fill="#8b94a7" font-size="9.5">pure compute + thin I/O · feeds Doctor·</text>
+        <text x="716" y="492" fill="#8b94a7" font-size="9.5">Fleet·Traces · writes rollups → ③</text>
+
+        <!-- ==== ③ ChronoLog access — FULL-WIDTH bottom band ==== -->
+        <rect x="156" y="544" width="796" height="104" rx="9" fill="#221d0c" stroke="#e3b341" stroke-width="2"/>
+        <text x="168" y="566" fill="#fff" font-size="12.5" font-weight="700">③ ChronoLog access <tspan fill="#cbb673" font-weight="400" font-size="10.5">— the single client to the substrate · everything above routes through here</tspan></text>
+        <g font-size="10.5" fill="#e0cd90">
+          <text x="168" y="592">client.py — py_chronolog_client facade (the only import of it)</text>
+          <text x="168" y="611">path_a_reader — legacy get_* read shapes</text>
+          <text x="168" y="630">constants — chronicle/story names · CSV/HDF5-archive fallback</text>
+        </g>
+        <line x1="600" y1="554" x2="600" y2="638" stroke="#4a3f1e" stroke-width="1"/>
+        <g font-size="10.5">
+          <text x="618" y="592" fill="#e3b341" font-weight="600">Mercury dual-endpoint</text>
+          <text x="618" y="611" fill="#cbb673">→ visor portal  :5555   (dial out)</text>
+          <text x="618" y="630" fill="#cbb673">← player query callback  :5557   (dial back)</text>
+        </g>
+
+        <!-- ===== internal backend edges (opened up) ===== -->
+        <!-- ① serving core -> ② adapter seam -->
+        <line x1="520" y1="320" x2="520" y2="360" stroke="#5ea0ff" stroke-width="2" marker-end="url(#aPurple)"/>
+        <!-- ① serving core -> ⑤ analytics -->
+        <line x1="828" y1="320" x2="828" y2="360" stroke="#5ea0ff" stroke-width="2" marker-end="url(#aOrange)"/>
+        <!-- ② adapter seam -> ③ (read) -->
+        <line x1="520" y1="500" x2="520" y2="544" stroke="#b98bff" stroke-width="2" marker-end="url(#aGold)"/>
+        <!-- ⑤ analytics <-> ③ (read + fleet write) -->
+        <line x1="828" y1="500" x2="828" y2="544" stroke="#e3b341" stroke-width="2.25" marker-end="url(#aGold)" marker-start="url(#aGoldS)"/>
+        <!-- ④ capture -> ③ (write) -->
+        <line x1="282" y1="500" x2="282" y2="544" stroke="#41d1a7" stroke-width="2.25" marker-end="url(#aTeal)"/>
+        <!-- ④ capture -> ① serving core (live / SSE) -->
+        <path d="M408,250 C424,258 428,262 440,266" fill="none" stroke="#8b94a7" stroke-width="1.75" stroke-dasharray="5 4" marker-end="url(#aGray)"/>
+        <rect x="352" y="232" width="60" height="16" rx="5" fill="#0b0d11"/>
+        <text x="382" y="244" fill="#a9b3c4" font-size="9" text-anchor="middle">live · SSE</text>
+
+        <!-- ============ backend <-> chronolog : the single wire ============ -->
+        <line x1="550" y1="648" x2="550" y2="732" stroke="#e3b341" stroke-width="2.5" marker-end="url(#aGold)" marker-start="url(#aGoldS)"/>
+        <rect x="566" y="680" width="150" height="19" rx="5" fill="#0b0d11"/>
+        <text x="641" y="693" fill="#cbb673" font-size="10">one wire · Mercury + CSV</text>
+
+        <!-- legend (left of the wire) -->
+        <g font-size="10">
+          <text x="150" y="684"><tspan fill="#9fb0cc" font-weight="700">PATHS  </tspan><tspan fill="#41d1a7">▸ write</tspan>  <tspan fill="#e3b341">▸ read</tspan>  <tspan fill="#8b94a7">┄ live (SSE, skips ~180s drain)</tspan></text>
+          <text x="150" y="704" fill="#8b94a7">⚙ opt-in workers: chronolog-capture · -collector · -doctor · -fleet-rollup</text>
+        </g>
+
+        <!-- ============ CHRONOLOG (bottom layer) ============ -->
+        <rect x="130" y="734" width="838" height="66" rx="12" fill="#2a2410" stroke="#e3b341" stroke-width="1.75"/>
+        <text x="550" y="762" fill="#fff" font-size="15" font-weight="700" text-anchor="middle" letter-spacing="0.02em">ChronoLog — distributed storage substrate</text>
+        <text x="550" y="783" fill="#cbb673" font-size="10.5" text-anchor="middle">visor (coordinator) · keepers (per-node stories) · grapher/player → CSV/HDF5 archive</text>
+
+      </g>
+    </svg>
+    <ul>
+      <li><strong>Three layers.</strong> The <strong>frontend</strong> is a pure view layer — it
+        fetches <code>/api</code> and subscribes to SSE streams, and holds no domain logic. The
+        <strong>backend</strong> is where everything happens. <strong>ChronoLog</strong> is the
+        durable substrate underneath it all.</li>
+      <li><strong>① Serving core is the only interface to the frontend.</strong> Flask serves the
+        built React bundle (static SPA at <code>/</code>, assets under <code>/static/workspace/</code>),
+        exposes the <strong>10 per-tab blueprints under <code>/api</code></strong> (plus legacy
+        <code>/_interceptor</code> routes), and pushes the live tabs over
+        <strong>SSE (<code>/api/…/stream</code>)</strong>. The browser talks to nothing else.</li>
+      <li><strong>The rest of the backend sits behind ① and above ③.</strong>
+        <strong>② Adapter seam</strong> turns stories into the shapes blueprints return;
+        <strong>④ Capture / ingest</strong> lands the write path; <strong>⑤ Analytics engines</strong>
+        (ChronoDoctor, Fleet, tracing, semantic) are mostly pure compute over a thin I/O layer.</li>
+      <li><strong>③ is the only door to the substrate.</strong> <code>py_chronolog_client</code> is
+        imported in exactly one file (<code>backend/client.py</code>); every other cluster reaches
+        ChronoLog through its <code>get_backend()</code> singleton. Reads replay stories (or fall
+        back to the drained <strong>CSV/HDF5 archive</strong>); the client speaks Mercury over two
+        endpoints — <strong>visor portal (:5555)</strong> out, <strong>player query callback
+        (:5557)</strong> back in.</li>
+      <li><strong>Three data paths.</strong> <strong>Write</strong> (teal) — agents → capture → ③ →
+        keepers. <strong>Read</strong> (gold) — blueprints &amp; analytics replay stories back out
+        through ③. <strong>Live</strong> (dashed) — the inter-agent bus fans out over SSE, bypassing
+        ChronoLog's ~180 s keeper→grapher drain so real-time views stay instant.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Backend repo layout</h2>
+    <p>
+      The Python package lives under <code>backend/</code> (the ctx-viz backend, mirroring
+      <code>frontend/</code>). Each directory
+      maps to one of the five clusters from the diagram above — same colors:
+      <span style="color:#5ea0ff;font-weight:600">① Serving core</span> ·
+      <span style="color:#b98bff;font-weight:600">② Adapter seam</span> ·
+      <span style="color:#e3b341;font-weight:600">③ ChronoLog access</span> ·
+      <span style="color:#41d1a7;font-weight:600">④ Capture / ingest</span> ·
+      <span style="color:#ff9e64;font-weight:600">⑤ Analytics engines</span>.
+      <code>⚙</code> marks a background-worker entry point.
+    </p>
+<pre><span style="color:#fff">backend/</span>
+├─ <span style="color:#e6ecf5">app.py</span>                   <span style="color:#5ea0ff">①</span> Flask factory: adapters → blueprints → serve SPA
+├─ <span style="color:#e6ecf5">config.py</span>                <span style="color:#5ea0ff">①</span> runtime config — visor · offline · bind
+├─ <span style="color:#e6ecf5">__main__.py</span>                 <span style="color:#8b94a7">python -m backend</span>
+│
+├─ <span style="color:#5ea0ff;font-weight:600">api/</span>                     <span style="color:#5ea0ff">① Serving core</span> — 10 blueprints, one per tab
+│  ├─ conversations.py       <span style="color:#8b94a7">Workspace conversations</span>
+│  ├─ interactions.py        <span style="color:#8b94a7">flat LLM-turn feed</span>
+│  ├─ scenarios.py           <span style="color:#8b94a7">multi-agent scenario graph</span>
+│  ├─ provenance.py          <span style="color:#8b94a7">context-graph / provenance (+ SSE)</span>
+│  ├─ semantic.py            <span style="color:#8b94a7">semantic checks</span>
+│  ├─ inter_agent.py         <span style="color:#8b94a7">inter-agent live feed (SSE) + ingest</span>
+│  ├─ chronolog_view.py      <span style="color:#8b94a7">Cluster topology + comms</span>
+│  ├─ diagnostics.py         <span style="color:#8b94a7">ChronoDoctor API (+ SSE)</span>
+│  ├─ fleet.py               <span style="color:#8b94a7">Fleet Health API (+ SSE)</span>
+│  └─ tracing.py             <span style="color:#8b94a7">distributed traces</span>
+│
+├─ <span style="color:#b98bff;font-weight:600">adapters/</span>                <span style="color:#b98bff">② Adapter seam</span> — the data-source abstraction
+│  ├─ base.py                <span style="color:#8b94a7">SourceAdapter + Capability</span>
+│  ├─ registry.py            <span style="color:#8b94a7">entry-point discovery + resolution</span>
+│  ├─ chronolog_source.py    <span style="color:#8b94a7">the shipped adapter (serves all)</span>
+│  └─ shape/                 <span style="color:#8b94a7">story → view shapers</span>
+│     ├─ conversation.py
+│     └─ scenario.py
+│
+├─ <span style="color:#e3b341;font-weight:600">chronolog/</span>               <span style="color:#e3b341">③ ChronoLog access</span> — the ONLY door to the substrate
+│  ├─ client.py              <span style="color:#8b94a7">py_chronolog_client facade · Mercury + CSV fallback</span>
+│  ├─ path_a_reader.py       <span style="color:#8b94a7">legacy get_* read shapes</span>
+│  └─ constants.py           <span style="color:#8b94a7">chronicle / story names</span>
+│
+├─ <span style="color:#41d1a7;font-weight:600">capture/</span>                 <span style="color:#41d1a7">④ Capture / ingest</span> — write path (Path-A + Path-B)
+│  ├─ spool.py               <span style="color:#8b94a7">Path-A local buffer</span>
+│  ├─ sync_worker.py         <span style="color:#8b94a7">drains spool → ChronoLog  ⚙</span>
+│  ├─ llm_demo_store.py      <span style="color:#8b94a7">synthetic demo store</span>
+│  └─ inter_agent/
+│     ├─ store.py            <span style="color:#8b94a7">Path-B durable store</span>
+│     └─ bus.py              <span style="color:#8b94a7">in-proc pub/sub → SSE (live)</span>
+├─ <span style="color:#41d1a7;font-weight:600">collector/</span>               <span style="color:#41d1a7">④</span> per-node Path-B collector
+│  ├─ daemon.py              <span style="color:#8b94a7">localhost HTTP → ChronoLog + dashboard  ⚙</span>
+│  ├─ client.py              <span style="color:#8b94a7">agent-side emit helper (dependency-free)</span>
+│  └─ __main__.py
+│
+├─ <span style="color:#ff9e64;font-weight:600">analysis/</span>                <span style="color:#ff9e64">⑤ Analytics engines</span> — pure compute
+│  ├─ call_graph.py          <span style="color:#8b94a7">call topology + tool sequence</span>
+│  ├─ context_graph.py       <span style="color:#8b94a7">per-component token estimates</span>
+│  └─ trace.py               <span style="color:#8b94a7">distributed critical-path</span>
+├─ <span style="color:#ff9e64;font-weight:600">diagnostics/</span>             <span style="color:#ff9e64">⑤</span> ChronoDoctor
+│  ├─ gather.py              <span style="color:#8b94a7">the only I/O layer</span>
+│  ├─ detectors.py           <span style="color:#8b94a7">records → signals (pure)</span>
+│  ├─ incidents.py           <span style="color:#8b94a7">cluster signals → incidents (pure)</span>
+│  ├─ diagnoser.py           <span style="color:#8b94a7">why + how-to-fix (heuristic / LLM)</span>
+│  ├─ memory.py              <span style="color:#8b94a7">self-compacting incident memory</span>
+│  ├─ scan.py                <span style="color:#8b94a7">gather→detect→cluster→diagnose→remember</span>
+│  └─ worker.py              <span style="color:#8b94a7">background scanner  ⚙</span>
+├─ <span style="color:#ff9e64;font-weight:600">fleet/</span>                   <span style="color:#ff9e64">⑤</span> Fleet Health
+│  ├─ rollup.py              <span style="color:#8b94a7">pure (host, minute) buckets</span>
+│  ├─ store.py               <span style="color:#8b94a7">persist / read buckets</span>
+│  └─ worker.py              <span style="color:#8b94a7">rollup emitter  ⚙</span>
+├─ <span style="color:#ff9e64;font-weight:600">semantic/</span>                <span style="color:#ff9e64">⑤</span> LLM-judged checks
+│  ├─ checker.py             <span style="color:#8b94a7">evaluate NL criteria</span>
+│  ├─ config.py              <span style="color:#8b94a7">checks config loader</span>
+│  └─ rollback_analyzer.py   <span style="color:#8b94a7">cheap rollback-point analysis</span>
+└─ <span style="color:#ff9e64;font-weight:600">checkpointing/</span>           <span style="color:#ff9e64">⑤</span> semantic restore points
+   └─ checkpoint_manager.py
+</pre>
+    <p style="color:var(--muted);font-size:0.9rem;margin-top:2px">
+      <code>static/workspace/</code> also lives here — the built React bundle lands there at
+      <code>make workspace</code> time (gitignored). <code>__init__.py</code> files omitted.
+    </p>
+  </section>
+
+  <section>
+    <h2>The data</h2>
+    <p>
+      This project collects <strong>agent-activity data</strong> so we can see <strong>how a fleet
+      of AI agents actually behaved</strong> — what each one did, how they worked together, where
+      time and cost went, and what broke — long after the run is over.
+    </p>
+    <h3>How the agent works</h3>
+    <p>An <strong>agent</strong> is an LLM given a goal and the tools to pursue it — it decides its own next steps instead of following a fixed script.</p>
+    <p>Concretely, it runs a <strong>think → act → observe</strong> loop that repeats until its task is done — the core cycle at a glance:</p>
+
+    <svg class="diagram" viewBox="0 0 760 380" role="img"
+         aria-label="Agent loop state machine: Start enters Think (the LLM call); Think either takes an action (Act — tool or delegate) or returns a final answer to Finish; Act's result is appended in Observe; Observe feeds back to Think. Errors and recovery are cross-cutting.">
+      <defs>
+        <marker id="mGray" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#8b94a7"/></marker>
+        <marker id="mBlue" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#5ea0ff"/></marker>
+        <marker id="mTeal" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#41d1a7"/></marker>
+        <marker id="mPurple" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#b98bff"/></marker>
+        <marker id="mGreen" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#9fd356"/></marker>
+      </defs>
+      <g font-family="-apple-system, Segoe UI, sans-serif" text-anchor="middle">
+
+        <!-- edges -->
+        <!-- Start -> Think -->
+        <line x1="128" y1="111" x2="298" y2="111" stroke="#8b94a7" stroke-width="2" marker-end="url(#mBlue)"/>
+        <!-- Think -> Finish (final answer) -->
+        <line x1="464" y1="111" x2="630" y2="111" stroke="#9fd356" stroke-width="2" marker-end="url(#mGreen)"/>
+        <rect x="500" y="90" width="94" height="17" rx="5" fill="#0b0d11"/>
+        <text x="547" y="102" fill="#9fd356" font-size="10">final answer</text>
+        <!-- Think -> Act (action) -->
+        <path d="M446,146 C512,176 545,200 551,238" fill="none" stroke="#41d1a7" stroke-width="2" marker-end="url(#mTeal)"/>
+        <rect x="512" y="176" width="86" height="17" rx="5" fill="#0b0d11"/>
+        <text x="555" y="188" fill="#41d1a7" font-size="10">action ↦</text>
+        <!-- Act -> Observe (result) -->
+        <line x1="468" y1="273" x2="294" y2="273" stroke="#b98bff" stroke-width="2" marker-end="url(#mPurple)"/>
+        <rect x="349" y="255" width="64" height="17" rx="5" fill="#0b0d11"/>
+        <text x="381" y="267" fill="#c3b0e6" font-size="10">result</text>
+        <!-- Observe -> Think (feed back) -->
+        <path d="M209,238 C203,200 250,176 316,146" fill="none" stroke="#5ea0ff" stroke-width="2" marker-end="url(#mBlue)"/>
+        <rect x="150" y="176" width="94" height="17" rx="5" fill="#0b0d11"/>
+        <text x="197" y="188" fill="#8fb4ee" font-size="10">observation</text>
+
+        <!-- nodes -->
+        <!-- Start -->
+        <rect x="30" y="89" width="98" height="46" rx="23" fill="#1b2030" stroke="#8b94a7" stroke-width="1.5"/>
+        <text x="79" y="108" fill="#fff" font-size="12.5" font-weight="600">Start</text>
+        <text x="79" y="123" fill="#8b94a7" font-size="9">role · goal</text>
+        <!-- Think -->
+        <rect x="300" y="78" width="162" height="66" rx="12" fill="#141b2b" stroke="#5ea0ff" stroke-width="1.75"/>
+        <text x="381" y="100" fill="#fff" font-size="13.5" font-weight="700">Think</text>
+        <text x="381" y="116" fill="#5ea0ff" font-size="10">the LLM call</text>
+        <text x="381" y="132" fill="#8b94a7" font-size="9">produces · LLM interaction</text>
+        <!-- Finish -->
+        <rect x="632" y="89" width="98" height="46" rx="23" fill="#16241a" stroke="#9fd356" stroke-width="1.5"/>
+        <text x="681" y="108" fill="#fff" font-size="12.5" font-weight="600">Finish</text>
+        <text x="681" y="123" fill="#8b94a7" font-size="9">returns output</text>
+        <!-- Act -->
+        <rect x="470" y="240" width="162" height="66" rx="12" fill="#0e211b" stroke="#41d1a7" stroke-width="1.75"/>
+        <text x="551" y="262" fill="#fff" font-size="13.5" font-weight="700">Act</text>
+        <text x="551" y="278" fill="#41d1a7" font-size="10">tool · delegate</text>
+        <text x="551" y="294" fill="#8b94a7" font-size="9">produces · tool use + edge</text>
+        <!-- Observe -->
+        <rect x="128" y="240" width="162" height="66" rx="12" fill="#191428" stroke="#b98bff" stroke-width="1.75"/>
+        <text x="209" y="262" fill="#fff" font-size="13.5" font-weight="700">Observe</text>
+        <text x="209" y="278" fill="#b98bff" font-size="10">update context</text>
+        <text x="209" y="294" fill="#8b94a7" font-size="9">produces · context node</text>
+
+        <!-- errors & recovery — cross-cutting -->
+        <rect x="243" y="330" width="274" height="32" rx="16" fill="#241315" stroke="#ff6b6b" stroke-width="1.4" stroke-dasharray="5 4"/>
+        <text x="380" y="350" fill="#ff8f8f" font-size="10.5">⟲ errors &amp; recovery — retry / backtrack at any step</text>
+      </g>
+    </svg>
+
+    <p>Step by step:</p>
+    <ol>
+      <li><strong>Start.</strong> It's spawned on a node with a <em>role</em> and a <em>goal</em> — often because a parent agent delegated the work to it.</li>
+      <li><strong>Think</strong> <span style="color:var(--muted);font-weight:400">— the LLM call</span><strong>.</strong> It sends its context (instructions + history + task) to a model, which replies with its <em>reasoning</em> plus either an <strong>action</strong> to take or a <strong>final answer</strong>. The reasoning <em>is</em> the model's output — not a separate step.</li>
+      <li><strong>Act.</strong> If the model asked for an action, it runs a <strong>tool</strong> (read a file, run code, search) or <strong>delegates to another agent</strong> via an inter-agent call.</li>
+      <li><strong>Observe.</strong> The action's result is appended back into its <strong>context</strong> — working memory grows; it may retrieve more or compact / evict to stay within budget.</li>
+      <li><strong>Loop.</strong> Back to <em>Think</em> with the new observation, repeating until the model returns a final answer.</li>
+      <li><strong>Finish.</strong> It returns its output; any subagents wrap up.</li>
+    </ol>
+    <p style="color:var(--muted);font-size:0.86rem;margin-top:0">
+      <strong>Errors &amp; recovery</strong> are cross-cutting — a retry or a checkpoint-backtrack can
+      happen at any step, not as a stage of its own.
+    </p>
+
+    <h3>The produced data</h3>
+    <p>Each pass through that loop throws off data. Here it is — mapped to the step that produces it:</p>
+    <table class="ftbl">
+      <thead>
+        <tr><th style="width:96px">Loop step</th><th>Agent produces…</th><th>What it's for</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="src">Think</td><td><strong>LLM call</strong> — prompt, response &amp; reasoning, model, tokens, cost, latency</td><td>cost / speed / quality, prompt debugging, <em>why</em> it acted</td></tr>
+        <tr><td class="src">Act</td><td><strong>Tool use</strong> — files, web, code, MCP calls + their results</td><td>side effects, what it touched</td></tr>
+        <tr><td class="src">Act</td><td><strong>Inter-agent message</strong> — delegation &amp; handoffs to other agents</td><td>the coordination graph, bottlenecks</td></tr>
+        <tr><td class="src">Observe</td><td><strong>Context / working memory</strong> — window contents; growth, retrieval, eviction</td><td>memory pressure, lost-context bugs</td></tr>
+        <tr><td class="src">any step</td><td><strong>Errors &amp; recovery</strong> — failures, retries, backtracks, restores</td><td>reliability, debugging failures</td></tr>
+        <tr><td class="src">Start / Finish</td><td><strong>Lifecycle &amp; placement</strong> — spawn / subagents / finish; node, session, role</td><td>attribution, fleet &amp; topology</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Data sources</h3>
+    <p>None of this data exists until the agent produces it — there is no external log to scrape.
+      Each signal is emitted at a <strong>specific point in the agent's run</strong>, and you
+      access it by <strong>instrumenting that point</strong> — a thin shim around the agent that
+      captures the event as it happens.</p>
+    <table class="ftbl">
+      <thead>
+        <tr><th style="width:158px">Signal</th><th>Produced when…</th><th>Accessed by…</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="tab">LLM call</td><td>the agent calls the model</td><td>wrapping the model client — the request + response</td></tr>
+        <tr><td class="tab">Tool use</td><td>the agent invokes a tool</td><td>hooking the tool-dispatch layer — name, args, result</td></tr>
+        <tr><td class="tab">Inter-agent message</td><td>the agent delegates to a peer</td><td>intercepting the delegation / MCP call boundary</td></tr>
+        <tr><td class="tab">Context / memory</td><td>the agent assembles its context window</td><td>reading the framework's context state each turn</td></tr>
+        <tr><td class="tab">Errors / recovery</td><td>a step fails, retries, or backtracks</td><td>hooking the error / retry handler</td></tr>
+        <tr><td class="tab">Lifecycle</td><td>the agent starts, finishes, or spawns a subagent</td><td>the runtime's lifecycle callbacks</td></tr>
+      </tbody>
+    </table>
+    <p style="color:var(--muted);font-size:0.88rem;margin-top:12px">
+      The pattern is the same everywhere — a boundary inside the agent's run, tapped by a bit of
+      instrumentation. <strong>No instrumentation, no data</strong>: an un-instrumented agent is
+      invisible, and none of this can be recovered from the outside after the fact.
+    </p>
+
+    <p style="color:var(--muted);font-size:0.9rem;margin-top:16px">
+      Of everything above, this tool collects a <strong>curated slice</strong> — the
+      <strong>Data model</strong> below is exactly which of it we keep, why, and how.
+    </p>
+  </section>
+
+  <section>
+    <h2>Data model</h2>
+    <p>
+      Everything is stored as <strong>time-ordered JSON events</strong> in ChronoLog, grouped into
+      <strong>chronicles</strong> (one per data type) and keyed per agent <strong>session</strong>
+      or <strong>scenario</strong>. Two capture paths produce <strong>four core record types</strong>:
+    </p>
+    <table class="ftbl">
+      <thead>
+        <tr><th>Record</th><th>Path</th><th>Captures</th><th>Chronicle</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="tab" style="color:#41d1a7">LLM interaction</td>
+          <td class="src">Path-A</td>
+          <td>one agent turn — prompt, response, model, tokens, cost, latency</td>
+          <td><code>llm_interactions</code></td>
+        </tr>
+        <tr>
+          <td class="tab" style="color:#41d1a7">Context node</td>
+          <td class="src">Path-A</td>
+          <td>a working-memory change — op (add / evict), node, token size</td>
+          <td><code>context_graphs</code></td>
+        </tr>
+        <tr>
+          <td class="tab" style="color:#41d1a7">Recovery event</td>
+          <td class="src">Path-A</td>
+          <td>a backtrack / checkpoint restore</td>
+          <td><code>recovery_events</code></td>
+        </tr>
+        <tr>
+          <td class="tab" style="color:#ff9e64">Inter-agent edge</td>
+          <td class="src">Path-B</td>
+          <td>one agent→agent call — caller, callee, correlation id, start / done, duration</td>
+          <td><code>ia_&lt;scenario&gt;</code></td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="color:var(--muted);font-size:0.86rem;margin-top:14px">
+      Everything the dashboard shows is reconstructed from these four. Anything else is
+      <em>derived, not collected</em> — Fleet rollups (<code>metrics_rollup</code>) and Doctor
+      incidents are computed on top; <code>checkpoints</code> and <code>__index__</code> are
+      housekeeping.
+    </p>
+  </section>
+
+  <section>
+    <h2>Status &amp; roadmap</h2>
+    <p style="color:var(--muted);font-size:0.9rem;margin-top:-4px">
+      Where things stand after the ChronoLog <code>ctx-viz-integration</code> bring-up, split by
+      where the change lives: the dashboard app, the ChronoLog <em>read</em> path, and the ChronoLog
+      <em>write</em> path. Legend:
+      <span style="color:#9fd356;font-weight:700">&#10003; done</span> &middot;
+      <span style="color:#e3b341;font-weight:700">&#9675; to&nbsp;do</span>.
+      Note: most of the ChronoLog bugs we hit were <em>read-path or client-lifecycle</em> — the
+      write API itself was solid.
+    </p>
+
+    <h3 style="color:#5ea0ff">1 &middot; ctx-viz (dashboard app)</h3>
+    <div style="color:#9fd356;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#10003; Done</div>
+    <ul style="font-size:0.88rem">
+      <li>Client-integration fixes in <code>client.py</code>: arg-drift shims (<code>CreateChronicle</code>/<code>AcquireStory</code>), <strong>writer-only</strong> client, double-checked-locking singleton, <strong>archive-first reads</strong>.</li>
+      <li>Dockerized <code>ctx-viz</code> stack (Portainer): visor / keeper / grapher / player + dashboard + capture; shared volume; hostnames aligned to container names (<code>ctx-viz-*</code>).</li>
+      <li>Permanent <code>ctx-viz-capture</code> service — drains the Path-A spool every 5&nbsp;s so <strong>Workspace auto-populates</strong>.</li>
+      <li>Self-heal restart policy on the dashboard; stale demo data cleared; consistent <code>ctx-viz-*</code> naming everywhere.</li>
+      <li>Debug scaffolding removed (core dumps / ptrace) &rarr; clean compose; <code>drain_window_sec</code> made env-driven.</li>
+      <li>Drain latency tuned from ~180&ndash;420&nbsp;s down to ~20&ndash;40&nbsp;s (grapher <code>story_chunk_duration_secs</code> 60&rarr;20).</li>
+      <li><strong>Repo-layout cleanup (step 1)</strong>: moved the Python package <code>src/chronolog_observability/</code> &rarr; <code>backend/</code> (so the root reads <code>frontend/</code> + <code>backend/</code>) and renamed the inner ChronoLog-access layer &rarr; <code>backend/chronolog/</code>. Entry points, Docker, Vite, scripts, tests &amp; docs updated; app + 9 tests green.</li>
+    </ul>
+    <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do</div>
+    <ul style="font-size:0.88rem">
+      <li>Drop the <code>__index__</code> enumeration trick &rarr; use <code>ShowChronicles</code> / <code>ShowStories</code> (confirmed working &amp; fast).</li>
+      <li>Capture worker <strong>auto-reconnect</strong> on client connection loss (survive cluster restarts; today it hits <code>AcquireStory&nbsp;-3</code> until bounced).</li>
+      <li>Retire CSV scraping + the in-process hot store once read-path #1/#2 land.</li>
+      <li>Finish this document; optionally expose the <code>CHRONOLOG_REPLAY_LIVE</code> A/B switch cleanly.</li>
+    </ul>
+
+    <h3 style="color:#e3b341">2 &middot; ChronoLog &mdash; read path</h3>
+    <div style="color:#9fd356;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#10003; Done <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(fixed on <code>ctx-viz-integration</code>, verified)</span></div>
+    <ul style="font-size:0.88rem">
+      <li><a href="https://github.com/grc-iit/chronolog/issues/689">#689</a> &mdash; <code>AcquireStory</code> reports success only when a reader actually registers (was <code>-5</code>) &middot; <code>63121f3f</code>.</li>
+      <li><a href="https://github.com/grc-iit/chronolog/issues/690">#690</a> &mdash; concurrent <code>ReplayStory</code> made thread-safe (was SIGSEGV) &middot; <code>9981a6a3</code>.</li>
+      <li>Player no longer drops archive reads with <code>startTime==0</code> &middot; <code>4871754d</code>.</li>
+      <li><code>ReplayStory</code> visibility-window / callback-threading docs &middot; <code>dc903e86</code>.</li>
+    </ul>
+    <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(new issues to file)</span></div>
+    <ul style="font-size:0.88rem">
+      <li><strong>Range-query performance</strong> &mdash; <code>ReplayStory</code> is ~3&nbsp;s/call and serializes; unusable for a live reader (vs ~1&ndash;4&nbsp;ms for the CSV archive).</li>
+      <li><strong>Tail / recent reads</strong> &mdash; a cheap &ldquo;last N / since HWM&rdquo; so live views need neither drained data nor a hot store.</li>
+      <li><strong>Topology / health API</strong> &mdash; <code>ShowKeepers</code> / <code>GetTopology</code> instead of parsing CSV filenames to discover keepers.</li>
+      <li style="color:var(--muted)"><strong>Not needed</strong> &mdash; chronicle/story listing: <code>ShowChronicles</code> / <code>ShowStories</code> already exist and are fast (this makes the app's <code>__index__</code> trick redundant, above).</li>
+    </ul>
+
+    <h3 style="color:#e3b341">3 &middot; ChronoLog &mdash; write path</h3>
+    <div style="color:#9fd356;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#10003; Done</div>
+    <ul style="font-size:0.88rem">
+      <li><a href="https://github.com/grc-iit/chronolog/issues/692">#692</a> &mdash; <code>ChronologClientImpl</code> singleton reference-counted &rarr; no double-free in <code>~Client()</code>/<code>Disconnect()</code> (the intermittent SIGSEGV, root-caused from a core-dump backtrace) &middot; <code>9f3d1b0b</code>.</li>
+    </ul>
+    <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do</div>
+    <ul style="font-size:0.88rem">
+      <li><a href="https://github.com/grc-iit/chronolog/issues/688">#688</a> &mdash; <strong><code>chrono-agent</code> plugin</strong>: transparent Path-A capture that formalizes the spool + drain the app hand-rolls today.</li>
+      <li style="color:var(--muted)">Write API is otherwise solid &mdash; no outstanding write bugs.</li>
+    </ul>
+  </section>
+</div>
+</body>
+</html>
