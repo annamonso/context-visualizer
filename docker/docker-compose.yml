@@ -1,17 +1,21 @@
 # Local offline/demo deployment of the ChronoLog Observability dashboard.
 #
-#   docker compose up --build      # build + run, seeds demo data on first boot
+# The build context is the repo root, so run this from the repo root — most
+# easily via the Makefile wrappers:
+#   make demo                      # build + run, seeds demo data on first boot
 #   open http://localhost:5000
+# ...or directly:
+#   docker compose -f docker/docker-compose.yml up --build
 #
 # No ChronoLog cluster, no API keys, no cost. The demo data (Doctor / Fleet /
 # Tracing scenarios) is seeded into the named `chronolog-data` volume on first
 # boot and persists across restarts. To reseed from scratch:
-#   docker compose down -v && docker compose up --build
+#   make demo-reseed
 services:
   dashboard:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
     image: chronolog-observability:offline
     ports:
       - "5000:5000"

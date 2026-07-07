@@ -12,7 +12,7 @@ dist
 # Node artifacts — rebuilt inside the image.
 frontend/node_modules
 frontend/dist
-src/chronolog_observability/static/workspace
+backend/static/workspace
 
 # Runtime / data
 *.log
@@ -25,5 +25,4 @@ logs
 .DS_Store
 
 # Docs / scratch not needed at build time
-analysis.html
-ANALYSIS.md
+docs/

@@ -247,7 +247,7 @@ same three tabs render over the live cluster — the analysis path is identical.
 - **`AGENTS_PER_NODE=K`** — the real-agent harness runs K genuine agents per node,
   each captured through its node's collector + keeper.
 
-See **[`FEATURES.md`](./FEATURES.md)** for the complete feature reference (all
+See **[`FEATURES.md`](./docs/FEATURES.md)** for the complete feature reference (all
 tabs, the capture model, scripts, capacity, tests, and operational notes).
 
 ## Status
@@ -260,4 +260,4 @@ verified on a 4-node cluster with both synthetic and real Claude agents.
 Backend, shape adapters, all generic blueprints (conversations, interactions,
 provenance, semantic, scenarios, inter_agent), capture stores, the chimaera-free
 Path-A capture worker (spool → ChronoLog), and the React frontend are ported and
-serve from ChronoLog. See [`MIGRATION.md`](./MIGRATION.md) for the port record.
+serve from ChronoLog. See [`MIGRATION.md`](./docs/MIGRATION.md) for the port record.

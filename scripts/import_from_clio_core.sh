@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Copy reusable code from the old context-visualizer into this scaffold so you
-# start from real bodies, then refactor per MIGRATION.md. Idempotent; copies
+# start from real bodies, then refactor per docs/MIGRATION.md. Idempotent; copies
 # into *_imported/ staging dirs so it never clobbers the scaffold seam files.
 set -euo pipefail
 
@@ -43,4 +43,4 @@ echo ">> docs + demo scripts"
 
 echo
 echo "Done. Imported code is under *_imported/ staging dirs."
-echo "Now refactor it into the seam per MIGRATION.md (start with backend/)."
+echo "Now refactor it into the seam per docs/MIGRATION.md (start with backend/)."

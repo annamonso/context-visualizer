@@ -66,7 +66,9 @@ agents ──Path-A (LLM turns)─────▶ spool ──capture worker─�
 | `frontend/` | React + Vite single-page app (the dashboard UI) |
 | `scripts/` | Operational scripts — live cluster bring-up, real-agent harness, offline demos |
 | `tests/` | pytest unit tests over the pure analysis logic |
-| `README.md` / `FEATURES.md` / `MIGRATION.md` | Setup & ops / full feature reference / migration record |
+| `docker/` | Offline/demo image — `Dockerfile`, `docker-compose.yml`, `entrypoint.sh`, `README.md` (`make demo`) |
+| `docs/` | Project docs — this file, `FEATURES.md`, `MIGRATION.md`, `analysis.html` |
+| `README.md` | Setup & ops (kept at repo root) |
 | `pyproject.toml` / `Makefile` | Python packaging + build tasks (`make workspace` builds the SPA) |
 
 ## Backend map (`backend/`)

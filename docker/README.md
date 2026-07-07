@@ -7,16 +7,26 @@ cost. Ideal for understanding the whole system on a laptop.
 
 ## Quick start
 
+Run from the **repo root** (the build context is the repo root). The Makefile
+wraps the compose file so you don't have to pass `-f`:
+
 ```bash
-docker compose up --build      # build image, seed demo data on first boot
+make demo                      # build image, seed demo data on first boot
 # open http://localhost:5000
 ```
 
 To stop / reseed from scratch:
 
 ```bash
-docker compose down            # stop, keep the seeded data volume
-docker compose down -v         # stop AND wipe the data volume (fresh seed next up)
+make demo-down                 # stop, keep the seeded data volume
+make demo-reseed               # stop AND wipe the data volume, then rebuild fresh
+```
+
+Equivalent raw commands (also from the repo root):
+
+```bash
+docker compose -f docker/docker-compose.yml up --build
+docker compose -f docker/docker-compose.yml down [-v]
 ```
 
 ## What actually runs
@@ -91,7 +101,8 @@ Open a tab directly with `http://localhost:5000/?tab=<name>`.
   `ChronoLogAdapter` serves all of them. `/api/config` lists what's active.
 - **Path-A (capture → storage).** Agents append events to a local spool; a sync
   worker drains it into ChronoLog (live mode). Offline, there's nothing to
-  drain — the reader serves the spool JSONL directly (`backend/path_a_reader.py`).
+  drain — the reader serves the spool JSONL directly
+  (`backend/chronolog/path_a_reader.py`).
 - **Path-B (live bus).** Inter-agent events are written to a local **hot store**
   and fanned out to SSE subscribers at ingest, because ChronoLog's
   keeper→grapher drain (~180 s) makes it unusable as a real-time read source.
