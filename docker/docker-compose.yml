@@ -11,6 +11,9 @@
 # Tracing scenarios) is seeded into the named `chronolog-data` volume on first
 # boot and persists across restarts. To reseed from scratch:
 #   make demo-reseed
+#
+# The published host port defaults to 5000; override it when 5000 is taken:
+#   DASHBOARD_PORT=5055 make demo      # -> http://localhost:5055
 services:
   dashboard:
     build:
@@ -18,7 +21,7 @@ services:
       dockerfile: docker/Dockerfile
     image: chronolog-observability:offline
     ports:
-      - "5000:5000"
+      - "${DASHBOARD_PORT:-5000}:5000"
     environment:
       CHRONOLOG_OFFLINE: "1"
       DTP_STATE_DIR: /data

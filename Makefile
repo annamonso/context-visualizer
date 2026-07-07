@@ -9,6 +9,7 @@
 #   workspace-clean  Remove the built SPA bundle.
 #   demo             Build + run the offline/demo dashboard (docker/), seeding
 #                    demo data on first boot. Open http://localhost:5000.
+#                    Override the host port: DASHBOARD_PORT=5055 make demo
 #   demo-down        Stop the demo (keeps the seeded data volume).
 #   demo-reseed      Stop + wipe the data volume, then rebuild/run fresh.
 #

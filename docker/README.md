@@ -15,6 +15,13 @@ make demo                      # build image, seed demo data on first boot
 # open http://localhost:5000
 ```
 
+The host port defaults to `5000`. If that's taken, override it with the
+`DASHBOARD_PORT` env var (the container always listens on `5000` internally):
+
+```bash
+DASHBOARD_PORT=5055 make demo  # -> http://localhost:5055
+```
+
 To stop / reseed from scratch:
 
 ```bash
