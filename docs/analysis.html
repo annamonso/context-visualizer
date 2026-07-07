@@ -464,7 +464,7 @@
         <strong>④ Capture / ingest</strong> lands the write path; <strong>⑤ Analytics engines</strong>
         (ChronoDoctor, Fleet, tracing, semantic) are mostly pure compute over a thin I/O layer.</li>
       <li><strong>③ is the only door to the substrate.</strong> <code>py_chronolog_client</code> is
-        imported in exactly one file (<code>backend/client.py</code>); every other cluster reaches
+        imported in exactly one file (<code>backend/chronolog/client.py</code>); every other cluster reaches
         ChronoLog through its <code>get_backend()</code> singleton. Reads replay stories (or fall
         back to the drained <strong>CSV/HDF5 archive</strong>); the client speaks Mercury over two
         endpoints — <strong>visor portal (:5555)</strong> out, <strong>player query callback
@@ -760,7 +760,9 @@
       <li>Self-heal restart policy on the dashboard; stale demo data cleared; consistent <code>ctx-viz-*</code> naming everywhere.</li>
       <li>Debug scaffolding removed (core dumps / ptrace) &rarr; clean compose; <code>drain_window_sec</code> made env-driven.</li>
       <li>Drain latency tuned from ~180&ndash;420&nbsp;s down to ~20&ndash;40&nbsp;s (grapher <code>story_chunk_duration_secs</code> 60&rarr;20).</li>
-      <li><strong>Repo-layout cleanup (step 1)</strong>: moved the Python package <code>src/chronolog_observability/</code> &rarr; <code>backend/</code> (so the root reads <code>frontend/</code> + <code>backend/</code>) and renamed the inner ChronoLog-access layer &rarr; <code>backend/chronolog/</code>. Entry points, Docker, Vite, scripts, tests &amp; docs updated; app + 9 tests green.</li>
+      <li><strong>Repo-layout cleanup (step 1)</strong>: moved the Python package <code>src/chronolog_observability/</code> &rarr; <code>backend/</code> (so the root reads <code>frontend/</code> + <code>backend/</code>) and renamed the inner ChronoLog-access layer &rarr; <code>backend/chronolog/</code>. Entry points, Docker, Vite, scripts, tests &amp; docs updated; app + 16 tests green. Committed &amp; pushed on <code>experiment/repo-structure</code>.</li>
+      <li><strong>Repo-layout cleanup (step 2)</strong>: decluttered the repo root into <code>docker/</code> (Dockerfile, compose, entrypoint, README) and <code>docs/</code> (this file + ANALYSIS / FEATURES / MIGRATION); <code>README.md</code> and <code>.dockerignore</code> stay at root by necessity (landing page; Docker reads <code>.dockerignore</code> only from the build-context root). Compose build context re-pointed to the root; added <code>make demo</code> / <code>demo-down</code> / <code>demo-reseed</code> wrappers.</li>
+      <li><strong>Configurable demo port</strong>: the offline image's host port is now <code>${DASHBOARD_PORT:-5000}</code> (was hard-coded, collided with a live dashboard on <code>:5055</code>) &mdash; <code>DASHBOARD_PORT=5055 make demo</code>. <strong>Verified end-to-end</strong>: image builds from <code>docker/Dockerfile</code>, container boots + seeds, all tab endpoints 200 (Doctor clusters 9 incidents), port override binds a fresh container; 16 unit tests green.</li>
     </ul>
     <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do</div>
     <ul style="font-size:0.88rem">
