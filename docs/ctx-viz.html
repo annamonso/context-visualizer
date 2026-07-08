@@ -185,7 +185,18 @@
           <li>Error toast when a turn fails; host mode to see every agent on one node.</li>
         </ul>
       </li>
-      <li><strong style="color:#5ea0ff">Scenarios</strong> <span style="color:#8b94a7">(Topology)</span> — the live multi-agent graph: which agents talked to which, streamed in real time.</li>
+      <li><strong style="color:#5ea0ff">Scenarios</strong> <span style="color:#8b94a7">(Topology)</span> — the live multi-agent graph: independent peer agents and the calls between them, grouped by <code>scenario_id</code>.
+        <ul>
+          <li>Pick a scenario from the sidebar; membership is discovered from the traffic (any agent that sent or received).</li>
+          <li>An edge = one inter-agent call (<code>mcp_call</code> · <code>tool_invoke</code> · <code>direct_message</code>), with status and latency.</li>
+          <li>Live mode — edges stream over SSE as calls fire; Full mode adds per-agent token/cost for finished runs.</li>
+          <li>KPI strip: hosts · agents · messages · tokens · errors.</li>
+          <li>Views: Auto, Agents (cards by host), or Hosts (grid, for 100+ nodes).</li>
+          <li>Replay — a playhead sweeps the scenario's time window (play/pause, 0.5–4× speed).</li>
+          <li>Click an agent → its Workspace; a host → host mode; an edge → call details.</li>
+          <li>Demo Burst fires synthetic traffic to watch the graph light up live.</li>
+        </ul>
+      </li>
       <li><strong style="color:#5ea0ff">Interactions</strong> — a flat, searchable feed of every LLM turn across the whole fleet.</li>
       <li><strong style="color:#5ea0ff">Cluster</strong> — ChronoLog + SLURM topology: node-to-node traffic alongside live idle/busy state.</li>
       <li><strong style="color:#ff9e64">Fleet</strong> — per-node health heatmap — errors, p95 latency, throughput, cost — across 100+ nodes.</li>
