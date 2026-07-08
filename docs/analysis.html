@@ -846,10 +846,18 @@
 ├─ <span style="color:#e6ecf5">app.py</span>                   <span style="color:#5ea0ff">①</span> Flask factory — discover adapters → mount blueprints → serve SPA
 ├─ <span style="color:#e6ecf5">config.py</span>                <span style="color:#5ea0ff">①</span> runtime config · engine selection
 │
-├─ <span style="color:#5ea0ff;font-weight:600">api/</span>                     <span style="color:#5ea0ff">①</span> SERVE <span style="color:#8b94a7">(layer) — one thin blueprint per feature, each &rarr; insights/&lt;feature&gt;</span>
-│  ├─ <span style="color:#cfe0ff">workspace · scenarios · interactions · cluster · fleet · doctor · traces · memory · semantic</span>
-│  ├─ <span style="color:#8b94a7">_shared: SSE + error envelope · /api/config</span>
-│  └─ <span style="color:#cfe0ff">inter_agent</span>              <span style="color:#8b94a7">SERVE half (live SSE)  &larr; ingest half → collector/streaming</span>
+├─ <span style="color:#5ea0ff;font-weight:600">api/</span>                     <span style="color:#5ea0ff">①</span> SERVE <span style="color:#8b94a7">(layer) — one thin blueprint per feature &rarr; insights/&lt;feature&gt;</span>
+│  ├─ <span style="color:#cfe0ff">workspace.py</span>          <span style="color:#8b94a7">&larr; conversations.py</span>
+│  ├─ <span style="color:#cfe0ff">scenarios.py</span>
+│  ├─ <span style="color:#cfe0ff">interactions.py</span>
+│  ├─ <span style="color:#cfe0ff">cluster.py</span>            <span style="color:#8b94a7">&larr; chronolog_view.py</span>
+│  ├─ <span style="color:#cfe0ff">fleet.py</span>
+│  ├─ <span style="color:#cfe0ff">doctor.py</span>             <span style="color:#8b94a7">&larr; diagnostics.py</span>
+│  ├─ <span style="color:#cfe0ff">traces.py</span>             <span style="color:#8b94a7">&larr; tracing.py</span>
+│  ├─ <span style="color:#cfe0ff">memory.py</span>             <span style="color:#8b94a7">&larr; provenance.py</span>
+│  ├─ <span style="color:#cfe0ff">semantic.py</span>           <span style="color:#8b94a7">headless — no tab</span>
+│  ├─ <span style="color:#cfe0ff">inter_agent.py</span>        <span style="color:#8b94a7">SERVE half (live SSE)  &larr; ingest half → collector/streaming</span>
+│  └─ <span style="color:#8b94a7">_shared: SSE + error envelope · /api/config</span>
 │
 ├─ <span style="color:#b98bff;font-weight:600">contract/</span>                <span style="color:#b98bff">②</span> the shared agreement <span style="color:#8b94a7">— nouns + verbs · pure · ZERO deps · everyone depends on this</span>
 │  ├─ <span style="color:#c9d2e3">events/</span>              <span style="color:#8b94a7">the DATA (nouns) — record schemas + chronicle names</span>
