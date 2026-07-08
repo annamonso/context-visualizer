@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ChronoLog Observability — Overview</title>
+<title>ChronoLog Observability — ctx-viz</title>
 <style>
   :root {
     --bg: #0f1115;
@@ -95,14 +95,37 @@
   .layer .ltags { margin-top: 11px; display: flex; flex-wrap: wrap; gap: 6px; }
   .layer .ltag { font-size: 0.72rem; border-radius: 20px; padding: 3px 11px; border: 1px solid; background: rgba(255,255,255,0.035); }
   .lflow { text-align: center; font-size: 0.74rem; color: var(--muted); letter-spacing: 0.03em; }
+  /* ---- tabbed nav ---- */
+  .topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: flex-end;
+            justify-content: space-between; gap: 20px; flex-wrap: wrap;
+            background: var(--bg); padding: 14px 0 12px; margin: 0 0 30px; border-bottom: 1px solid var(--border); }
+  .brand h1 { margin: 0 0 4px; }
+  .brand .sub { margin: 0; }
+  nav.tabs { display: flex; gap: 6px; }
+  nav.tabs a { color: var(--muted); font-size: 0.9rem; font-weight: 600; padding: 7px 14px;
+               border-radius: 8px; border: 1px solid transparent; text-decoration: none; letter-spacing: 0.01em; }
+  nav.tabs a:hover { color: var(--text); background: var(--panel); text-decoration: none; }
+  nav.tabs a.active { color: #fff; background: var(--panel); border-color: var(--border); }
+  section[data-tab] { display: none; }
+  section[data-tab].active { display: block; }
+  @media (max-width: 620px) { .topbar { align-items: stretch; } nav.tabs { flex-wrap: wrap; } }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>ChronoLog Observability</h1>
-  <p class="sub">Repo overview — what it is &amp; how the data flows.</p>
+  <header class="topbar">
+    <div class="brand">
+      <h1>ChronoLog Observability</h1>
+      <p class="sub">ctx-viz — architecture, proposal &amp; change log.</p>
+    </div>
+    <nav class="tabs">
+      <a href="#current" data-tab="current">Current</a>
+      <a href="#proposal" data-tab="proposal">Proposal</a>
+      <a href="#logs" data-tab="logs">Logs</a>
+    </nav>
+  </header>
 
-  <section>
+  <section class="tab-content" data-tab="current">
     <h2>What it is</h2>
     <p>
       <strong>ChronoLog Observability is an observability &amp; distributed-tracing tool for
@@ -132,7 +155,7 @@
     </p>
   </section>
 
-  <section>
+  <section class="tab-content" data-tab="proposal">
     <h2>Layers</h2>
     <p>
       One way to look at the whole thing — three layers, top to bottom. Data rises as it
@@ -216,7 +239,7 @@
     </p>
   </section>
 
-  <section>
+  <section class="tab-content" data-tab="current">
     <h2>Features</h2>
     <p>
       Grouped by what they do: the <strong>eight views</strong> you navigate, the
@@ -303,7 +326,7 @@
     </div>
   </section>
 
-  <section>
+  <section class="tab-content" data-tab="current">
     <h2>Architecture (three layers)</h2>
     <svg class="diagram" viewBox="0 0 1000 806" role="img"
          aria-label="Three-layer architecture: React frontend on top; the Flask backend in the middle with Capture/ingest and a wide Serving core on top, Adapter seam and Analytics in the middle, and a full-width ChronoLog-access funnel at the bottom; ChronoLog storage substrate underneath.">
@@ -476,7 +499,7 @@
     </ul>
   </section>
 
-  <section>
+  <section class="tab-content" data-tab="proposal">
     <h2>Architecture target <span style="color:var(--muted);font-weight:400;font-size:0.9rem">(engine behind a port · ports &amp; adapters)</span></h2>
     <p>
       The write path, restructured so <strong>nothing above the line knows which engine stores the
@@ -610,7 +633,7 @@
     </ul>
   </section>
 
-  <section>
+  <section class="tab-content" data-tab="current">
     <h2>Backend repo layout</h2>
     <p>
       The Python package lives under <code>backend/</code> (the ctx-viz backend, mirroring
@@ -694,7 +717,7 @@
     </p>
   </section>
 
-  <section>
+  <section class="tab-content" data-tab="proposal">
     <h2>Backend repo layout — target <span style="color:var(--muted);font-weight:400;font-size:0.9rem">(ports &amp; adapters)</span></h2>
     <p>
       Where today's tree moves under the target above. Same colors:
@@ -808,7 +831,7 @@
     </p>
   </section>
 
-  <section>
+  <section class="tab-content" data-tab="current">
     <h2>The data</h2>
     <p>
       This project collects <strong>agent-activity data</strong> so we can see <strong>how a fleet
@@ -941,7 +964,7 @@
     </p>
   </section>
 
-  <section>
+  <section class="tab-content" data-tab="current">
     <h2>Data model</h2>
     <p>
       Everything is stored as <strong>time-ordered JSON events</strong> in ChronoLog, grouped into
@@ -987,7 +1010,7 @@
     </p>
   </section>
 
-  <section>
+  <section class="tab-content" data-tab="logs">
     <h2>Status &amp; roadmap</h2>
     <p style="color:var(--muted);font-size:0.9rem;margin-top:-4px">
       Where things stand after the ChronoLog <code>ctx-viz-integration</code> bring-up, split by
@@ -1011,6 +1034,7 @@
       <li><strong>Repo-layout cleanup (step 1)</strong>: moved the Python package <code>src/chronolog_observability/</code> &rarr; <code>backend/</code> (so the root reads <code>frontend/</code> + <code>backend/</code>) and renamed the inner ChronoLog-access layer &rarr; <code>backend/chronolog/</code>. Entry points, Docker, Vite, scripts, tests &amp; docs updated; app + 16 tests green. Committed &amp; pushed on <code>experiment/repo-structure</code>.</li>
       <li><strong>Repo-layout cleanup (step 2)</strong>: decluttered the repo root into <code>docker/</code> (Dockerfile, compose, entrypoint, README) and <code>docs/</code> (this file + ANALYSIS / FEATURES / MIGRATION); <code>README.md</code> and <code>.dockerignore</code> stay at root by necessity (landing page; Docker reads <code>.dockerignore</code> only from the build-context root). Compose build context re-pointed to the root; added <code>make demo</code> / <code>demo-down</code> / <code>demo-reseed</code> wrappers.</li>
       <li><strong>Configurable demo port</strong>: the offline image's host port is now <code>${DASHBOARD_PORT:-5000}</code> (was hard-coded, collided with a live dashboard on <code>:5055</code>) &mdash; <code>DASHBOARD_PORT=5055 make demo</code>. <strong>Verified end-to-end</strong>: image builds from <code>docker/Dockerfile</code>, container boots + seeds, all tab endpoints 200 (Doctor clusters 9 incidents), port override binds a fresh container; 16 unit tests green.</li>
+      <li><strong>Docs restructure</strong>: renamed <code>docs/analysis.html</code> &rarr; <code>docs/ctx-viz.html</code> and split it into a tabbed page — <strong>Current</strong> (what it is · features · architecture · repo layout · data · data model), <strong>Proposal</strong> (layers · architecture target · target repo layout), <strong>Logs</strong> (this changelog) — with a sticky top-right nav. Same styling; verified all three tabs render + switch.</li>
     </ul>
     <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do</div>
     <ul style="font-size:0.88rem">
@@ -1050,5 +1074,28 @@
     </ul>
   </section>
 </div>
+<script>
+  (function () {
+    var tabs = ['current', 'proposal', 'logs'];
+    function show(t) {
+      if (tabs.indexOf(t) === -1) t = 'current';
+      document.querySelectorAll('section[data-tab]').forEach(function (s) {
+        s.classList.toggle('active', s.dataset.tab === t);
+      });
+      document.querySelectorAll('nav.tabs a').forEach(function (a) {
+        a.classList.toggle('active', a.dataset.tab === t);
+      });
+      window.scrollTo(0, 0);
+    }
+    document.querySelectorAll('nav.tabs a').forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        e.preventDefault();
+        history.replaceState(null, '', '#' + a.dataset.tab);
+        show(a.dataset.tab);
+      });
+    });
+    show((location.hash || '#current').slice(1));
+  })();
+</script>
 </body>
 </html>
