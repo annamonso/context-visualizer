@@ -510,7 +510,7 @@
     </p>
 
     <svg class="diagram" viewBox="0 0 1000 550" role="img"
-         aria-label="Target ports-and-adapters architecture. Left column (write path, compacted): agents feed the producer, which feeds the collector, which calls the contract boundary. Right column, same top row as agents: a Dashboard block containing eight small feature tiles (Workspace, Scenarios, Interactions, Cluster, Fleet, Doctor, Traces, Memory) — the read side, not yet wired to the contract. Below the contract sit engine adapters — ChronoLog adapter (solid) and a Local or other adapter (dashed) — each writing to a substrate (ChronoLog or another store).">
+         aria-label="Target ports-and-adapters architecture. Left column (write path, compacted): agents feed the producer, which feeds the collector, which calls the contract boundary. Right column, same top row as agents: a Dashboard block containing a single left-aligned row of eight two-letter feature tiles (WO Workspace, SC Scenarios, IN Interactions, CL Cluster, FL Fleet, DO Doctor, TR Traces, ME Memory) — the read side, not yet wired to the contract. Below the contract sit engine adapters — ChronoLog adapter (solid) and a Local or other adapter (dashed) — each writing to a substrate (ChronoLog or another store).">
       <defs>
         <marker id="tTeal" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#41d1a7"/></marker>
         <marker id="tGold" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e3b341"/></marker>
@@ -548,23 +548,15 @@
         <!-- dashboard (read column, same row as agents) -->
         <rect x="480" y="24" width="400" height="234" rx="11" fill="#0e1a2e" stroke="#5ea0ff" stroke-width="1.5"/>
         <text x="500" y="50" fill="#fff" font-size="13" font-weight="700">Dashboard <tspan fill="#8b94a7" font-weight="400" font-size="11">· presentation layer, no logic</tspan></text>
-        <g font-size="10" font-weight="700" fill="#cfe0ff" text-anchor="middle">
-          <rect x="500" y="70" width="84" height="84" rx="8" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/>
-          <text x="542" y="116">Workspace</text>
-          <rect x="592" y="70" width="84" height="84" rx="8" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/>
-          <text x="634" y="116">Scenarios</text>
-          <rect x="684" y="70" width="84" height="84" rx="8" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/>
-          <text x="726" y="116">Interactions</text>
-          <rect x="776" y="70" width="84" height="84" rx="8" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/>
-          <text x="818" y="116">Cluster</text>
-          <rect x="500" y="162" width="84" height="84" rx="8" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/>
-          <text x="542" y="208">Fleet</text>
-          <rect x="592" y="162" width="84" height="84" rx="8" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/>
-          <text x="634" y="208">Doctor</text>
-          <rect x="684" y="162" width="84" height="84" rx="8" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/>
-          <text x="726" y="208">Traces</text>
-          <rect x="776" y="162" width="84" height="84" rx="8" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/>
-          <text x="818" y="208">Memory</text>
+        <g font-size="13" font-weight="700" fill="#cfe0ff" text-anchor="middle">
+          <g><title>Workspace</title><rect x="500" y="70" width="40" height="40" rx="7" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="520" y="95">WO</text></g>
+          <g><title>Scenarios</title><rect x="545" y="70" width="40" height="40" rx="7" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="565" y="95">SC</text></g>
+          <g><title>Interactions</title><rect x="590" y="70" width="40" height="40" rx="7" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="610" y="95">IN</text></g>
+          <g><title>Cluster</title><rect x="635" y="70" width="40" height="40" rx="7" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="655" y="95">CL</text></g>
+          <g><title>Fleet</title><rect x="680" y="70" width="40" height="40" rx="7" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="700" y="95">FL</text></g>
+          <g><title>Doctor</title><rect x="725" y="70" width="40" height="40" rx="7" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="745" y="95">DO</text></g>
+          <g><title>Traces</title><rect x="770" y="70" width="40" height="40" rx="7" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="790" y="95">TR</text></g>
+          <g><title>Memory</title><rect x="815" y="70" width="40" height="40" rx="7" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="835" y="95">ME</text></g>
         </g>
 
         <!-- contract -->
