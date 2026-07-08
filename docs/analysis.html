@@ -838,7 +838,7 @@
       <span style="color:#b98bff;font-weight:600">② the contract</span> ·
       <span style="color:#e3b341;font-weight:600">③ engine adapter</span> ·
       <span style="color:#41d1a7;font-weight:600">④ produce / collect</span> ·
-      <span style="color:#ff9e64;font-weight:600">⑤ analytics</span>.
+      <span style="color:#ff9e64;font-weight:600">⑤ read · insights</span>.
       <code style="color:#8b94a7">&larr;</code> shows where a piece comes from today;
       <span style="color:#9fd356;font-weight:700">★</span> = new.
     </p>
@@ -846,13 +846,9 @@
 ├─ <span style="color:#e6ecf5">app.py</span>                   <span style="color:#5ea0ff">①</span> Flask factory — discover adapters → mount blueprints → serve SPA
 ├─ <span style="color:#e6ecf5">config.py</span>                <span style="color:#5ea0ff">①</span> runtime config · engine selection
 │
-├─ <span style="color:#5ea0ff;font-weight:600">api/</span>                     <span style="color:#5ea0ff">①</span> SERVE — blueprints <span style="color:#8b94a7">(reads via EventSource · live via LiveBus)</span>
-│  ├─ conversations · interactions · scenarios · provenance · semantic
-│  ├─ inter_agent.py         <span style="color:#8b94a7">SERVE half only (live SSE feed)  &larr; ingest half → collector/streaming</span>
-│  ├─ chronolog_view · diagnostics · fleet · tracing
-│  └─ <span style="color:#5ea0ff">shape/</span>                 <span style="color:#8b94a7">view-model shapers  &larr; adapters/shape/</span>
-│     ├─ conversation.py
-│     └─ scenario.py
+├─ <span style="color:#5ea0ff;font-weight:600">api/</span>                     <span style="color:#5ea0ff">①</span> SERVE <span style="color:#8b94a7">(thin spine) — mounts feature routers · SSE + error helpers · /api/config</span>
+│                            <span style="color:#8b94a7">&larr; per-tab blueprints move into insights/&lt;feature&gt;/routes.py</span>
+│                            <span style="color:#8b94a7">&larr; adapters/shape/ moves into insights/&lt;feature&gt;/view.py</span>
 │
 ├─ <span style="color:#b98bff;font-weight:600">contract/</span>                <span style="color:#b98bff">②</span> the shared agreement <span style="color:#8b94a7">— nouns + verbs · pure · ZERO deps · everyone depends on this</span>
 │  ├─ <span style="color:#c9d2e3">events/</span>              <span style="color:#8b94a7">the DATA (nouns) — record schemas + chronicle names</span>
@@ -882,11 +878,17 @@
 │  │  └─ constants.py        <span style="color:#8b94a7">ChronoLog-specific names</span>
 │  └─ <span style="color:#e3b341">local/</span>                 <span style="color:#e3b341">③</span> offline engine (JSONL)  &larr; <span style="color:#8b94a7">capture/llm_demo_store.py</span>
 │
-├─ <span style="color:#ff9e64;font-weight:600">analysis/</span>                <span style="color:#ff9e64">⑤</span> pure analytics — call_graph · context_graph · trace
-├─ <span style="color:#ff9e64;font-weight:600">diagnostics/</span>             <span style="color:#ff9e64">⑤</span> ChronoDoctor
-├─ <span style="color:#ff9e64;font-weight:600">fleet/</span>                   <span style="color:#ff9e64">⑤</span> Fleet Health <span style="color:#8b94a7">— rollups write via EventSink &larr; fixes fleet/store.py</span>
-├─ <span style="color:#ff9e64;font-weight:600">semantic/</span>                <span style="color:#ff9e64">⑤</span> LLM-judged checks
-└─ <span style="color:#ff9e64;font-weight:600">checkpointing/</span>           <span style="color:#ff9e64">⑤</span> restore points
+└─ <span style="color:#ff9e64;font-weight:600">insights/</span>                <span style="color:#ff9e64">⑤</span> READ — one vertical slice per feature <span style="color:#8b94a7">(= capability = tab = page)</span>
+   <span style="color:#8b94a7">each slice:  routes.py · read.py (via EventSource) · compute.py (pure) · view.py</span>
+   ├─ <span style="color:#ffb380">workspace/</span>       <span style="color:#8b94a7">conversations   &larr; conversations.py · shape/conversation.py</span>
+   ├─ <span style="color:#ffb380">scenarios/</span>       <span style="color:#8b94a7">scenarios       &larr; scenarios.py · shape/scenario.py</span>
+   ├─ <span style="color:#ffb380">interactions/</span>    <span style="color:#8b94a7">interactions    &larr; interactions.py</span>
+   ├─ <span style="color:#ffb380">cluster/</span>         <span style="color:#8b94a7">cluster         &larr; chronolog_view.py · own topology port (SLURM), not EventSource</span>
+   ├─ <span style="color:#ffb380">fleet/</span>           <span style="color:#8b94a7">fleet           &larr; fleet/ · materialized rollups write via EventSink</span>
+   ├─ <span style="color:#ffb380">doctor/</span>          <span style="color:#8b94a7">diagnostics     &larr; diagnostics/ (gather→detect→cluster→diagnose→remember)</span>
+   ├─ <span style="color:#ffb380">traces/</span>          <span style="color:#8b94a7">tracing         &larr; analysis/trace.py</span>
+   ├─ <span style="color:#ffb380">memory/</span>          <span style="color:#8b94a7">provenance      &larr; analysis/context_graph.py · call_graph.py</span>
+   └─ <span style="color:#ffb380">semantic/</span>        <span style="color:#8b94a7">headless · no tab</span> <span style="color:#9fd356">★</span> <span style="color:#8b94a7">&larr; semantic/ + checkpointing/ · checks + rollback</span>
 </pre>
     <p style="color:var(--muted);font-size:0.9rem;margin-top:2px">
       <strong style="color:#dbe2ec">The move:</strong> <code>producer/</code> (was <code>emit</code>) is the
@@ -911,10 +913,24 @@
       its own package.
     </p>
     <p style="color:var(--muted);font-size:0.9rem;margin-top:8px">
-      <strong style="color:#dbe2ec">Still open</strong> (naming, not structure): where <code>shape/</code>
-      lands (<code>api/shape/</code> vs a dedicated <code>view/</code> layer); and whether the
-      <code>Capability</code> gate stays fused with data-access or splits from it (today half the tabs use
-      the adapter only as an on/off switch).
+      <strong style="color:#dbe2ec">The read side (⑤).</strong> One vertical slice per feature — and a
+      feature is exactly <em>one capability = one tab = one frontend page</em> (the SPA already has eight
+      matching <code>*Page.tsx</code> files). The old analytics modules were never features; they dissolve
+      into the slices they serve: <code>fleet/</code> → fleet, <code>diagnostics/</code> → doctor,
+      <code>analysis/</code> splits into traces + memory. Each slice is <code>read.py</code> (pull via
+      <code>EventSource</code>) · <code>compute.py</code> (pure, unit-testable) · <code>view.py</code>
+      (view-model) · <code>routes.py</code> (the blueprint <code>app.py</code> mounts). Reads that need
+      raw events go through the <em>same</em> <code>contract.EventSource</code> the write side writes to —
+      which removes the last feature→feature imports (<code>analysis→fleet</code>,
+      <code>fleet→diagnostics</code>).
+    </p>
+    <p style="color:var(--muted);font-size:0.9rem;margin-top:8px">
+      <strong style="color:#dbe2ec">Still open</strong> — now product, not structure:
+      <code>semantic/</code> + <code>checkpointing/</code> are one <strong>headless</strong> feature (checks
+      + rollback, no tab, and checkpoints are <em>never created</em> in the running system today) — either
+      <strong>finish it</strong> (add a tab + wire checkpoint creation into the write path) or
+      <strong>park it</strong> as experimental and self-contained. Separately: whether the
+      <code>Capability</code> gate stays fused with data-access or splits from it.
     </p>
   </section>
 
@@ -1127,6 +1143,8 @@
       <li>Drop the <code>__index__</code> enumeration trick &rarr; use <code>ShowChronicles</code> / <code>ShowStories</code> (confirmed working &amp; fast).</li>
       <li>Capture worker <strong>auto-reconnect</strong> on client connection loss (survive cluster restarts; today it hits <code>AcquireStory&nbsp;-3</code> until bounced).</li>
       <li>Retire CSV scraping + the in-process hot store once read-path #1/#2 land.</li>
+      <li><strong>Read-side restructure</strong> (designed &mdash; see <em>Backend repo layout &mdash; target</em>): collapse <code>analysis/</code> · <code>diagnostics/</code> · <code>fleet/</code> · <code>semantic/</code> · <code>checkpointing/</code> into <code>insights/&lt;feature&gt;</code> vertical slices, one per tab/capability (<code>read.py</code> · <code>compute.py</code> · <code>view.py</code> · <code>routes.py</code>); route every read through <code>contract.EventSource</code> (kills the <code>analysis&rarr;fleet</code> / <code>fleet&rarr;diagnostics</code> feature imports); fold <code>adapters/shape/</code> into each slice's <code>view.py</code>.</li>
+      <li><strong>Decide the headless <code>semantic</code> feature</strong>: <code>semantic/</code> + <code>checkpointing/</code> have no tab and checkpoints are never created &mdash; finish it (add a page + wire checkpoint creation into the write path) or park it as experimental.</li>
       <li>Finish this document; optionally expose the <code>CHRONOLOG_REPLAY_LIVE</code> A/B switch cleanly.</li>
     </ul>
 
