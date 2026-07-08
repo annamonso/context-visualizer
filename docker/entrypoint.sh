@@ -21,6 +21,7 @@ if [ "$seed_needed" = "1" ]; then
   python3 scripts/demos/demo_doctor.py           >/dev/null || echo "[entrypoint] WARN: doctor seed failed (non-fatal)"
   python3 scripts/demos/demo_fleet_scale.py --nodes 60 >/dev/null || echo "[entrypoint] WARN: fleet seed failed (non-fatal)"
   python3 scripts/demos/demo_tracing.py          >/dev/null || echo "[entrypoint] WARN: tracing seed failed (non-fatal)"
+  python3 scripts/demos/demo_workspace.py        >/dev/null || echo "[entrypoint] WARN: workspace seed failed (non-fatal)"
   echo "[entrypoint] seed complete."
 else
   echo "[entrypoint] $STATE_DIR already populated (or SEED_DEMO=0) — skipping seed."
