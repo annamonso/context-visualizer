@@ -830,6 +830,79 @@
   </section>
 
   <section>
+    <h2>Backend repo layout — target <span style="color:var(--muted);font-weight:400;font-size:0.9rem">(ports &amp; adapters)</span></h2>
+    <p>
+      Where today's tree moves under the target above. Same colors:
+      <span style="color:#5ea0ff;font-weight:600">① serving / api</span> ·
+      <span style="color:#b98bff;font-weight:600">② the port seam</span> ·
+      <span style="color:#e3b341;font-weight:600">③ engine adapter</span> ·
+      <span style="color:#41d1a7;font-weight:600">④ capture</span> ·
+      <span style="color:#ff9e64;font-weight:600">⑤ analytics</span>.
+      <code style="color:#8b94a7">&larr;</code> shows where a piece comes from today;
+      <span style="color:#9fd356;font-weight:700">★</span> = new.
+    </p>
+<pre><span style="color:#fff">backend/</span>
+├─ <span style="color:#e6ecf5">app.py</span>                   <span style="color:#5ea0ff">①</span> Flask factory — discover adapters → mount blueprints → serve SPA
+├─ <span style="color:#e6ecf5">config.py</span>                <span style="color:#5ea0ff">①</span> runtime config
+│
+├─ <span style="color:#b98bff;font-weight:600">ports/</span>                   <span style="color:#9fd356">★</span> <span style="color:#c3b0e6">the interfaces everything depends on — no engine code</span>
+│  ├─ sink.py                <span style="color:#8b94a7">EventSink.append(event)          · write port</span>
+│  ├─ source.py              <span style="color:#8b94a7">EventSource.replay() / query     · read port</span>
+│  ├─ bus.py                 <span style="color:#8b94a7">LiveBus.publish / subscribe      · live-stream port</span>
+│  ├─ capability.py          <span style="color:#8b94a7">Capability enum + gating       &larr; adapters/base.py</span>
+│  └─ model.py               <span style="color:#8b94a7">event schemas · chronicle names&larr; chronolog/constants.py</span>
+│
+├─ <span style="color:#e3b341;font-weight:600">adapters/</span>                <span style="color:#b98bff">②</span>→<span style="color:#e3b341">③</span> engine implementations ONLY <span style="color:#8b94a7">(was a 4-in-1 grab-bag)</span>
+│  ├─ registry.py            <span style="color:#8b94a7">wiring: discover + resolve capability→adapter</span>
+│  ├─ <span style="color:#e3b341">chronolog/</span>             <span style="color:#e3b341">③</span> the ChronoLog engine — implements the ports
+│  │  ├─ client.py           <span style="color:#8b94a7">py_chronolog_client facade  &larr; chronolog/client.py</span>
+│  │  ├─ reader.py           <span style="color:#8b94a7">replay / CSV-archive reads  &larr; chronolog/path_a_reader.py</span>
+│  │  └─ constants.py        <span style="color:#8b94a7">ChronoLog-specific names    &larr; chronolog/constants.py</span>
+│  └─ <span style="color:#e3b341">local/</span>                 <span style="color:#e3b341">③</span> offline engine (JSONL)     &larr; <span style="color:#8b94a7">capture/llm_demo_store.py</span>
+│                            <span style="color:#8b94a7">· makes offline mode a real adapter, not a fake path</span>
+│
+├─ <span style="color:#41d1a7;font-weight:600">capture/</span>                 <span style="color:#41d1a7">④</span> write pipeline — engine-neutral <span style="color:#8b94a7">(writes via ports.EventSink)</span>
+│  ├─ <span style="color:#41d1a7">emit/</span>                  <span style="color:#8b94a7">per-signal producers — the extensible axis</span>
+│  │  ├─ llm.py              <span style="color:#8b94a7">→ llm_interaction</span>
+│  │  ├─ context.py          <span style="color:#8b94a7">→ context_node</span>
+│  │  ├─ interagent.py       <span style="color:#8b94a7">→ inter_agent_edge</span>
+│  │  └─ recovery.py         <span style="color:#8b94a7">→ recovery_event</span>
+│  └─ <span style="color:#41d1a7">ingest/</span>
+│     ├─ buffered.py         <span style="color:#8b94a7">spool + drain worker ⚙   &larr; capture/spool.py + sync_worker.py</span>
+│     ├─ streaming.py        <span style="color:#8b94a7">http relay + live bus ⚙  &larr; collector/ + inter_agent/bus.py</span>
+│     └─ writer.py           <span style="color:#8b94a7">ONE writer → EventSink  &larr; the scattered append_event calls</span>
+│
+├─ <span style="color:#5ea0ff;font-weight:600">api/</span>                     <span style="color:#5ea0ff">①</span> serving — blueprints <span style="color:#8b94a7">(reads via EventSource · live via LiveBus)</span>
+│  ├─ conversations · interactions · scenarios · provenance · semantic
+│  ├─ inter_agent.py         <span style="color:#8b94a7">SERVE half only (live SSE feed)  &larr; ingest half → capture/</span>
+│  ├─ chronolog_view · diagnostics · fleet · tracing
+│  └─ <span style="color:#5ea0ff">shape/</span>                 <span style="color:#8b94a7">view-model shapers               &larr; adapters/shape/</span>
+│     ├─ conversation.py
+│     └─ scenario.py
+│
+├─ <span style="color:#ff9e64;font-weight:600">analysis/</span>                <span style="color:#ff9e64">⑤</span> pure analytics — call_graph · context_graph · trace
+├─ <span style="color:#ff9e64;font-weight:600">diagnostics/</span>             <span style="color:#ff9e64">⑤</span> ChronoDoctor
+├─ <span style="color:#ff9e64;font-weight:600">fleet/</span>                   <span style="color:#ff9e64">⑤</span> Fleet Health <span style="color:#8b94a7">— rollups also write via EventSink &larr; fixes fleet/store.py</span>
+├─ <span style="color:#ff9e64;font-weight:600">semantic/</span>                <span style="color:#ff9e64">⑤</span> LLM-judged checks
+├─ <span style="color:#ff9e64;font-weight:600">checkpointing/</span>           <span style="color:#ff9e64">⑤</span> restore points
+└─ <span style="color:#e6ecf5">static/</span>                  built SPA bundle (gitignored)
+</pre>
+    <p style="color:var(--muted);font-size:0.9rem;margin-top:2px">
+      Two folders stop being top-level: <code>chronolog/</code> → <code>adapters/chronolog/</code>, and
+      <code>collector/</code> → <code>capture/ingest/streaming.py</code>. The offline demo store becomes a
+      real second engine (<code>adapters/local/</code>) — which is how "offline = point the port at a
+      different engine" falls out for free.
+    </p>
+    <p style="color:var(--muted);font-size:0.9rem;margin-top:8px">
+      <strong style="color:#dbe2ec">Still open</strong> (naming, not structure): where <code>shape/</code>
+      lands (<code>api/shape/</code> vs a dedicated <code>view/</code> layer); whether the
+      <code>Capability</code> gate stays fused with data-access or splits from it (today half the tabs use
+      the adapter only as an on/off switch); and where the neutral schema/chronicle-name contract lives
+      (<code>ports/model</code> vs per-engine <code>constants</code>).
+    </p>
+  </section>
+
+  <section>
     <h2>The data</h2>
     <p>
       This project collects <strong>agent-activity data</strong> so we can see <strong>how a fleet
