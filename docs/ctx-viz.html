@@ -196,6 +196,14 @@
           <li>Click an agent → its Workspace; a host → host mode; an edge → call details.</li>
           <li>Demo Burst fires synthetic traffic to watch the graph light up live.</li>
         </ul>
+        <p style="margin:8px 0 0;padding:8px 12px;border-left:3px solid #e3b341;background:rgba(227,179,65,0.06);color:var(--muted);font-size:0.85rem">
+          <strong style="color:#e3b341">Note — a second write path to unify.</strong>
+          Demo Burst (and any inter-agent ingest) writes <em>directly</em> to ChronoLog from the
+          dashboard process, plus a local JSONL hot copy. That is a different door than the Path-A
+          write path (spool &rarr; capture worker &rarr; ChronoLog) used by Workspace/Interactions.
+          Two writers into the same store is one of the <em>smears</em> the target architecture
+          removes by routing every writer through one <code>EventSink</code> port.
+        </p>
       </li>
       <li><strong style="color:#5ea0ff">Interactions</strong> — a flat, searchable feed of every LLM turn across the whole fleet.</li>
       <li><strong style="color:#5ea0ff">Cluster</strong> — ChronoLog + SLURM topology: node-to-node traffic alongside live idle/busy state.</li>
