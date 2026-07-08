@@ -834,7 +834,7 @@
     <p>
       Where today's tree moves under the target above. Same colors:
       <span style="color:#5ea0ff;font-weight:600">① serving / api</span> ·
-      <span style="color:#b98bff;font-weight:600">② the port seam</span> ·
+      <span style="color:#b98bff;font-weight:600">② the contract</span> ·
       <span style="color:#e3b341;font-weight:600">③ engine adapter</span> ·
       <span style="color:#41d1a7;font-weight:600">④ produce / collect</span> ·
       <span style="color:#ff9e64;font-weight:600">⑤ analytics</span>.
@@ -853,25 +853,25 @@
 │     ├─ conversation.py
 │     └─ scenario.py
 │
-├─ <span style="color:#fff;font-weight:600">model/</span>                   <span style="color:#9fd356">★</span> <span style="color:#c9d2e3">shared kernel — event/record schemas · chronicle names</span>
-│                            <span style="color:#8b94a7">pure · ZERO deps · the "spool contract" producer + collector agree on</span>
+├─ <span style="color:#b98bff;font-weight:600">contract/</span>                <span style="color:#b98bff">②</span> the shared agreement <span style="color:#8b94a7">— nouns + verbs · pure · ZERO deps · everyone depends on this</span>
+│  ├─ <span style="color:#c9d2e3">events/</span>              <span style="color:#8b94a7">the DATA (nouns) — record schemas + chronicle names</span>
+│  │  ├─ interaction.py     <span style="color:#8b94a7">LlmInteraction · context · interagent · recovery</span>
+│  │  └─ names.py           <span style="color:#8b94a7">chronicle / story names  &larr; chronolog/constants.py</span>
+│  ├─ sink.py               <span style="color:#8b94a7">EventSink   — write port (verb)</span>
+│  ├─ source.py             <span style="color:#8b94a7">EventSource — read port</span>
+│  ├─ bus.py                <span style="color:#8b94a7">LiveBus     — live-stream port</span>
+│  └─ capability.py         <span style="color:#8b94a7">Capability enum + gating  &larr; adapters/base.py</span>
 │
 ├─ <span style="color:#41d1a7;font-weight:600">producer/</span>                <span style="color:#41d1a7">④</span> PRODUCE — agent-side library <span style="color:#8b94a7">(dependency-free · ships into agents)</span>
 │  ├─ llm.py                 <span style="color:#8b94a7">→ llm_interaction</span>
 │  ├─ context.py             <span style="color:#8b94a7">→ context_node</span>
 │  ├─ interagent.py          <span style="color:#8b94a7">→ inter_agent_edge   &larr; collector/client.py (emit helper)</span>
-│  └─ recovery.py            <span style="color:#8b94a7">→ recovery_event · imports ONLY model/ · the future chrono-agent pkg</span>
+│  └─ recovery.py            <span style="color:#8b94a7">→ recovery_event · imports ONLY contract/ · the future chrono-agent pkg</span>
 │
-├─ <span style="color:#41d1a7;font-weight:600">collector/</span>               <span style="color:#41d1a7">④</span> COLLECT — server-side intake <span style="color:#8b94a7">(was capture/ingest · imports model/ + ports/)</span>
+├─ <span style="color:#41d1a7;font-weight:600">collector/</span>               <span style="color:#41d1a7">④</span> COLLECT — server-side intake <span style="color:#8b94a7">(was capture/ingest · imports contract/)</span>
 │  ├─ buffered.py            <span style="color:#8b94a7">spool + drain worker ⚙   &larr; capture/spool.py + sync_worker.py</span>
 │  ├─ streaming.py           <span style="color:#8b94a7">http relay + live bus ⚙  &larr; today's collector/daemon + inter_agent/bus.py</span>
 │  └─ writer.py              <span style="color:#8b94a7">ONE writer → ports.EventSink  &larr; the scattered append_event calls</span>
-│
-├─ <span style="color:#b98bff;font-weight:600">ports/</span>                   <span style="color:#b98bff">②</span> the interfaces <span style="color:#8b94a7">(imports model/ · no engine code)</span>
-│  ├─ sink.py                <span style="color:#8b94a7">EventSink.append(event)   · write port</span>
-│  ├─ source.py              <span style="color:#8b94a7">EventSource.replay()      · read port</span>
-│  ├─ bus.py                 <span style="color:#8b94a7">LiveBus.publish/subscribe · live-stream port</span>
-│  └─ capability.py          <span style="color:#8b94a7">Capability enum + gating  &larr; adapters/base.py</span>
 │
 ├─ <span style="color:#e3b341;font-weight:600">adapters/</span>                <span style="color:#e3b341">③</span> engines implement the ports <span style="color:#8b94a7">(was a 4-in-1 grab-bag)</span>
 │  ├─ registry.py            <span style="color:#8b94a7">wiring: discover + resolve capability→adapter (config-driven)</span>
@@ -892,9 +892,10 @@
       <strong style="color:#dbe2ec">The move:</strong> <code>producer/</code> (was <code>emit</code>) is the
       agent-side producer library — dependency-free, ships into agents, the exact unit a future
       <code>chrono-agent</code> absorbs. <code>collector/</code> (was <code>capture</code>) is the
-      server-side intake. <code>model/</code> is pulled out as the shared, zero-dependency kernel both sides
-      import — the spool contract that keeps <code>producer</code> decoupled. Today's <code>collector/</code>
-      dissolves: the emit helper → <code>producer/</code>, the daemon → <code>collector/streaming.py</code>.
+      server-side intake. <code>contract/</code> is the shared agreement everyone depends on — the event
+      schemas (<em>nouns</em>) <strong>plus</strong> the ports (<em>verbs</em>: sink · source · bus), pure and
+      zero-dependency. Today's <code>collector/</code> dissolves: the emit helper → <code>producer/</code>,
+      the daemon → <code>collector/streaming.py</code>.
     </p>
     <p style="color:var(--muted);font-size:0.9rem;margin-top:8px">
       <strong style="color:#dbe2ec">This mirrors OpenTelemetry:</strong> <code>producer</code> = instrumentation
@@ -903,10 +904,11 @@
       problem.
     </p>
     <p style="color:var(--muted);font-size:0.9rem;margin-top:8px">
-      <strong style="color:#dbe2ec">One-way dependencies:</strong>
-      <code>producer → model</code> · <code>collector → model + ports</code> · <code>ports → model</code> ·
-      <code>adapters</code> implement <code>ports</code>. Nothing points back up, so <code>producer</code>
-      sits at the edge depending only on the kernel — which is what lets it graduate to its own package.
+      <strong style="color:#dbe2ec">One-way dependencies:</strong> everything depends on
+      <code>contract/</code>; <code>contract/</code> depends on nothing. <code>producer → contract</code> ·
+      <code>collector → contract</code> · <code>adapters</code> implement <code>contract</code>'s ports. So
+      <code>producer</code> sits at the edge importing only the contract — which is what lets it graduate to
+      its own package.
     </p>
     <p style="color:var(--muted);font-size:0.9rem;margin-top:8px">
       <strong style="color:#dbe2ec">Still open</strong> (naming, not structure): where <code>shape/</code>
