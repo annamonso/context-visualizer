@@ -510,12 +510,14 @@
     </p>
 
     <svg class="diagram" viewBox="0 0 1000 550" role="img"
-         aria-label="Target ports-and-adapters architecture. Left column (write path, compacted): agents feed the producer, which feeds the collector, which calls the contract boundary. Right column, same top row as agents: a Dashboard block containing a single left-aligned row of eight two-letter feature tiles (WO Workspace, SC Scenarios, IN Interactions, CL Cluster, FL Fleet, DO Doctor, TR Traces, ME Memory) — the read side, not yet wired to the contract. Below the contract sit engine adapters — ChronoLog adapter (solid) and a Local or other adapter (dashed) — each writing to a substrate (ChronoLog or another store).">
+         aria-label="Target ports-and-adapters architecture. Left column (write path, compacted): agents feed the producer, which feeds the collector, which calls the contract boundary. Right column, same top row as agents: three stacked read-path layers, each a row of eight two-letter feature tiles (WO Workspace, SC Scenarios, IN Interactions, CL Cluster, FL Fleet, DO Doctor, TR Traces, ME Memory) — Dashboard (the frontend, presentation only), API (one blueprint per feature), and Insights (the read logic per feature, plus a ninth dashed SM tile for the headless semantic/checkpointing feature in API and Insights only, no frontend tab) — flowing down into the same contract boundary as the write path. Below the contract sit engine adapters — ChronoLog adapter (solid) and a Local or other adapter (dashed) — each writing to a substrate (ChronoLog or another store).">
       <defs>
         <marker id="tTeal" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#41d1a7"/></marker>
         <marker id="tGold" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e3b341"/></marker>
         <marker id="tPurple" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#b98bff"/></marker>
         <marker id="tGray" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#8b94a7"/></marker>
+        <marker id="tBlue" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#5ea0ff"/></marker>
+        <marker id="tOrange" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#ff9e64"/></marker>
       </defs>
 
       <g font-family="-apple-system, Segoe UI, sans-serif">
@@ -546,18 +548,51 @@
         <line x1="290" y1="258" x2="290" y2="288" stroke="#b98bff" stroke-width="2.25" marker-end="url(#tPurple)"/>
 
         <!-- dashboard (read column, same row as agents) -->
-        <rect x="480" y="24" width="400" height="234" rx="11" fill="#0e1a2e" stroke="#5ea0ff" stroke-width="1.5"/>
-        <text x="500" y="50" fill="#fff" font-size="13" font-weight="700">Dashboard <tspan fill="#8b94a7" font-weight="400" font-size="11">· presentation layer, no logic</tspan></text>
-        <g font-size="13" font-weight="700" fill="#cfe0ff" text-anchor="middle">
-          <g><title>Workspace</title><rect x="500" y="70" width="40" height="40" rx="7" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="520" y="95">WO</text></g>
-          <g><title>Scenarios</title><rect x="545" y="70" width="40" height="40" rx="7" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="565" y="95">SC</text></g>
-          <g><title>Interactions</title><rect x="590" y="70" width="40" height="40" rx="7" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="610" y="95">IN</text></g>
-          <g><title>Cluster</title><rect x="635" y="70" width="40" height="40" rx="7" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="655" y="95">CL</text></g>
-          <g><title>Fleet</title><rect x="680" y="70" width="40" height="40" rx="7" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="700" y="95">FL</text></g>
-          <g><title>Doctor</title><rect x="725" y="70" width="40" height="40" rx="7" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="745" y="95">DO</text></g>
-          <g><title>Traces</title><rect x="770" y="70" width="40" height="40" rx="7" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="790" y="95">TR</text></g>
-          <g><title>Memory</title><rect x="815" y="70" width="40" height="40" rx="7" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="835" y="95">ME</text></g>
+        <rect x="480" y="24" width="400" height="66" rx="10" fill="#1b2030" stroke="#8b94a7" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="500" y="46" fill="#fff" font-size="13" font-weight="700">Dashboard <tspan fill="#8b94a7" font-weight="400" font-size="11">· presentation layer, no logic</tspan></text>
+        <g font-size="10" font-weight="700" fill="#cfe0ff" text-anchor="middle">
+          <g><title>Workspace</title><rect x="500" y="54" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="514" y="72">WO</text></g>
+          <g><title>Scenarios</title><rect x="534" y="54" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="548" y="72">SC</text></g>
+          <g><title>Interactions</title><rect x="568" y="54" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="582" y="72">IN</text></g>
+          <g><title>Cluster</title><rect x="602" y="54" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="616" y="72">CL</text></g>
+          <g><title>Fleet</title><rect x="636" y="54" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="650" y="72">FL</text></g>
+          <g><title>Doctor</title><rect x="670" y="54" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="684" y="72">DO</text></g>
+          <g><title>Traces</title><rect x="704" y="54" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="718" y="72">TR</text></g>
+          <g><title>Memory</title><rect x="738" y="54" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="752" y="72">ME</text></g>
         </g>
+        <line x1="680" y1="90" x2="680" y2="106" stroke="#5ea0ff" stroke-width="2.25" marker-end="url(#tBlue)"/>
+
+        <!-- api (one thin blueprint per feature, calls into insights/<feature>) -->
+        <rect x="480" y="106" width="400" height="66" rx="11" fill="#0e1a2e" stroke="#5ea0ff" stroke-width="1.5"/>
+        <text x="500" y="128" fill="#fff" font-size="13" font-weight="700">API <tspan fill="#8b94a7" font-weight="400" font-size="11">· one blueprint per feature</tspan></text>
+        <g font-size="10" font-weight="700" fill="#cfe0ff" text-anchor="middle">
+          <g><title>workspace.py</title><rect x="500" y="136" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="514" y="154">WO</text></g>
+          <g><title>scenarios.py</title><rect x="534" y="136" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="548" y="154">SC</text></g>
+          <g><title>interactions.py</title><rect x="568" y="136" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="582" y="154">IN</text></g>
+          <g><title>cluster.py</title><rect x="602" y="136" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="616" y="154">CL</text></g>
+          <g><title>fleet.py</title><rect x="636" y="136" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="650" y="154">FL</text></g>
+          <g><title>doctor.py</title><rect x="670" y="136" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="684" y="154">DO</text></g>
+          <g><title>traces.py</title><rect x="704" y="136" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="718" y="154">TR</text></g>
+          <g><title>memory.py</title><rect x="738" y="136" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="752" y="154">ME</text></g>
+          <g><title>semantic.py · headless, no tab</title><rect x="772" y="136" width="28" height="28" rx="6" fill="#1c1c22" stroke="#6b7688" stroke-width="1.25" stroke-dasharray="3 2"/><text x="786" y="154" fill="#9aa4b8">SM</text></g>
+        </g>
+        <line x1="680" y1="172" x2="680" y2="188" stroke="#ff9e64" stroke-width="2.25" marker-end="url(#tOrange)"/>
+
+        <!-- insights (read.py via EventSource · compute.py · view.py, per feature) -->
+        <rect x="480" y="188" width="400" height="70" rx="11" fill="#24190f" stroke="#ff9e64" stroke-width="1.5"/>
+        <text x="500" y="210" fill="#fff" font-size="13" font-weight="700">Insights <tspan fill="#8b94a7" font-weight="400" font-size="11">· read logic behind each feature</tspan></text>
+        <g font-size="10" font-weight="700" fill="#ffe0c2" text-anchor="middle">
+          <g><title>workspace/</title><rect x="500" y="218" width="28" height="28" rx="6" fill="#2e2013" stroke="#8a5f3a" stroke-width="1.25"/><text x="514" y="236">WO</text></g>
+          <g><title>scenarios/</title><rect x="534" y="218" width="28" height="28" rx="6" fill="#2e2013" stroke="#8a5f3a" stroke-width="1.25"/><text x="548" y="236">SC</text></g>
+          <g><title>interactions/</title><rect x="568" y="218" width="28" height="28" rx="6" fill="#2e2013" stroke="#8a5f3a" stroke-width="1.25"/><text x="582" y="236">IN</text></g>
+          <g><title>cluster/ · own topology port, not EventSource</title><rect x="602" y="218" width="28" height="28" rx="6" fill="#2e2013" stroke="#8a5f3a" stroke-width="1.25"/><text x="616" y="236">CL</text></g>
+          <g><title>fleet/</title><rect x="636" y="218" width="28" height="28" rx="6" fill="#2e2013" stroke="#8a5f3a" stroke-width="1.25"/><text x="650" y="236">FL</text></g>
+          <g><title>doctor/</title><rect x="670" y="218" width="28" height="28" rx="6" fill="#2e2013" stroke="#8a5f3a" stroke-width="1.25"/><text x="684" y="236">DO</text></g>
+          <g><title>traces/</title><rect x="704" y="218" width="28" height="28" rx="6" fill="#2e2013" stroke="#8a5f3a" stroke-width="1.25"/><text x="718" y="236">TR</text></g>
+          <g><title>memory/</title><rect x="738" y="218" width="28" height="28" rx="6" fill="#2e2013" stroke="#8a5f3a" stroke-width="1.25"/><text x="752" y="236">ME</text></g>
+          <g><title>semantic/ + checkpointing/ · headless, no tab</title><rect x="772" y="218" width="28" height="28" rx="6" fill="#1c1c22" stroke="#6b7688" stroke-width="1.25" stroke-dasharray="3 2"/><text x="786" y="236" fill="#9aa4b8">SM</text></g>
+        </g>
+        <line x1="680" y1="258" x2="680" y2="288" stroke="#b98bff" stroke-width="2.25" marker-end="url(#tPurple)"/>
 
         <!-- contract -->
         <rect x="120" y="288" width="760" height="58" rx="10" fill="#191428" stroke="#b98bff" stroke-width="2"/>
@@ -1003,6 +1038,7 @@
       <li><strong>Repo-layout cleanup (step 2)</strong>: decluttered the repo root into <code>docker/</code> (Dockerfile, compose, entrypoint, README) and <code>docs/</code> (this file + ANALYSIS / FEATURES / MIGRATION); <code>README.md</code> and <code>.dockerignore</code> stay at root by necessity (landing page; Docker reads <code>.dockerignore</code> only from the build-context root). Compose build context re-pointed to the root; added <code>make demo</code> / <code>demo-down</code> / <code>demo-reseed</code> wrappers.</li>
       <li><strong>Configurable demo port</strong>: the offline image's host port is now <code>${DASHBOARD_PORT:-5000}</code> (was hard-coded, collided with a live dashboard on <code>:5055</code>) &mdash; <code>DASHBOARD_PORT=5055 make demo</code>. <strong>Verified end-to-end</strong>: image builds from <code>docker/Dockerfile</code>, container boots + seeds, all tab endpoints 200 (Doctor clusters 9 incidents), port override binds a fresh container; 16 unit tests green.</li>
       <li><strong>Docs restructure</strong>: renamed <code>docs/analysis.html</code> &rarr; <code>docs/ctx-viz.html</code> and split it into a tabbed page — <strong>Today</strong> (what it is · features · architecture · repo layout · data · data model), <strong>Target</strong> (layers · architecture target · target repo layout), <strong>Roadmap</strong> (this changelog) — with a sticky top-right nav. Same styling; verified all three tabs render + switch.</li>
+      <li><strong>Architecture target diagram</strong> (<em>Target</em> tab): built up the ports-and-adapters SVG step by step — compacted write path (<code>Agents &rarr; Producer &rarr; Collector</code>) into a left column, added the read path as three stacked, left-aligned layers in a right column (<code>Dashboard</code> &rarr; <code>API</code> &rarr; <code>Insights</code>), each rendered as the same eight per-feature tiles (plus a ninth dashed tile for the headless <code>semantic</code> feature in <code>API</code>/<code>Insights</code> only, since it has no frontend tab) — both columns converging on the shared <code>Contract</code> boundary above <code>Adapters</code>/<code>Substrate</code>.</li>
     </ul>
     <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do</div>
     <ul style="font-size:0.88rem">
