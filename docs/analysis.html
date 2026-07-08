@@ -836,7 +836,7 @@
       <span style="color:#5ea0ff;font-weight:600">① serving / api</span> ·
       <span style="color:#b98bff;font-weight:600">② the port seam</span> ·
       <span style="color:#e3b341;font-weight:600">③ engine adapter</span> ·
-      <span style="color:#41d1a7;font-weight:600">④ capture</span> ·
+      <span style="color:#41d1a7;font-weight:600">④ produce / collect</span> ·
       <span style="color:#ff9e64;font-weight:600">⑤ analytics</span>.
       <code style="color:#8b94a7">&larr;</code> shows where a piece comes from today;
       <span style="color:#9fd356;font-weight:700">★</span> = new.
@@ -845,18 +845,26 @@
 ├─ <span style="color:#e6ecf5">app.py</span>                   <span style="color:#5ea0ff">①</span> Flask factory — discover adapters → mount blueprints → serve SPA
 ├─ <span style="color:#e6ecf5">config.py</span>                <span style="color:#5ea0ff">①</span> runtime config · engine selection
 │
-├─ <span style="color:#fff;font-weight:600">model/</span>                   <span style="color:#9fd356">★</span> <span style="color:#c9d2e3">shared kernel — event/record schemas · chronicle names</span>
-│                            <span style="color:#8b94a7">pure · ZERO deps · the "spool contract" emit + capture agree on</span>
+├─ <span style="color:#5ea0ff;font-weight:600">api/</span>                     <span style="color:#5ea0ff">①</span> SERVE — blueprints <span style="color:#8b94a7">(reads via EventSource · live via LiveBus)</span>
+│  ├─ conversations · interactions · scenarios · provenance · semantic
+│  ├─ inter_agent.py         <span style="color:#8b94a7">SERVE half only (live SSE feed)  &larr; ingest half → collector/streaming</span>
+│  ├─ chronolog_view · diagnostics · fleet · tracing
+│  └─ <span style="color:#5ea0ff">shape/</span>                 <span style="color:#8b94a7">view-model shapers  &larr; adapters/shape/</span>
+│     ├─ conversation.py
+│     └─ scenario.py
 │
-├─ <span style="color:#41d1a7;font-weight:600">emit/</span>                    <span style="color:#41d1a7">④</span> PRODUCE — agent-side library <span style="color:#8b94a7">(dependency-free · ships into agents)</span>
+├─ <span style="color:#fff;font-weight:600">model/</span>                   <span style="color:#9fd356">★</span> <span style="color:#c9d2e3">shared kernel — event/record schemas · chronicle names</span>
+│                            <span style="color:#8b94a7">pure · ZERO deps · the "spool contract" producer + collector agree on</span>
+│
+├─ <span style="color:#41d1a7;font-weight:600">producer/</span>                <span style="color:#41d1a7">④</span> PRODUCE — agent-side library <span style="color:#8b94a7">(dependency-free · ships into agents)</span>
 │  ├─ llm.py                 <span style="color:#8b94a7">→ llm_interaction</span>
 │  ├─ context.py             <span style="color:#8b94a7">→ context_node</span>
 │  ├─ interagent.py          <span style="color:#8b94a7">→ inter_agent_edge   &larr; collector/client.py (emit helper)</span>
 │  └─ recovery.py            <span style="color:#8b94a7">→ recovery_event · imports ONLY model/ · the future chrono-agent pkg</span>
 │
-├─ <span style="color:#41d1a7;font-weight:600">capture/</span>                 <span style="color:#41d1a7">④</span> INTAKE — server-side <span style="color:#8b94a7">(was capture/ingest · imports model/ + ports/)</span>
+├─ <span style="color:#41d1a7;font-weight:600">collector/</span>               <span style="color:#41d1a7">④</span> COLLECT — server-side intake <span style="color:#8b94a7">(was capture/ingest · imports model/ + ports/)</span>
 │  ├─ buffered.py            <span style="color:#8b94a7">spool + drain worker ⚙   &larr; capture/spool.py + sync_worker.py</span>
-│  ├─ streaming.py           <span style="color:#8b94a7">http relay + live bus ⚙  &larr; collector/daemon + inter_agent/bus.py</span>
+│  ├─ streaming.py           <span style="color:#8b94a7">http relay + live bus ⚙  &larr; today's collector/daemon + inter_agent/bus.py</span>
 │  └─ writer.py              <span style="color:#8b94a7">ONE writer → ports.EventSink  &larr; the scattered append_event calls</span>
 │
 ├─ <span style="color:#b98bff;font-weight:600">ports/</span>                   <span style="color:#b98bff">②</span> the interfaces <span style="color:#8b94a7">(imports model/ · no engine code)</span>
@@ -873,14 +881,6 @@
 │  │  └─ constants.py        <span style="color:#8b94a7">ChronoLog-specific names</span>
 │  └─ <span style="color:#e3b341">local/</span>                 <span style="color:#e3b341">③</span> offline engine (JSONL)  &larr; <span style="color:#8b94a7">capture/llm_demo_store.py</span>
 │
-├─ <span style="color:#5ea0ff;font-weight:600">api/</span>                     <span style="color:#5ea0ff">①</span> serving — blueprints <span style="color:#8b94a7">(reads via EventSource · live via LiveBus)</span>
-│  ├─ conversations · interactions · scenarios · provenance · semantic
-│  ├─ inter_agent.py         <span style="color:#8b94a7">SERVE half only (live SSE feed)  &larr; ingest half → capture/streaming</span>
-│  ├─ chronolog_view · diagnostics · fleet · tracing
-│  └─ <span style="color:#5ea0ff">shape/</span>                 <span style="color:#8b94a7">view-model shapers  &larr; adapters/shape/</span>
-│     ├─ conversation.py
-│     └─ scenario.py
-│
 ├─ <span style="color:#ff9e64;font-weight:600">analysis/</span>                <span style="color:#ff9e64">⑤</span> pure analytics — call_graph · context_graph · trace
 ├─ <span style="color:#ff9e64;font-weight:600">diagnostics/</span>             <span style="color:#ff9e64">⑤</span> ChronoDoctor
 ├─ <span style="color:#ff9e64;font-weight:600">fleet/</span>                   <span style="color:#ff9e64">⑤</span> Fleet Health <span style="color:#8b94a7">— rollups write via EventSink &larr; fixes fleet/store.py</span>
@@ -889,25 +889,30 @@
 └─ <span style="color:#e6ecf5">static/</span>                  built SPA bundle (gitignored)
 </pre>
     <p style="color:var(--muted);font-size:0.9rem;margin-top:2px">
-      <strong style="color:#dbe2ec">The move:</strong> <code>emit/</code> is promoted to root — it's the
-      agent-side producer library (dependency-free, ships into agents), the exact unit a future
-      <code>chrono-agent</code> absorbs. <code>capture/</code> is now just the server-side intake (was
-      <code>capture/ingest</code>). <code>model/</code> is pulled out as the shared, zero-dependency kernel
-      both sides import — the spool contract that keeps <code>emit</code> decoupled. And
-      <code>collector/</code> splits: the emit helper → <code>emit/</code>, the daemon →
-      <code>capture/streaming.py</code>.
+      <strong style="color:#dbe2ec">The move:</strong> <code>producer/</code> (was <code>emit</code>) is the
+      agent-side producer library — dependency-free, ships into agents, the exact unit a future
+      <code>chrono-agent</code> absorbs. <code>collector/</code> (was <code>capture</code>) is the
+      server-side intake. <code>model/</code> is pulled out as the shared, zero-dependency kernel both sides
+      import — the spool contract that keeps <code>producer</code> decoupled. Today's <code>collector/</code>
+      dissolves: the emit helper → <code>producer/</code>, the daemon → <code>collector/streaming.py</code>.
+    </p>
+    <p style="color:var(--muted);font-size:0.9rem;margin-top:8px">
+      <strong style="color:#dbe2ec">This mirrors OpenTelemetry:</strong> <code>producer</code> = instrumentation
+      / SDK, <code>collector</code> = the OTel Collector (receive → buffer → export),
+      <code>adapters/&lt;engine&gt;</code> = the backend it exports to. A well-worn shape for exactly this
+      problem.
     </p>
     <p style="color:var(--muted);font-size:0.9rem;margin-top:8px">
       <strong style="color:#dbe2ec">One-way dependencies:</strong>
-      <code>emit → model</code> · <code>capture → model + ports</code> · <code>ports → model</code> ·
-      <code>adapters</code> implement <code>ports</code>. Nothing points back up, so <code>emit</code> sits
-      at the edge depending only on the kernel — which is what lets it graduate to its own package.
+      <code>producer → model</code> · <code>collector → model + ports</code> · <code>ports → model</code> ·
+      <code>adapters</code> implement <code>ports</code>. Nothing points back up, so <code>producer</code>
+      sits at the edge depending only on the kernel — which is what lets it graduate to its own package.
     </p>
     <p style="color:var(--muted);font-size:0.9rem;margin-top:8px">
-      <strong style="color:#dbe2ec">Still open</strong> (naming, not structure): whether the server side is
-      <code>capture/</code> or <code>ingest/</code>; where <code>shape/</code> lands (<code>api/shape/</code>
-      vs a dedicated <code>view/</code> layer); and whether the <code>Capability</code> gate stays fused with
-      data-access or splits from it (today half the tabs use the adapter only as an on/off switch).
+      <strong style="color:#dbe2ec">Still open</strong> (naming, not structure): where <code>shape/</code>
+      lands (<code>api/shape/</code> vs a dedicated <code>view/</code> layer); and whether the
+      <code>Capability</code> gate stays fused with data-access or splits from it (today half the tabs use
+      the adapter only as an on/off switch).
     </p>
   </section>
 
