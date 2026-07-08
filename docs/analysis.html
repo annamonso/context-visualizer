@@ -846,9 +846,10 @@
 ├─ <span style="color:#e6ecf5">app.py</span>                   <span style="color:#5ea0ff">①</span> Flask factory — discover adapters → mount blueprints → serve SPA
 ├─ <span style="color:#e6ecf5">config.py</span>                <span style="color:#5ea0ff">①</span> runtime config · engine selection
 │
-├─ <span style="color:#5ea0ff;font-weight:600">api/</span>                     <span style="color:#5ea0ff">①</span> SERVE <span style="color:#8b94a7">(thin spine) — mounts feature routers · SSE + error helpers · /api/config</span>
-│                            <span style="color:#8b94a7">&larr; per-tab blueprints move into insights/&lt;feature&gt;/routes.py</span>
-│                            <span style="color:#8b94a7">&larr; adapters/shape/ moves into insights/&lt;feature&gt;/view.py</span>
+├─ <span style="color:#5ea0ff;font-weight:600">api/</span>                     <span style="color:#5ea0ff">①</span> SERVE <span style="color:#8b94a7">(layer) — one thin blueprint per feature, each &rarr; insights/&lt;feature&gt;</span>
+│  ├─ <span style="color:#cfe0ff">workspace · scenarios · interactions · cluster · fleet · doctor · traces · memory · semantic</span>
+│  ├─ <span style="color:#8b94a7">_shared: SSE + error envelope · /api/config</span>
+│  └─ <span style="color:#cfe0ff">inter_agent</span>              <span style="color:#8b94a7">SERVE half (live SSE)  &larr; ingest half → collector/streaming</span>
 │
 ├─ <span style="color:#b98bff;font-weight:600">contract/</span>                <span style="color:#b98bff">②</span> the shared agreement <span style="color:#8b94a7">— nouns + verbs · pure · ZERO deps · everyone depends on this</span>
 │  ├─ <span style="color:#c9d2e3">events/</span>              <span style="color:#8b94a7">the DATA (nouns) — record schemas + chronicle names</span>
@@ -878,8 +879,8 @@
 │  │  └─ constants.py        <span style="color:#8b94a7">ChronoLog-specific names</span>
 │  └─ <span style="color:#e3b341">local/</span>                 <span style="color:#e3b341">③</span> offline engine (JSONL)  &larr; <span style="color:#8b94a7">capture/llm_demo_store.py</span>
 │
-└─ <span style="color:#ff9e64;font-weight:600">insights/</span>                <span style="color:#ff9e64">⑤</span> READ — one vertical slice per feature <span style="color:#8b94a7">(= capability = tab = page)</span>
-   <span style="color:#8b94a7">each slice:  routes.py · read.py (via EventSource) · compute.py (pure) · view.py</span>
+└─ <span style="color:#ff9e64;font-weight:600">insights/</span>                <span style="color:#ff9e64">⑤</span> READ — the logic behind each feature <span style="color:#8b94a7">(= capability = tab = page)</span>
+   <span style="color:#8b94a7">each:  read.py (via EventSource) · compute.py (pure) · view.py  —  blueprint sits in api/</span>
    ├─ <span style="color:#ffb380">workspace/</span>       <span style="color:#8b94a7">conversations   &larr; conversations.py · shape/conversation.py</span>
    ├─ <span style="color:#ffb380">scenarios/</span>       <span style="color:#8b94a7">scenarios       &larr; scenarios.py · shape/scenario.py</span>
    ├─ <span style="color:#ffb380">interactions/</span>    <span style="color:#8b94a7">interactions    &larr; interactions.py</span>
@@ -917,9 +918,10 @@
       feature is exactly <em>one capability = one tab = one frontend page</em> (the SPA already has eight
       matching <code>*Page.tsx</code> files). The old analytics modules were never features; they dissolve
       into the slices they serve: <code>fleet/</code> → fleet, <code>diagnostics/</code> → doctor,
-      <code>analysis/</code> splits into traces + memory. Each slice is <code>read.py</code> (pull via
+      <code>analysis/</code> splits into traces + memory. Each feature's logic is <code>read.py</code> (pull via
       <code>EventSource</code>) · <code>compute.py</code> (pure, unit-testable) · <code>view.py</code>
-      (view-model) · <code>routes.py</code> (the blueprint <code>app.py</code> mounts). Reads that need
+      (view-model); its HTTP blueprint stays in the <code>api/</code> serve layer and calls into it (a
+      controller&harr;service split). Reads that need
       raw events go through the <em>same</em> <code>contract.EventSource</code> the write side writes to —
       which removes the last feature→feature imports (<code>analysis→fleet</code>,
       <code>fleet→diagnostics</code>).
@@ -1143,7 +1145,7 @@
       <li>Drop the <code>__index__</code> enumeration trick &rarr; use <code>ShowChronicles</code> / <code>ShowStories</code> (confirmed working &amp; fast).</li>
       <li>Capture worker <strong>auto-reconnect</strong> on client connection loss (survive cluster restarts; today it hits <code>AcquireStory&nbsp;-3</code> until bounced).</li>
       <li>Retire CSV scraping + the in-process hot store once read-path #1/#2 land.</li>
-      <li><strong>Read-side restructure</strong> (designed &mdash; see <em>Backend repo layout &mdash; target</em>): collapse <code>analysis/</code> · <code>diagnostics/</code> · <code>fleet/</code> · <code>semantic/</code> · <code>checkpointing/</code> into <code>insights/&lt;feature&gt;</code> vertical slices, one per tab/capability (<code>read.py</code> · <code>compute.py</code> · <code>view.py</code> · <code>routes.py</code>); route every read through <code>contract.EventSource</code> (kills the <code>analysis&rarr;fleet</code> / <code>fleet&rarr;diagnostics</code> feature imports); fold <code>adapters/shape/</code> into each slice's <code>view.py</code>.</li>
+      <li><strong>Read-side restructure</strong> (designed &mdash; see <em>Backend repo layout &mdash; target</em>): collapse <code>analysis/</code> · <code>diagnostics/</code> · <code>fleet/</code> · <code>semantic/</code> · <code>checkpointing/</code> into <code>insights/&lt;feature&gt;</code> modules, one per tab/capability (<code>read.py</code> · <code>compute.py</code> · <code>view.py</code>), with a thin blueprint per feature staying in the <code>api/</code> serve layer; route every read through <code>contract.EventSource</code> (kills the <code>analysis&rarr;fleet</code> / <code>fleet&rarr;diagnostics</code> feature imports); fold <code>adapters/shape/</code> into each module's <code>view.py</code>.</li>
       <li><strong>Decide the headless <code>semantic</code> feature</strong>: <code>semantic/</code> + <code>checkpointing/</code> have no tab and checkpoints are never created &mdash; finish it (add a page + wire checkpoint creation into the write path) or park it as experimental.</li>
       <li>Finish this document; optionally expose the <code>CHRONOLOG_REPLAY_LIVE</code> A/B switch cleanly.</li>
     </ul>
