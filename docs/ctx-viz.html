@@ -174,7 +174,17 @@
       is one of these eight — the same tabs the dashboard exposes today.
     </p>
     <ul>
-      <li><strong style="color:#5ea0ff">Workspace</strong> — per-agent conversation tree: one agent's LLM turns, its handoffs, and any subagents it spawned.</li>
+      <li><strong style="color:#5ea0ff">Workspace</strong> — per-conversation tree: an orchestrator + the subagents it spawned, one run replayed.
+        <ul>
+          <li>Pick a conversation from the dropdown.</li>
+          <li>Header KPIs: agents · handoffs · LLM calls · tokens · cost.</li>
+          <li>Scope: one selected agent, or the full workflow.</li>
+          <li>Sequential view — replay the run turn-by-turn on a timeline (play/pause, step, 0.5–4× speed).</li>
+          <li>Aggregate view — static summary graph; edge thickness = handoff frequency.</li>
+          <li>Interactive map + minimap; detail panel (Summary · Messages · Tools · Raw) follows the current turn.</li>
+          <li>Error toast when a turn fails; host mode to see every agent on one node.</li>
+        </ul>
+      </li>
       <li><strong style="color:#5ea0ff">Scenarios</strong> — the live multi-agent graph: which agents talked to which, streamed in real time.</li>
       <li><strong style="color:#5ea0ff">Interactions</strong> — a flat, searchable feed of every LLM turn across the whole fleet.</li>
       <li><strong style="color:#5ea0ff">Cluster</strong> — ChronoLog + SLURM topology: node-to-node traffic alongside live idle/busy state.</li>
