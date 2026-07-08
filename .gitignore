@@ -25,3 +25,4 @@ logs/
 .vscode/
 .idea/
 .DS_Store
+uv.lock
