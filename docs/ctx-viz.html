@@ -156,6 +156,36 @@
   </section>
 
   <section class="tab-content" data-tab="target">
+    <h2>Overview</h2>
+    <p>
+      <strong>ChronoLog Observability</strong> is an observability &amp; distributed-tracing tool
+      for fleets of AI agents running on an HPC cluster — APM, but for many LLM agents across many
+      nodes instead of microservices. It reconstructs <em>how the agents actually ran</em> — their
+      conversations, how they delegated to one another, where time went, and what failed — straight
+      from <a href="https://github.com/grc-iit/ChronoLog">ChronoLog</a>, the distributed event
+      store it's built on.
+    </p>
+  </section>
+
+  <section class="tab-content" data-tab="target">
+    <h2>The eight features</h2>
+    <p>
+      Every read-path tile in the diagrams below (<code>WO · SC · IN · CL · FL · DO · TR · ME</code>)
+      is one of these eight — the same tabs the dashboard exposes today.
+    </p>
+    <ul>
+      <li><strong style="color:#5ea0ff">Workspace</strong> — per-agent conversation tree: one agent's LLM turns, its handoffs, and any subagents it spawned.</li>
+      <li><strong style="color:#5ea0ff">Scenarios</strong> — the live multi-agent graph: which agents talked to which, streamed in real time.</li>
+      <li><strong style="color:#5ea0ff">Interactions</strong> — a flat, searchable feed of every LLM turn across the whole fleet.</li>
+      <li><strong style="color:#5ea0ff">Cluster</strong> — ChronoLog + SLURM topology: node-to-node traffic alongside live idle/busy state.</li>
+      <li><strong style="color:#ff9e64">Fleet</strong> — per-node health heatmap — errors, p95 latency, throughput, cost — across 100+ nodes.</li>
+      <li><strong style="color:#ff6b6b">Doctor</strong> — ChronoDoctor: detects, clusters, and diagnoses failures, with memory that survives restarts.</li>
+      <li><strong style="color:#b98bff">Traces</strong> — distributed critical-path waterfall across hosts, built from inter-agent call edges.</li>
+      <li><strong style="color:#41d1a7">Memory</strong> — per-agent working-memory view: context tokens growing and being evicted over a run.</li>
+    </ul>
+  </section>
+
+  <section class="tab-content" data-tab="target">
     <h2>Layers</h2>
     <p>
       One way to look at the whole thing — three layers, top to bottom. Data rises as it
