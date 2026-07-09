@@ -262,6 +262,15 @@
           <li>Self-compacting incident memory drives "recurring ×N" badges — <em>"14th time comp-12 timed out"</em>, surviving restarts.</li>
           <li>Click a card for the diagnosis; Scan now forces a pass (else it streams the worker's cached report); memory-view toggle.</li>
         </ul>
+        <p style="margin:8px 0 0;padding:8px 12px;border-left:3px solid #8b94a7;background:rgba(139,148,167,0.06);color:var(--muted);font-size:0.85rem">
+          <strong style="color:#c9d2e3">Scope — agent operations, not infrastructure.</strong>
+          Every detector reads <em>agent-activity</em> records (LLM calls, inter-agent calls, recoveries), so
+          Doctor catches what the agents did and where it broke — never the health of ChronoLog itself
+          (keepers, drain, node up/down). Signals carry a <code>host</code>, so it shows <em>which nodes</em> the
+          agent failures hit, but that is "where the errors landed," not node health (that lives in Fleet /
+          Cluster). A stalled capture daemon, for instance, produces no agent record — Doctor stays silent and
+          just sees fewer events. Infra/pipeline-health monitoring is a real gap outside its scope today.
+        </p>
       </li>
       <li><strong style="color:#b98bff">Traces</strong> — distributed critical-path waterfall across hosts, built from inter-agent call edges.</li>
       <li><strong style="color:#41d1a7">Memory</strong> — per-agent working-memory view: context tokens growing and being evicted over a run.</li>
