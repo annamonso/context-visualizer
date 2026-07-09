@@ -252,7 +252,17 @@
           writer outside the capture folders, another case for the <code>EventSink</code> unification.
         </p>
       </li>
-      <li><strong style="color:#ff6b6b">Doctor</strong> — ChronoDoctor: detects, clusters, and diagnoses failures, with memory that survives restarts.</li>
+      <li><strong style="color:#ff6b6b">Doctor</strong> — ChronoDoctor: the fleet's on-call engineer — finds the failures, ranks them, explains cause + fix, remembers repeats.
+        <ul>
+          <li>Where Fleet says <em>which</em> node is red, Doctor does the hunting for you: automatic triage instead of eyeballing errors.</li>
+          <li>Pipeline: gather → detect → cluster → diagnose → remember.</li>
+          <li>Detects symptom kinds: HTTP 4xx/5xx · latency outliers · retry storms · failed/slow/orphaned inter-agent calls · recoveries.</li>
+          <li>Clusters them into ranked incidents — 500 identical timeouts become one card (count + affected hosts); repeats escalate severity.</li>
+          <li>Diagnoses each: root cause · blast radius · fix · confidence — free heuristic engine, optional Claude engine (<code>CHRONOLOG_DOCTOR_LLM=1</code>).</li>
+          <li>Self-compacting incident memory drives "recurring ×N" badges — <em>"14th time comp-12 timed out"</em>, surviving restarts.</li>
+          <li>Click a card for the diagnosis; Scan now forces a pass (else it streams the worker's cached report); memory-view toggle.</li>
+        </ul>
+      </li>
       <li><strong style="color:#b98bff">Traces</strong> — distributed critical-path waterfall across hosts, built from inter-agent call edges.</li>
       <li><strong style="color:#41d1a7">Memory</strong> — per-agent working-memory view: context tokens growing and being evicted over a run.</li>
     </ul>
