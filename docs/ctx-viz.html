@@ -234,7 +234,24 @@
           (producers &rarr; keepers &rarr; grapher &rarr; archive &rarr; player, incl. the keeper&rarr;grapher drain).
         </p>
       </li>
-      <li><strong style="color:#ff9e64">Fleet</strong> — per-node health heatmap — errors, p95 latency, throughput, cost — across 100+ nodes.</li>
+      <li><strong style="color:#ff9e64">Fleet</strong> — the "is anything broken, and where?" board for a 100+ node run: monitor fleet health, then drill.
+        <ul>
+          <li>Heatmap grid, one cell per node — stays legible where the Cluster graph can't (100+ nodes).</li>
+          <li>Answers, at a glance: is the fleet healthy · which node is worst · what kind of problem.</li>
+          <li>Pick the metric: health status · error rate · p95 latency · cost · throughput. Worst nodes sort first.</li>
+          <li>Per node: events, error rate, avg/p95 latency, tokens, cost → a derived status (ok · warn · crit).</li>
+          <li>Click a cell → that node's per-minute time series, then jump into its agents to find the why.</li>
+          <li>Draws every real node (from <code>sinfo</code>), greying idle/busy/down — real names, never invented data.</li>
+          <li>Scales via <code>(host, minute)</code> rollup buckets: reads are O(nodes × buckets), not O(events).</li>
+        </ul>
+        <p style="margin:8px 0 0;padding:8px 12px;border-left:3px solid #8b94a7;background:rgba(139,148,167,0.06);color:var(--muted);font-size:0.85rem">
+          <strong style="color:#c9d2e3">Scope.</strong> The value is entirely at scale — monitoring vs. investigation
+          (Workspace/Scenarios/Interactions are the drill-down). On a handful of nodes there's nothing to triage;
+          it earns its keep on large HPC runs. Two honest edges: the windowed p95 is approximated as the max of
+          per-minute p95s, and the rollup buckets are written to ChronoLog by <code>fleet/store.py</code> — a third
+          writer outside the capture folders, another case for the <code>EventSink</code> unification.
+        </p>
+      </li>
       <li><strong style="color:#ff6b6b">Doctor</strong> — ChronoDoctor: detects, clusters, and diagnoses failures, with memory that survives restarts.</li>
       <li><strong style="color:#b98bff">Traces</strong> — distributed critical-path waterfall across hosts, built from inter-agent call edges.</li>
       <li><strong style="color:#41d1a7">Memory</strong> — per-agent working-memory view: context tokens growing and being evicted over a run.</li>
