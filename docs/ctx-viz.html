@@ -205,7 +205,16 @@
           removes by routing every writer through one <code>EventSink</code> port.
         </p>
       </li>
-      <li><strong style="color:#5ea0ff">Interactions</strong> — a flat, newest-first feed of every LLM call across the whole fleet (plain list, no grouping; click a row for detail).</li>
+      <li><strong style="color:#5ea0ff">Interactions</strong> — a flat, newest-first feed of every LLM call across the whole fleet (plain list, no grouping).
+        <ul>
+          <li>Columns: time · provider · model · endpoint · status · stream · latency · response preview.</li>
+          <li>Status is color-coded (2xx ok, 4xx/5xx error) to spot failures at a glance.</li>
+          <li>Live / Polling indicator; refreshes every ~5s (SSE push when available, else polling).</li>
+          <li>Rolling window — newest 100 rows (up to 500); no search, filter, or sort in the UI.</li>
+          <li>Click a row → drawer with Summary · Messages · Tools · Raw; deep-linkable via <code>?iid=</code>.</li>
+          <li>Same Path-A data as Workspace — just ungrouped: Workspace organizes it, this streams it raw.</li>
+        </ul>
+      </li>
       <li><strong style="color:#5ea0ff">Cluster</strong> — ChronoLog + SLURM topology: node-to-node traffic alongside live idle/busy state.</li>
       <li><strong style="color:#ff9e64">Fleet</strong> — per-node health heatmap — errors, p95 latency, throughput, cost — across 100+ nodes.</li>
       <li><strong style="color:#ff6b6b">Doctor</strong> — ChronoDoctor: detects, clusters, and diagnoses failures, with memory that survives restarts.</li>
