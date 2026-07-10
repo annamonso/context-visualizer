@@ -308,68 +308,120 @@
 
     <div class="fgrid" style="margin-top:16px">
 
-      <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #5ea0ff;border-radius:10px;padding:14px 18px">
-        <div style="font-size:1.05rem;font-weight:700;color:#fff">1 · Runs</div>
-        <div style="color:#8fb4ee;font-style:italic;font-size:0.92rem;margin-top:2px">"What did my agents actually do?"</div>
-        <p style="margin:8px 0 0;color:#c4ccd8;font-size:0.9rem">
-          Every run of your multi-agent system, reconstructed. Watch the map light up live as agents
-          talk, drill into any agent's conversation turn by turn, replay the run in time, and see the
-          one chain of calls that set the wall-clock.
-        </p>
-        <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">absorbs Workspace · Scenarios · Traces</div>
+      <div class="layer" style="background:linear-gradient(135deg,#16233b,#12151c);border-color:#2c4568;align-items:flex-start">
+        <div class="lnum" style="color:#5ea0ff">1</div>
+        <div class="licon" style="background:#12203a;color:#5ea0ff">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M6.2 8.3 10.7 16M17.8 8.3 13.3 16M7.5 6h9"/></svg>
+        </div>
+        <div class="lbody">
+          <div class="lmeta" style="color:#8fb4ee;text-transform:none;letter-spacing:0.01em;font-style:italic;font-size:0.84rem">"What did my agents actually do?"</div>
+          <div class="lname">Runs</div>
+          <p class="ldesc">Every run of your multi-agent system, reconstructed. Watch the map light up
+            live as agents talk, drill into any agent's conversation turn by turn, replay the run in
+            time, and see the one chain of calls that set the wall-clock.</p>
+          <div class="ltags" style="color:#8fb4ee">
+            <span style="font-size:0.72rem;color:var(--muted);padding:3px 0">absorbs</span>
+            <span class="ltag" style="border-color:#2c4568">Workspace</span>
+            <span class="ltag" style="border-color:#2c4568">Scenarios</span>
+            <span class="ltag" style="border-color:#2c4568">Traces</span>
+          </div>
+        </div>
       </div>
 
-      <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #ff6b6b;border-radius:10px;padding:14px 18px">
-        <div style="font-size:1.05rem;font-weight:700;color:#fff">2 · Doctor</div>
-        <div style="color:#ff9b9b;font-style:italic;font-size:0.92rem;margin-top:2px">"What's broken — and what do I do about it?"</div>
-        <p style="margin:8px 0 0;color:#c4ccd8;font-size:0.9rem">
-          Failures found for you: clustered into ranked incidents, diagnosed (cause · blast radius ·
-          fix), and remembered across runs. Underneath, the filterable feed of every call — the
-          evidence behind each incident.
-        </p>
-        <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">absorbs Doctor · Interactions</div>
+      <div class="layer" style="background:linear-gradient(135deg,#2b1717,#12151c);border-color:#543030;align-items:flex-start">
+        <div class="lnum" style="color:#ff6b6b">2</div>
+        <div class="licon" style="background:#2a1515;color:#ff6b6b">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 8-6-16-3 8H2"/></svg>
+        </div>
+        <div class="lbody">
+          <div class="lmeta" style="color:#ff9b9b;text-transform:none;letter-spacing:0.01em;font-style:italic;font-size:0.84rem">"What's broken — and what do I do about it?"</div>
+          <div class="lname">Doctor</div>
+          <p class="ldesc">Failures found for you: clustered into ranked incidents, diagnosed (cause ·
+            blast radius · fix), and remembered across runs. Underneath, the filterable feed of every
+            call — the evidence behind each incident.</p>
+          <div class="ltags" style="color:#ff9b9b">
+            <span style="font-size:0.72rem;color:var(--muted);padding:3px 0">absorbs</span>
+            <span class="ltag" style="border-color:#543030">Doctor</span>
+            <span class="ltag" style="border-color:#543030">Interactions</span>
+          </div>
+        </div>
       </div>
 
-      <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #e3b341;border-radius:10px;padding:14px 18px">
-        <div style="font-size:1.05rem;font-weight:700;color:#fff">3 · Infrastructure</div>
-        <div style="color:#e0cd90;font-style:italic;font-size:0.92rem;margin-top:2px">"Is the platform healthy?"</div>
-        <p style="margin:8px 0 0;color:#c4ccd8;font-size:0.9rem">
-          The operator view: every node's health at a glance (100+ of them), where the storage engine
-          runs and what it holds, and whether the capture pipeline itself is alive and flowing.
-        </p>
-        <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">absorbs Fleet · Cluster &nbsp;+&nbsp; new: pipeline health</div>
+      <div class="layer" style="background:linear-gradient(135deg,#241f0e,#12151c);border-color:#4a3f1e;align-items:flex-start">
+        <div class="lnum" style="color:#e3b341">3</div>
+        <div class="licon" style="background:#221d0c;color:#e3b341">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="7" rx="2"/><rect x="2" y="14" width="20" height="7" rx="2"/><path d="M6 6.5h.01M6 17.5h.01"/></svg>
+        </div>
+        <div class="lbody">
+          <div class="lmeta" style="color:#e0cd90;text-transform:none;letter-spacing:0.01em;font-style:italic;font-size:0.84rem">"Is the platform healthy?"</div>
+          <div class="lname">Infrastructure</div>
+          <p class="ldesc">The operator view: every node's health at a glance (100+ of them), where the
+            storage engine runs and what it holds, and whether the capture pipeline itself is alive
+            and flowing.</p>
+          <div class="ltags" style="color:#e0cd90">
+            <span style="font-size:0.72rem;color:var(--muted);padding:3px 0">absorbs</span>
+            <span class="ltag" style="border-color:#4a3f1e">Fleet</span>
+            <span class="ltag" style="border-color:#4a3f1e">Cluster</span>
+            <span class="ltag" style="border-color:#4a3f1e">★ new: pipeline health</span>
+          </div>
+        </div>
       </div>
 
-      <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #41d1a7;border-radius:10px;padding:14px 18px">
-        <div style="font-size:1.05rem;font-weight:700;color:#fff">4 · Usage</div>
-        <div style="color:#7fcdb5;font-style:italic;font-size:0.92rem;margin-top:2px">"What is this costing me?"</div>
-        <p style="margin:8px 0 0;color:#c4ccd8;font-size:0.9rem">
-          Tokens, dollars, and context memory — sliced by run, agent, model, node. Watch an agent's
-          working memory grow and compact; catch the one that's bloating before it blows the budget.
-        </p>
-        <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">absorbs Memory &nbsp;+&nbsp; the cost numbers scattered across five headers</div>
+      <div class="layer" style="background:linear-gradient(135deg,#0e2119,#12151c);border-color:#1e4a38;align-items:flex-start">
+        <div class="lnum" style="color:#41d1a7">4</div>
+        <div class="licon" style="background:#0e211b;color:#41d1a7">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 6.5v11M15 9c-.6-.9-1.7-1.4-3-1.4-1.8 0-3.2.8-3.2 2s1.2 1.7 3.2 2.1 3.2 1 3.2 2.1-1.4 2-3.2 2c-1.3 0-2.4-.5-3-1.4"/></svg>
+        </div>
+        <div class="lbody">
+          <div class="lmeta" style="color:#7fcdb5;text-transform:none;letter-spacing:0.01em;font-style:italic;font-size:0.84rem">"What is this costing me?"</div>
+          <div class="lname">Usage</div>
+          <p class="ldesc">Tokens, dollars, and context memory — sliced by run, agent, model, node.
+            Watch an agent's working memory grow and compact; catch the one that's bloating before it
+            blows the budget.</p>
+          <div class="ltags" style="color:#7fcdb5">
+            <span style="font-size:0.72rem;color:var(--muted);padding:3px 0">absorbs</span>
+            <span class="ltag" style="border-color:#1e4a38">Memory</span>
+            <span class="ltag" style="border-color:#1e4a38">scattered cost KPIs</span>
+          </div>
+        </div>
       </div>
 
-      <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #9fd356;border-radius:10px;padding:14px 18px">
-        <div style="font-size:1.05rem;font-weight:700;color:#fff">5 · Playground</div>
-        <div style="color:#bfdc8e;font-style:italic;font-size:0.92rem;margin-top:2px">"Can I see it in action?"</div>
-        <p style="margin:8px 0 0;color:#c4ccd8;font-size:0.9rem">
-          Spin up traffic — synthetic patterns or real SDK agents on real nodes — and watch it flow
-          through every other page. The first-run experience and the test harness.
-        </p>
-        <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">absorbs the three scattered Demo Burst buttons</div>
+      <div class="layer" style="background:linear-gradient(135deg,#1c240f,#12151c);border-color:#3c4a1e;align-items:flex-start">
+        <div class="lnum" style="color:#9fd356">5</div>
+        <div class="licon" style="background:#1a220c;color:#9fd356">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v6.5L4.7 18a2 2 0 0 0 1.8 3h11a2 2 0 0 0 1.8-3L14 8.5V2"/><path d="M8.5 2h7"/><path d="M7.5 15h9"/></svg>
+        </div>
+        <div class="lbody">
+          <div class="lmeta" style="color:#bfdc8e;text-transform:none;letter-spacing:0.01em;font-style:italic;font-size:0.84rem">"Can I see it in action?"</div>
+          <div class="lname">Playground</div>
+          <p class="ldesc">Spin up traffic — synthetic patterns or real SDK agents on real nodes — and
+            watch it flow through every other page. The first-run experience and the test harness.</p>
+          <div class="ltags" style="color:#bfdc8e">
+            <span style="font-size:0.72rem;color:var(--muted);padding:3px 0">absorbs</span>
+            <span class="ltag" style="border-color:#3c4a1e">Demo Burst ×3</span>
+          </div>
+        </div>
       </div>
 
-      <div style="background:#12151c;border:1px dashed #3a4150;border-left:3px dashed #8b94a7;border-radius:10px;padding:14px 18px">
-        <div style="font-size:1.05rem;font-weight:700;color:#fff">0 · Platform</div>
-        <div style="color:#9aa4b8;font-style:italic;font-size:0.92rem;margin-top:2px">"Where does it all run?" — underneath all five, not a page.</div>
-        <p style="margin:8px 0 0;color:#c4ccd8;font-size:0.9rem">
-          Capture instruments the agents — each agent's own loop and the calls between them — into a
-          single event stream. Where it's stored is a <em>deployment choice</em>, not a feature: local
-          files on a laptop, ChronoLog on a cluster, or your own engine behind the same port. The five
-          pages don't change.
-        </p>
-        <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">absorbs capture · the storage engine · swappability</div>
+      <div class="layer" style="background:linear-gradient(135deg,#1b2030,#12151c);border:1px dashed #3a4150;align-items:flex-start">
+        <div class="lnum" style="color:#8b94a7">0</div>
+        <div class="licon" style="background:#1b2030;color:#8b94a7">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 10 5-10 5L2 7l10-5Z"/><path d="m2 12 10 5 10-5"/><path d="m2 17 10 5 10-5"/></svg>
+        </div>
+        <div class="lbody">
+          <div class="lmeta" style="color:#9aa4b8;text-transform:none;letter-spacing:0.01em;font-style:italic;font-size:0.84rem">"Where does it all run?" — underneath all five, not a page</div>
+          <div class="lname">Platform</div>
+          <p class="ldesc">Capture instruments the agents — each agent's own loop and the calls between
+            them — into a single event stream. Where it's stored is a <em>deployment choice</em>, not
+            a feature: local files on a laptop, ChronoLog on a cluster, or your own engine behind the
+            same port. The five pages don't change.</p>
+          <div class="ltags" style="color:#9aa4b8">
+            <span style="font-size:0.72rem;color:var(--muted);padding:3px 0">absorbs</span>
+            <span class="ltag" style="border-color:#3a4150">capture</span>
+            <span class="ltag" style="border-color:#3a4150">storage engine</span>
+            <span class="ltag" style="border-color:#3a4150">swappability</span>
+          </div>
+        </div>
       </div>
 
     </div>
