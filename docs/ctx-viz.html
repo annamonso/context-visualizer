@@ -1156,6 +1156,128 @@
       </div>
 
     </div>
+
+    <h3 style="margin-top:28px">Source 1 · LLM HTTP — full field inventory</h3>
+    <p style="color:var(--muted);font-size:0.9rem">
+      The complete contents of the wire, field by field. Scope: the <strong>Anthropic Messages
+      API</strong> (<code>POST /v1/messages</code>, <code>anthropic-version: 2023-06-01</code>; newer
+      features gated by <code>anthropic-beta</code> headers). Other providers are different schemas —
+      listed at the end, marked. This is what <em>exists</em>; what we capture of it is a separate,
+      later pass.
+    </p>
+
+    <p style="margin:14px 0 4px;font-weight:700;color:#dbe2ec">Request — top-level fields</p>
+    <table class="ftbl">
+      <thead><tr><th>field</th><th>type</th><th>req</th><th>what it carries</th></tr></thead>
+      <tbody>
+        <tr><td class="tab">model</td><td class="src">string</td><td class="src">✓</td><td>which model thinks this turn</td></tr>
+        <tr><td class="tab">messages[]</td><td class="src">Message[]</td><td class="src">✓</td><td>the <strong>entire conversation state</strong> — role (<code>user</code>/<code>assistant</code>) + content blocks (below); string shorthand ≡ one text block. This is the working-memory snapshot.</td></tr>
+        <tr><td class="tab">max_tokens</td><td class="src">int</td><td class="src">✓</td><td>output cap — with <code>stop_reason</code>, distinguishes "finished" from "truncated"</td></tr>
+        <tr><td class="tab">system</td><td class="src">string | block[]</td><td class="src">–</td><td>system prompt (cacheable blocks)</td></tr>
+        <tr><td class="tab">tools[]</td><td class="src">Tool[]</td><td class="src">–</td><td>what the agent <em>could</em> do: <code>name</code> · <code>description</code> · <code>input_schema</code> (JSON&nbsp;Schema); plus Anthropic-defined typed tools (<code>web_search_*</code>, <code>computer_*</code>, <code>text_editor_*</code>, <code>bash_*</code>, <code>code_execution_*</code> — versioned type strings)</td></tr>
+        <tr><td class="tab">tool_choice</td><td class="src">object</td><td class="src">–</td><td>forcing mode: <code>auto</code> · <code>any</code> · <code>tool</code>(name) · <code>none</code>; <code>disable_parallel_tool_use</code></td></tr>
+        <tr><td class="tab">thinking</td><td class="src">object</td><td class="src">–</td><td>extended thinking on/off + <code>budget_tokens</code></td></tr>
+        <tr><td class="tab">stop_sequences[]</td><td class="src">string[]</td><td class="src">–</td><td>custom stop strings</td></tr>
+        <tr><td class="tab">stream</td><td class="src">bool</td><td class="src">–</td><td>SSE vs single body — changes what capture must do (see streaming table)</td></tr>
+        <tr><td class="tab">temperature · top_p · top_k</td><td class="src">number</td><td class="src">–</td><td>sampling config — reproducibility/variance signal</td></tr>
+        <tr><td class="tab">metadata.user_id</td><td class="src">string</td><td class="src">–</td><td>caller-supplied end-user id — a natural identity hook on the wire itself</td></tr>
+        <tr><td class="tab">service_tier</td><td class="src">string</td><td class="src">–</td><td>capacity selection (<code>auto</code> · <code>standard_only</code>)</td></tr>
+        <tr><td class="tab">cache_control</td><td class="src">on blocks</td><td class="src">–</td><td>prompt-cache breakpoints (<code>ephemeral</code>, 5m/1h TTL) — defines the cost structure of the context</td></tr>
+      </tbody>
+    </table>
+
+    <p style="margin:18px 0 4px;font-weight:700;color:#dbe2ec">Content blocks — everything that can appear inside <code>messages[].content</code></p>
+    <table class="ftbl">
+      <thead><tr><th>block</th><th>direction</th><th>carries</th></tr></thead>
+      <tbody>
+        <tr><td class="tab">text</td><td class="src">both</td><td>the words; optional <code>citations</code></td></tr>
+        <tr><td class="tab">image</td><td class="src">request</td><td>base64 or URL source + <code>media_type</code></td></tr>
+        <tr><td class="tab">document</td><td class="src">request</td><td>PDF/text/content source · <code>title</code> · <code>context</code> · citations config</td></tr>
+        <tr><td class="tab">search_result</td><td class="src">request</td><td>pre-fetched RAG results with source + citation grounding</td></tr>
+        <tr><td class="tab">tool_use</td><td class="src">response (echoed back in history)</td><td>the model's <strong>act decision</strong>: <code>id</code> · <code>name</code> · <code>input</code> JSON</td></tr>
+        <tr><td class="tab">tool_result</td><td class="src">request</td><td>what came back: <code>tool_use_id</code> · content (text/image blocks) · <code>is_error</code> — closes the act loop, joins on the id</td></tr>
+        <tr><td class="tab">thinking · redacted_thinking</td><td class="src">response (echoed back)</td><td>chain-of-thought + signature, when thinking is enabled</td></tr>
+        <tr><td class="tab">server_tool_use · web_search_tool_result</td><td class="src">response</td><td><strong>provider-executed</strong> tools — run on Anthropic's side, never touch our process; visible only here</td></tr>
+      </tbody>
+    </table>
+
+    <p style="margin:18px 0 4px;font-weight:700;color:#dbe2ec">Response — top-level fields</p>
+    <table class="ftbl">
+      <thead><tr><th>field</th><th>carries</th></tr></thead>
+      <tbody>
+        <tr><td class="tab">id</td><td>message id (<code>msg_…</code>) — a provider-issued join key</td></tr>
+        <tr><td class="tab">type · role</td><td>envelope (<code>message</code> · <code>assistant</code>)</td></tr>
+        <tr><td class="tab">model</td><td>the model that actually served (may resolve an alias)</td></tr>
+        <tr><td class="tab">content[]</td><td>the blocks above: text · tool_use · thinking · server-tool results</td></tr>
+        <tr><td class="tab">stop_reason</td><td><strong>why the turn ended</strong>: <code>end_turn</code> · <code>max_tokens</code> · <code>stop_sequence</code> · <code>tool_use</code> · <code>pause_turn</code> · <code>refusal</code> — raw material for any error/truncation taxonomy</td></tr>
+        <tr><td class="tab">stop_sequence</td><td>which custom stop fired (if any)</td></tr>
+        <tr><td class="tab">usage.input_tokens · output_tokens</td><td>exact billed counts — ground truth for cost</td></tr>
+        <tr><td class="tab">usage.cache_creation_input_tokens · cache_read_input_tokens (+ 5m/1h split)</td><td>cache economics — real cost ≠ raw token count</td></tr>
+        <tr><td class="tab">usage.server_tool_use.*</td><td>server-tool billing (e.g. <code>web_search_requests</code>)</td></tr>
+        <tr><td class="tab">usage.service_tier</td><td>which tier actually served the request</td></tr>
+        <tr><td class="tab">container</td><td>code-execution container id (when that tool ran)</td></tr>
+      </tbody>
+    </table>
+
+    <p style="margin:18px 0 4px;font-weight:700;color:#dbe2ec">Streaming — the SSE event stream (when <code>stream: true</code>)</p>
+    <table class="ftbl">
+      <thead><tr><th>event</th><th>carries</th></tr></thead>
+      <tbody>
+        <tr><td class="tab">message_start</td><td>message envelope + initial usage</td></tr>
+        <tr><td class="tab">content_block_start</td><td>block index + type</td></tr>
+        <tr><td class="tab">content_block_delta</td><td>the increments: <code>text_delta</code> · <code>input_json_delta</code> (tool args) · <code>thinking_delta</code> · <code>signature_delta</code> · <code>citations_delta</code></td></tr>
+        <tr><td class="tab">content_block_stop</td><td>block finished</td></tr>
+        <tr><td class="tab">message_delta</td><td>final <code>stop_reason</code> + cumulative usage</td></tr>
+        <tr><td class="tab">message_stop</td><td>end of message</td></tr>
+        <tr><td class="tab">ping · error</td><td>keepalive · mid-stream failures (e.g. overloaded)</td></tr>
+      </tbody>
+    </table>
+    <p style="color:var(--muted);font-size:0.85rem;margin-top:6px">
+      Each event has a wall-clock arrival time — <strong>time-to-first-token and inter-chunk cadence
+      exist only at the stream</strong>; once the response is reassembled into one body, that timing
+      is gone forever.
+    </p>
+
+    <p style="margin:18px 0 4px;font-weight:700;color:#dbe2ec">Headers</p>
+    <table class="ftbl">
+      <thead><tr><th>direction</th><th>header</th><th>carries</th></tr></thead>
+      <tbody>
+        <tr><td class="src">request</td><td class="tab">x-api-key · anthropic-version · anthropic-beta[]</td><td>auth · schema pin · feature gates</td></tr>
+        <tr><td class="src">response</td><td class="tab">request-id</td><td>provider-side trace id — the join key for support/debugging</td></tr>
+        <tr><td class="src">response</td><td class="tab">anthropic-ratelimit-requests-* · -tokens-*</td><td>limit / remaining / reset — the fleet's real throughput ceiling, per key</td></tr>
+        <tr><td class="src">response</td><td class="tab">retry-after</td><td>backoff hint on 429/529</td></tr>
+      </tbody>
+    </table>
+
+    <p style="margin:18px 0 4px;font-weight:700;color:#dbe2ec">Errors</p>
+    <table class="ftbl">
+      <thead><tr><th>HTTP</th><th>type</th><th>meaning</th></tr></thead>
+      <tbody>
+        <tr><td class="src">400</td><td class="tab">invalid_request_error</td><td>malformed request (schema, size, bad fields)</td></tr>
+        <tr><td class="src">401 · 403</td><td class="tab">authentication_error · permission_error</td><td>key invalid · key lacks access</td></tr>
+        <tr><td class="src">404</td><td class="tab">not_found_error</td><td>unknown model/resource</td></tr>
+        <tr><td class="src">413</td><td class="tab">request_too_large</td><td>body over limit</td></tr>
+        <tr><td class="src">429</td><td class="tab">rate_limit_error</td><td>throttled — retry-storm raw material</td></tr>
+        <tr><td class="src">500 · 529</td><td class="tab">api_error · overloaded_error</td><td>provider-side failure · capacity — the transient class worth tracking separately</td></tr>
+      </tbody>
+    </table>
+    <p style="color:var(--muted);font-size:0.85rem;margin-top:6px">
+      Error body: <code>{"type":"error","error":{"type","message"},"request_id"}</code> — arrives with
+      the same headers (incl. <code>request-id</code>).
+    </p>
+
+    <p style="margin:18px 0 4px;font-weight:700;color:#dbe2ec">Variants &amp; adjacent endpoints</p>
+    <table class="ftbl">
+      <thead><tr><th>variant</th><th>what changes</th><th>status</th></tr></thead>
+      <tbody>
+        <tr><td class="tab">non-streaming vs streaming</td><td>same schema, different transport — streaming adds per-chunk timing that must be captured at the stream or lost</td><td class="src">in scope</td></tr>
+        <tr><td class="tab">/v1/messages/batches</td><td>async batch: submit → poll → fetch; no live wire moment, results arrive as a file</td><td class="src">separate flow — not inventoried</td></tr>
+        <tr><td class="tab">/v1/messages/count_tokens</td><td>pre-flight sizing call; no generation</td><td class="src">separate flow — not inventoried</td></tr>
+        <tr><td class="tab">OpenAI Chat Completions / Responses</td><td>different schema (roles, <code>tool_calls</code>, usage shape)</td><td class="src"><strong>NOT INVENTORIED</strong></td></tr>
+        <tr><td class="tab">Google Gemini generateContent</td><td>different schema (contents/parts, functionCall)</td><td class="src"><strong>NOT INVENTORIED</strong></td></tr>
+        <tr><td class="tab">AWS Bedrock · Vertex (Anthropic pass-through)</td><td>same body, different envelope + auth + endpoint</td><td class="src"><strong>NOT INVENTORIED</strong></td></tr>
+      </tbody>
+    </table>
   </section>
 
   <section class="tab-content" data-tab="today">
