@@ -1128,6 +1128,33 @@
         <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">naturally carries: tool name · arguments · structured result · error state · timing (from the request/response pair)</div>
       </div>
 
+      <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #b98bff;border-radius:10px;padding:14px 18px">
+        <div style="font-weight:700;color:#fff">3 · Instrumented events <span style="color:#8b94a7;font-weight:400;font-size:0.85rem">· manufactured, not intercepted — captured from nothing</span></div>
+        <p style="margin:8px 0 0;color:#c4ccd8;font-size:0.9rem">
+          Data no wire carries: code we place in the agent's harness <em>decides</em> to emit it.
+          Two kinds. <strong>Semantic events</strong> — context <code>add</code>/<code>evict</code>
+          diffs (the agent's own interpretation of its memory management) and recovery events
+          (backtracks, restores). <strong>Labels</strong> — the identity and linkage the wires lack:
+          session ids (who is this agent), run/scenario ids (which coordinated job), correlation ids
+          (this outbound call = that inbound run, stamped by the MCP handler at the boundary). The
+          wires tell you <em>what happened</em>; only instrumentation tells you <em>who and
+          together-with-whom</em>.
+        </p>
+        <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">exists only if the harness cooperates: context ops · recovery · session id · run id · correlation / parent ids · roles</div>
+      </div>
+
+      <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #e3b341;border-radius:10px;padding:14px 18px">
+        <div style="font-weight:700;color:#fff">4 · Platform signals <span style="color:#8b94a7;font-weight:400;font-size:0.85rem">· about the ground the agents run on, not the agents</span></div>
+        <p style="margin:8px 0 0;color:#c4ccd8;font-size:0.9rem">
+          A different origin entirely: the cluster and the store's own telemetry. SLURM node state
+          (<code>sinfo</code>: idle · busy · down), the storage engine's deployment and holdings
+          (keepers, chronicles, drain state), and <em>derived</em> records we compute later from other
+          records (fleet rollup buckets). The Infrastructure feature runs on these; no agent ever
+          produces them.
+        </p>
+        <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">carries: node state · store topology &amp; holdings · pipeline liveness · derived rollups</div>
+      </div>
+
     </div>
   </section>
 
