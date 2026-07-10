@@ -1081,9 +1081,35 @@
 
   <section class="tab-content" data-tab="target">
     <h2>The Data</h2>
-    <p style="color:var(--muted)">
-      The target data model — what the features above actually consume and produce. To be filled in.
+    <p>
+      From the ground up: what an agent run actually produces, and what we make of it. An agent keeps
+      <strong>no logbook</strong> — while it runs, its raw material exists only <em>transiently</em>,
+      at a few natural boundaries. Capture is the act of writing those signals down before they
+      evaporate.
     </p>
+
+    <h3>Data sources</h3>
+    <p style="color:var(--muted);font-size:0.9rem">
+      The natural boundaries where raw material exists — each one structured, each one gone unless
+      recorded.
+    </p>
+
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+
+      <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #5ea0ff;border-radius:10px;padding:14px 18px">
+        <div style="font-weight:700;color:#fff">1 · LLM HTTP traffic <span style="color:#8b94a7;font-weight:400;font-size:0.85rem">· one request/response pair per turn</span></div>
+        <p style="margin:8px 0 0;color:#c4ccd8;font-size:0.9rem">
+          Every "think" step is an HTTPS call to the model provider — and because the API is
+          <strong>stateless</strong>, the request body carries the agent's <em>entire context
+          window</em>: system prompt, full message history, tool definitions. The response carries the
+          reply, the tool-use decisions, and exact token counts. So one intercepted pair = a complete
+          snapshot of the agent's working memory at that turn, plus what it decided next — the richest
+          single source we have.
+        </p>
+        <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">naturally carries: method · endpoint · full context · response text · tool-use requests · token counts · status · latency</div>
+      </div>
+
+    </div>
   </section>
 
   <section class="tab-content" data-tab="today">
