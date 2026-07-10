@@ -1109,6 +1109,25 @@
         <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">naturally carries: method · endpoint · full context · response text · tool-use requests · token counts · status · latency</div>
       </div>
 
+      <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #41d1a7;border-radius:10px;padding:14px 18px">
+        <div style="font-weight:700;color:#fff">2 · MCP traffic <span style="color:#8b94a7;font-weight:400;font-size:0.85rem">· one JSON-RPC request/response pair per call</span></div>
+        <p style="margin:8px 0 0;color:#c4ccd8;font-size:0.9rem">
+          The second real boundary. MCP is <strong>JSON-RPC 2.0</strong> over stdio or HTTP — an
+          actual spec, uniform across providers and languages: a <code>tools/call</code> request with
+          name + arguments, a structured response. Observable and interceptable exactly the way HTTP
+          is. Two things that look like boundaries but aren't:
+        </p>
+        <ul style="margin:8px 0 0;padding-left:18px;color:#c4ccd8;font-size:0.88rem">
+          <li><strong>Local tool execution</strong> — a plain function call inside the process; no wire,
+            nothing to intercept. Its intent and result are visible only as the
+            <code>tool_use</code>/<code>tool_result</code> blocks back in source 1.</li>
+          <li><strong>Inter-agent calls</strong> — not a separate protocol: an MCP call whose handler
+            contacts another agent (<code>call_remote_agent</code>). A <em>semantic subset</em> of this
+            boundary — what makes it "inter-agent" is a label we add, not a different wire format.</li>
+        </ul>
+        <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">naturally carries: tool name · arguments · structured result · error state · timing (from the request/response pair)</div>
+      </div>
+
     </div>
   </section>
 
