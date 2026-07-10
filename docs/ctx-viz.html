@@ -272,7 +272,27 @@
           just sees fewer events. Infra/pipeline-health monitoring is a real gap outside its scope today.
         </p>
       </li>
-      <li><strong style="color:#b98bff">Traces</strong> — distributed critical-path waterfall across hosts, built from inter-agent call edges.</li>
+      <li><strong style="color:#b98bff">Traces</strong> — distributed critical-path tracing: <em>"why is this run slow across N nodes?"</em> — which one chain sets the wall-clock.
+        <ul>
+          <li>Reconstructs a cross-host call tree from inter-agent edges (stitched start+done spans), rendered as a waterfall.</li>
+          <li>Same Path-B data as Scenarios — different lens: Scenarios = who-talks-to-whom, Traces = how-long + where the time goes.</li>
+          <li>Critical path (red) = the single root-to-leaf chain that determines total time; speeding these up shortens the run.</li>
+          <li>Blue = off that chain (parallel work — not costing wall-clock); orange = a failed call (status, not timing).</li>
+          <li>Bottleneck = the chain hop with the greatest self-time (its exclusive wall-clock) — the one to optimize first.</li>
+          <li>Pick a scenario → trace list (slowest first) → waterfall; parents from explicit links, else inferred by session+time nesting.</li>
+        </ul>
+        <p style="margin:8px 0 0;padding:8px 12px;border-left:3px solid #e3b341;background:rgba(227,179,65,0.06);color:var(--muted);font-size:0.85rem">
+          <strong style="color:#e3b341">Limitations — the criteria is sound but imperfect.</strong>
+          The concept is the standard Critical Path Method, but the code <em>assumes siblings run in parallel</em>
+          (self-time = latency − <em>slowest</em> child), so it under-reports when an agent delegates
+          <em>sequentially</em> (call B, then C) — real self-time should subtract the children's merged busy-time,
+          which the captured timestamps already allow. It highlights only <em>one</em> chain, so multiple
+          co-critical or independently-slow paths are under-represented (use Fleet/Doctor for "everything is slow").
+          Ties pick one sibling arbitrarily; inferred parents can misbuild the tree (no explicit-vs-inferred flag);
+          and cross-host durations are exposed to node clock skew. Also: Demo Burst can't produce multi-hop traces
+          (its calls never overlap), so the tab only fills from real agents or an explicit-parent seed.
+        </p>
+      </li>
       <li><strong style="color:#41d1a7">Memory</strong> — per-agent working-memory view: context tokens growing and being evicted over a run.</li>
     </ul>
   </section>
