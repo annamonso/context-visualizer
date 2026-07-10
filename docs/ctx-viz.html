@@ -300,8 +300,74 @@
 
   <section class="tab-content" data-tab="target">
     <h2>Features</h2>
-    <p style="color:var(--muted)">
-      The target feature set — rethought from the user's questions, not the data streams. To be filled in.
+    <p>
+      The target feature set — rethought from <strong>the user's questions</strong>, not the data
+      streams. Five pages; each exists to answer exactly one question, and every old tab lands in one
+      of them.
+    </p>
+
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px">
+
+      <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #5ea0ff;border-radius:10px;padding:14px 18px">
+        <div style="font-size:1.05rem;font-weight:700;color:#fff">1 · Runs</div>
+        <div style="color:#8fb4ee;font-style:italic;font-size:0.92rem;margin-top:2px">"What did my agents actually do?"</div>
+        <p style="margin:8px 0 0;color:#c4ccd8;font-size:0.9rem">
+          Every run of your multi-agent system, reconstructed. Watch the map light up live as agents
+          talk, drill into any agent's conversation turn by turn, replay the run in time, and see the
+          one chain of calls that set the wall-clock.
+        </p>
+        <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">absorbs Workspace · Scenarios · Traces</div>
+      </div>
+
+      <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #ff6b6b;border-radius:10px;padding:14px 18px">
+        <div style="font-size:1.05rem;font-weight:700;color:#fff">2 · Doctor</div>
+        <div style="color:#ff9b9b;font-style:italic;font-size:0.92rem;margin-top:2px">"What's broken — and what do I do about it?"</div>
+        <p style="margin:8px 0 0;color:#c4ccd8;font-size:0.9rem">
+          Failures found for you: clustered into ranked incidents, diagnosed (cause · blast radius ·
+          fix), and remembered across runs. Underneath, the filterable feed of every call — the
+          evidence behind each incident.
+        </p>
+        <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">absorbs Doctor · Interactions</div>
+      </div>
+
+      <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #e3b341;border-radius:10px;padding:14px 18px">
+        <div style="font-size:1.05rem;font-weight:700;color:#fff">3 · Infrastructure</div>
+        <div style="color:#e0cd90;font-style:italic;font-size:0.92rem;margin-top:2px">"Is the platform healthy?"</div>
+        <p style="margin:8px 0 0;color:#c4ccd8;font-size:0.9rem">
+          The operator view: every node's health at a glance (100+ of them), where the storage engine
+          runs and what it holds, and whether the capture pipeline itself is alive and flowing.
+        </p>
+        <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">absorbs Fleet · Cluster &nbsp;+&nbsp; new: pipeline health</div>
+      </div>
+
+      <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #41d1a7;border-radius:10px;padding:14px 18px">
+        <div style="font-size:1.05rem;font-weight:700;color:#fff">4 · Usage</div>
+        <div style="color:#7fcdb5;font-style:italic;font-size:0.92rem;margin-top:2px">"What is this costing me?"</div>
+        <p style="margin:8px 0 0;color:#c4ccd8;font-size:0.9rem">
+          Tokens, dollars, and context memory — sliced by run, agent, model, node. Watch an agent's
+          working memory grow and compact; catch the one that's bloating before it blows the budget.
+        </p>
+        <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">absorbs Memory &nbsp;+&nbsp; the cost numbers scattered across five headers</div>
+      </div>
+
+      <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #9fd356;border-radius:10px;padding:14px 18px">
+        <div style="font-size:1.05rem;font-weight:700;color:#fff">5 · Playground</div>
+        <div style="color:#bfdc8e;font-style:italic;font-size:0.92rem;margin-top:2px">"Can I see it in action?"</div>
+        <p style="margin:8px 0 0;color:#c4ccd8;font-size:0.9rem">
+          Spin up traffic — synthetic patterns or real SDK agents on real nodes — and watch it flow
+          through every other page. The first-run experience and the test harness.
+        </p>
+        <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">absorbs the three scattered Demo Burst buttons</div>
+      </div>
+
+    </div>
+
+    <p style="margin:16px 0 0;padding:10px 14px;border:1px dashed var(--border);border-radius:10px;color:var(--muted);font-size:0.85rem">
+      <strong style="color:#c9d2e3">Underneath: one platform.</strong>
+      Capture instruments the agents — each agent's own loop and the calls between them — into a
+      single event stream. Where it's stored is a <em>deployment choice</em>, not a feature: local
+      files on a laptop, ChronoLog on a cluster, or your own engine behind the same port. The five
+      pages don't change.
     </p>
   </section>
 
