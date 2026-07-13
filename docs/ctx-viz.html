@@ -84,6 +84,41 @@
   .ftbl .tab { font-weight: 700; white-space: nowrap; }
   .ftbl .src { color: var(--muted); font-size: 0.82rem; white-space: nowrap; }
   @media (max-width: 620px) { .fgrid { grid-template-columns: 1fr; } }
+
+  /* --- LLM field-inventory detail page --- */
+  .invnav { display: flex; flex-wrap: wrap; gap: 7px; margin: 16px 0 4px; }
+  .invnav a { font-size: 0.78rem; color: #c1c9d6; background: #161a21; border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; text-decoration: none; }
+  .invnav a:hover { border-color: #3a4658; color: #fff; text-decoration: none; }
+  .rtlegend { display: flex; flex-wrap: wrap; gap: 8px 15px; margin: 12px 0 2px; font-size: 0.78rem; color: var(--muted); }
+  .rtlegend span.leg { white-space: nowrap; }
+  .rt { display: inline-block; font-size: 0.63rem; font-weight: 800; letter-spacing: 0.05em; padding: 2px 6px; border-radius: 4px; white-space: nowrap; vertical-align: middle; }
+  .rt-ctx  { background: rgba(94,160,255,0.16);  color: #8fc0ff; }
+  .rt-cap  { background: rgba(159,211,86,0.16);  color: #bfe27f; }
+  .rt-cost { background: rgba(65,209,167,0.16);  color: #63dcbd; }
+  .rt-id   { background: rgba(185,139,255,0.17); color: #cbb0ff; }
+  .rt-out  { background: rgba(227,179,65,0.17);  color: #e9c66f; }
+  .rt-time { background: rgba(255,159,67,0.17);  color: #ffbd7a; }
+  .rt-cfg  { background: rgba(139,148,167,0.15); color: #aab3c4; }
+  .essentials { background: linear-gradient(180deg,#141a24,#12151c); border: 1px solid #263243; border-left: 3px solid #5ea0ff; border-radius: 10px; padding: 14px 18px; margin: 18px 0 6px; scroll-margin-top: 24px; }
+  .essentials .eh { font-weight: 700; color: #fff; font-size: 0.95rem; }
+  .essentials ul { margin: 9px 0 0; padding-left: 18px; }
+  .essentials li { margin-bottom: 6px; font-size: 0.88rem; color: #c8d0dc; line-height: 1.5; }
+  .invsec { scroll-margin-top: 20px; margin-top: 30px; }
+  .inv { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-top: 6px; }
+  .inv th, .inv td { padding: 7px 10px; border-bottom: 1px solid #20252f; text-align: left; vertical-align: top; }
+  .inv thead th { color: var(--muted); font-weight: 600; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; border-bottom-color: #2c333f; }
+  .inv tbody tr:hover { background: #14181f; }
+  .inv td.role { white-space: nowrap; }
+  .inv .fld { font-weight: 700; white-space: nowrap; color: #e7ecf3; }
+  .inv .ty { color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+  .inv td.carries { color: #c1c9d6; line-height: 1.5; }
+  .inv code { background: #191d25; border-color: #262b36; font-size: 0.8em; padding: 0.5px 4px; color: #b7c7dd; }
+  .inv .core { color: #ffce6b; font-weight: 900; margin-right: 5px; }
+  .req { display: inline-block; margin-left: 6px; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.04em; color: #8b94a7; border: 1px solid #2c333f; border-radius: 3px; padding: 0 4px; vertical-align: middle; }
+  .st { display: inline-block; font-size: 0.64rem; font-weight: 700; padding: 2px 7px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+  .st-in  { background: rgba(159,211,86,0.16);  color: #bfe27f; }
+  .st-out { background: rgba(255,107,107,0.16); color: #ff9d9d; }
+  .st-sep { background: rgba(139,148,167,0.14); color: #aab3c4; }
   .layers { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
   .layer { position: relative; display: flex; align-items: center; gap: 20px; border: 1px solid var(--border); border-radius: 14px; padding: 18px 22px; overflow: hidden; }
   .layer .lnum { position: absolute; right: 22px; top: 50%; transform: translateY(-50%); font-size: 5.5rem; font-weight: 800; line-height: 1; opacity: 0.10; pointer-events: none; }
@@ -1166,124 +1201,159 @@
   <section class="tab-content" data-tab="data-llm">
     <p style="margin-bottom:8px"><a href="#target" style="font-size:0.85rem;font-weight:600;color:#5ea0ff;text-decoration:none">← Back to The Data</a></p>
     <h2>Source 1 · LLM HTTP — full field inventory</h2>
-    <p style="color:var(--muted);font-size:0.9rem">
+    <p style="color:var(--muted);font-size:0.9rem;max-width:70ch">
       The complete contents of the wire, field by field. Scope: the <strong>Anthropic Messages
       API</strong> (<code>POST /v1/messages</code>, <code>anthropic-version: 2023-06-01</code>; newer
-      features gated by <code>anthropic-beta</code> headers). Other providers are different schemas —
-      listed at the end, marked. This is what <em>exists</em>; what we capture of it is a separate,
-      later pass.
+      features gated by <code>anthropic-beta</code> headers). This is what <em>exists</em> on the
+      wire; what we capture of it is a separate, later pass.
     </p>
 
-    <p style="margin:14px 0 4px;font-weight:700;color:#dbe2ec">Request — top-level fields</p>
-    <table class="ftbl">
-      <thead><tr><th>field</th><th>type</th><th>req</th><th>what it carries</th></tr></thead>
+    <div class="invnav">
+      <a href="#llm-essentials">Essentials</a>
+      <a href="#llm-request">Request</a>
+      <a href="#llm-content">Content blocks</a>
+      <a href="#llm-response">Response</a>
+      <a href="#llm-stream">Streaming</a>
+      <a href="#llm-transport">Headers &amp; errors</a>
+      <a href="#llm-scope">Scope &amp; other providers</a>
+    </div>
+
+    <div class="rtlegend">
+      <span class="leg"><span class="rt rt-ctx">CTX</span> context / working memory</span>
+      <span class="leg"><span class="rt rt-cap">CAP</span> tools &amp; tool use</span>
+      <span class="leg"><span class="rt rt-cost">COST</span> tokens · cache · billing</span>
+      <span class="leg"><span class="rt rt-out">OUT</span> outcome · stop · error</span>
+      <span class="leg"><span class="rt rt-id">ID</span> identity / join key</span>
+      <span class="leg"><span class="rt rt-time">TIME</span> latency / streaming</span>
+      <span class="leg"><span class="rt rt-cfg">CFG</span> sampling / config</span>
+    </div>
+    <p style="color:var(--muted);font-size:0.8rem;margin:6px 0 0"><span class="core">●</span> = must-capture: carries feature-critical signal we can't reconstruct elsewhere. The rest are situational.</p>
+
+    <div class="essentials" id="llm-essentials">
+      <div class="eh">If you capture nothing else — the six that carry the product</div>
+      <ul>
+        <li><span class="rt rt-ctx">CTX</span> <code>messages[]</code> + response <code>content[]</code> — the whole working-memory snapshot in, the reply and act-decision out. Everything the Runs and Memory views draw is here.</li>
+        <li><span class="rt rt-cost">COST</span> <code>usage.*</code> tokens (in / out / cache) — the only ground truth for spend; a token estimate is a guess.</li>
+        <li><span class="rt rt-out">OUT</span> <code>stop_reason</code> + HTTP status — the difference between finished, truncated, refused, and failed. The Doctor's raw material.</li>
+        <li><span class="rt rt-cap">CAP</span> <code>tool_use</code> / <code>tool_result</code> — the act loop; join on <code>tool_use_id</code>. Without it a turn is just text with no cause or effect.</li>
+        <li><span class="rt rt-id">ID</span> response <code>id</code> (<code>msg_…</code>) + <code>request-id</code> header — the provider-issued join keys for dedup and support.</li>
+        <li><span class="rt rt-time">TIME</span> latency, and — if streaming — time-to-first-token. Exists only at capture; the wire doesn't store it.</li>
+      </ul>
+    </div>
+
+    <h3 class="invsec" id="llm-request">Request — top-level fields</h3>
+    <table class="inv">
+      <thead><tr><th>role</th><th>field</th><th>type</th><th>what it carries</th></tr></thead>
       <tbody>
-        <tr><td class="tab">model</td><td class="src">string</td><td class="src">✓</td><td>which model thinks this turn</td></tr>
-        <tr><td class="tab">messages[]</td><td class="src">Message[]</td><td class="src">✓</td><td>the <strong>entire conversation state</strong> — role (<code>user</code>/<code>assistant</code>) + content blocks (below); string shorthand ≡ one text block. This is the working-memory snapshot.</td></tr>
-        <tr><td class="tab">max_tokens</td><td class="src">int</td><td class="src">✓</td><td>output cap — with <code>stop_reason</code>, distinguishes "finished" from "truncated"</td></tr>
-        <tr><td class="tab">system</td><td class="src">string | block[]</td><td class="src">–</td><td>system prompt (cacheable blocks)</td></tr>
-        <tr><td class="tab">tools[]</td><td class="src">Tool[]</td><td class="src">–</td><td>what the agent <em>could</em> do: <code>name</code> · <code>description</code> · <code>input_schema</code> (JSON&nbsp;Schema); plus Anthropic-defined typed tools (<code>web_search_*</code>, <code>computer_*</code>, <code>text_editor_*</code>, <code>bash_*</code>, <code>code_execution_*</code> — versioned type strings)</td></tr>
-        <tr><td class="tab">tool_choice</td><td class="src">object</td><td class="src">–</td><td>forcing mode: <code>auto</code> · <code>any</code> · <code>tool</code>(name) · <code>none</code>; <code>disable_parallel_tool_use</code></td></tr>
-        <tr><td class="tab">thinking</td><td class="src">object</td><td class="src">–</td><td>extended thinking on/off + <code>budget_tokens</code></td></tr>
-        <tr><td class="tab">stop_sequences[]</td><td class="src">string[]</td><td class="src">–</td><td>custom stop strings</td></tr>
-        <tr><td class="tab">stream</td><td class="src">bool</td><td class="src">–</td><td>SSE vs single body — changes what capture must do (see streaming table)</td></tr>
-        <tr><td class="tab">temperature · top_p · top_k</td><td class="src">number</td><td class="src">–</td><td>sampling config — reproducibility/variance signal</td></tr>
-        <tr><td class="tab">metadata.user_id</td><td class="src">string</td><td class="src">–</td><td>caller-supplied end-user id — a natural identity hook on the wire itself</td></tr>
-        <tr><td class="tab">service_tier</td><td class="src">string</td><td class="src">–</td><td>capacity selection (<code>auto</code> · <code>standard_only</code>)</td></tr>
-        <tr><td class="tab">cache_control</td><td class="src">on blocks</td><td class="src">–</td><td>prompt-cache breakpoints (<code>ephemeral</code>, 5m/1h TTL) — defines the cost structure of the context</td></tr>
+        <tr><td class="role"><span class="rt rt-ctx">CTX</span></td><td class="fld"><span class="core">●</span>messages[]<span class="req">req</span></td><td class="ty">Message[]</td><td class="carries">the <strong>entire conversation state</strong> — each entry a role (<code>user</code>/<code>assistant</code>) + content blocks (below); a bare string ≡ one text block. This is the working-memory snapshot.</td></tr>
+        <tr><td class="role"><span class="rt rt-cap">CAP</span></td><td class="fld"><span class="core">●</span>tools[]</td><td class="ty">Tool[]</td><td class="carries">what the agent <em>could</em> do — <code>name</code> · <code>description</code> · <code>input_schema</code> (JSON&nbsp;Schema); plus Anthropic typed tools (<code>web_search_*</code>, <code>computer_*</code>, <code>text_editor_*</code>, <code>bash_*</code>, <code>code_execution_*</code>, versioned type strings). Needed to read any <code>tool_use</code>.</td></tr>
+        <tr><td class="role"><span class="rt rt-cfg">CFG</span></td><td class="fld"><span class="core">●</span>model<span class="req">req</span></td><td class="ty">string</td><td class="carries">which model thinks this turn</td></tr>
+        <tr><td class="role"><span class="rt rt-ctx">CTX</span></td><td class="fld">system</td><td class="ty">string | block[]</td><td class="carries">system prompt (cacheable blocks)</td></tr>
+        <tr><td class="role"><span class="rt rt-out">OUT</span></td><td class="fld">max_tokens<span class="req">req</span></td><td class="ty">int</td><td class="carries">output cap — read with <code>stop_reason</code> to tell "finished" from "truncated"</td></tr>
+        <tr><td class="role"><span class="rt rt-cap">CAP</span></td><td class="fld">tool_choice</td><td class="ty">object</td><td class="carries">forcing mode: <code>auto</code> · <code>any</code> · <code>tool</code>(name) · <code>none</code>; <code>disable_parallel_tool_use</code></td></tr>
+        <tr><td class="role"><span class="rt rt-cfg">CFG</span></td><td class="fld">thinking</td><td class="ty">object</td><td class="carries">extended thinking on/off + <code>budget_tokens</code></td></tr>
+        <tr><td class="role"><span class="rt rt-time">TIME</span></td><td class="fld">stream</td><td class="ty">bool</td><td class="carries">SSE vs single body — decides what capture must do (see Streaming)</td></tr>
+        <tr><td class="role"><span class="rt rt-cost">COST</span></td><td class="fld">cache_control</td><td class="ty">on blocks</td><td class="carries">prompt-cache breakpoints (<code>ephemeral</code>, 5m/1h TTL) — sets the cost structure of the context</td></tr>
+        <tr><td class="role"><span class="rt rt-out">OUT</span></td><td class="fld">stop_sequences[]</td><td class="ty">string[]</td><td class="carries">custom stop strings</td></tr>
+        <tr><td class="role"><span class="rt rt-cfg">CFG</span></td><td class="fld">temperature · top_p · top_k</td><td class="ty">number</td><td class="carries">sampling config — reproducibility / variance signal</td></tr>
+        <tr><td class="role"><span class="rt rt-id">ID</span></td><td class="fld">metadata.user_id</td><td class="ty">string</td><td class="carries">caller-supplied end-user id — a natural identity hook on the wire itself</td></tr>
+        <tr><td class="role"><span class="rt rt-cost">COST</span></td><td class="fld">service_tier</td><td class="ty">string</td><td class="carries">capacity selection (<code>auto</code> · <code>standard_only</code>)</td></tr>
       </tbody>
     </table>
 
-    <p style="margin:18px 0 4px;font-weight:700;color:#dbe2ec">Content blocks — everything that can appear inside <code>messages[].content</code></p>
-    <table class="ftbl">
-      <thead><tr><th>block</th><th>direction</th><th>carries</th></tr></thead>
+    <h3 class="invsec" id="llm-content">Content blocks — everything inside <code>messages[].content</code></h3>
+    <table class="inv">
+      <thead><tr><th>role</th><th>block</th><th>direction</th><th>carries</th></tr></thead>
       <tbody>
-        <tr><td class="tab">text</td><td class="src">both</td><td>the words; optional <code>citations</code></td></tr>
-        <tr><td class="tab">image</td><td class="src">request</td><td>base64 or URL source + <code>media_type</code></td></tr>
-        <tr><td class="tab">document</td><td class="src">request</td><td>PDF/text/content source · <code>title</code> · <code>context</code> · citations config</td></tr>
-        <tr><td class="tab">search_result</td><td class="src">request</td><td>pre-fetched RAG results with source + citation grounding</td></tr>
-        <tr><td class="tab">tool_use</td><td class="src">response (echoed back in history)</td><td>the model's <strong>act decision</strong>: <code>id</code> · <code>name</code> · <code>input</code> JSON</td></tr>
-        <tr><td class="tab">tool_result</td><td class="src">request</td><td>what came back: <code>tool_use_id</code> · content (text/image blocks) · <code>is_error</code> — closes the act loop, joins on the id</td></tr>
-        <tr><td class="tab">thinking · redacted_thinking</td><td class="src">response (echoed back)</td><td>chain-of-thought + signature, when thinking is enabled</td></tr>
-        <tr><td class="tab">server_tool_use · web_search_tool_result</td><td class="src">response</td><td><strong>provider-executed</strong> tools — run on Anthropic's side, never touch our process; visible only here</td></tr>
+        <tr><td class="role"><span class="rt rt-cap">CAP</span></td><td class="fld"><span class="core">●</span>tool_use</td><td class="ty">response → history</td><td class="carries">the model's <strong>act decision</strong>: <code>id</code> · <code>name</code> · <code>input</code> JSON</td></tr>
+        <tr><td class="role"><span class="rt rt-cap">CAP</span></td><td class="fld"><span class="core">●</span>tool_result</td><td class="ty">request</td><td class="carries">what came back: <code>tool_use_id</code> · content (text/image) · <code>is_error</code> — closes the act loop, joins on the id</td></tr>
+        <tr><td class="role"><span class="rt rt-ctx">CTX</span></td><td class="fld">text</td><td class="ty">both</td><td class="carries">the words; optional <code>citations</code></td></tr>
+        <tr><td class="role"><span class="rt rt-ctx">CTX</span></td><td class="fld">image</td><td class="ty">request</td><td class="carries">base64 or URL source + <code>media_type</code></td></tr>
+        <tr><td class="role"><span class="rt rt-ctx">CTX</span></td><td class="fld">document</td><td class="ty">request</td><td class="carries">PDF/text/content source · <code>title</code> · <code>context</code> · citations config</td></tr>
+        <tr><td class="role"><span class="rt rt-ctx">CTX</span></td><td class="fld">search_result</td><td class="ty">request</td><td class="carries">pre-fetched RAG results with source + citation grounding</td></tr>
+        <tr><td class="role"><span class="rt rt-ctx">CTX</span></td><td class="fld">thinking · redacted_thinking</td><td class="ty">response → history</td><td class="carries">chain-of-thought + signature, when thinking is enabled</td></tr>
+        <tr><td class="role"><span class="rt rt-cap">CAP</span></td><td class="fld">server_tool_use · web_search_tool_result</td><td class="ty">response</td><td class="carries"><strong>provider-executed</strong> tools — run on Anthropic's side, never touch our process; visible only here</td></tr>
       </tbody>
     </table>
 
-    <p style="margin:18px 0 4px;font-weight:700;color:#dbe2ec">Response — top-level fields</p>
-    <table class="ftbl">
-      <thead><tr><th>field</th><th>carries</th></tr></thead>
+    <h3 class="invsec" id="llm-response">Response — top-level fields</h3>
+    <table class="inv">
+      <thead><tr><th>role</th><th>field</th><th>carries</th></tr></thead>
       <tbody>
-        <tr><td class="tab">id</td><td>message id (<code>msg_…</code>) — a provider-issued join key</td></tr>
-        <tr><td class="tab">type · role</td><td>envelope (<code>message</code> · <code>assistant</code>)</td></tr>
-        <tr><td class="tab">model</td><td>the model that actually served (may resolve an alias)</td></tr>
-        <tr><td class="tab">content[]</td><td>the blocks above: text · tool_use · thinking · server-tool results</td></tr>
-        <tr><td class="tab">stop_reason</td><td><strong>why the turn ended</strong>: <code>end_turn</code> · <code>max_tokens</code> · <code>stop_sequence</code> · <code>tool_use</code> · <code>pause_turn</code> · <code>refusal</code> — raw material for any error/truncation taxonomy</td></tr>
-        <tr><td class="tab">stop_sequence</td><td>which custom stop fired (if any)</td></tr>
-        <tr><td class="tab">usage.input_tokens · output_tokens</td><td>exact billed counts — ground truth for cost</td></tr>
-        <tr><td class="tab">usage.cache_creation_input_tokens · cache_read_input_tokens (+ 5m/1h split)</td><td>cache economics — real cost ≠ raw token count</td></tr>
-        <tr><td class="tab">usage.server_tool_use.*</td><td>server-tool billing (e.g. <code>web_search_requests</code>)</td></tr>
-        <tr><td class="tab">usage.service_tier</td><td>which tier actually served the request</td></tr>
-        <tr><td class="tab">container</td><td>code-execution container id (when that tool ran)</td></tr>
+        <tr><td class="role"><span class="rt rt-ctx">CTX</span></td><td class="fld"><span class="core">●</span>content[]</td><td class="carries">the reply, as the blocks above: text · tool_use · thinking · server-tool results</td></tr>
+        <tr><td class="role"><span class="rt rt-out">OUT</span></td><td class="fld"><span class="core">●</span>stop_reason</td><td class="carries"><strong>why the turn ended</strong>: <code>end_turn</code> · <code>max_tokens</code> · <code>stop_sequence</code> · <code>tool_use</code> · <code>pause_turn</code> · <code>refusal</code> — raw material for any outcome/truncation taxonomy</td></tr>
+        <tr><td class="role"><span class="rt rt-cost">COST</span></td><td class="fld"><span class="core">●</span>usage.input_tokens · output_tokens</td><td class="carries">exact billed counts — ground truth for cost</td></tr>
+        <tr><td class="role"><span class="rt rt-id">ID</span></td><td class="fld"><span class="core">●</span>id</td><td class="carries">message id (<code>msg_…</code>) — a provider-issued join key</td></tr>
+        <tr><td class="role"><span class="rt rt-cost">COST</span></td><td class="fld">usage.cache_creation_input_tokens · cache_read_input_tokens</td><td class="carries">cache economics (+ 5m/1h split) — real cost ≠ raw token count</td></tr>
+        <tr><td class="role"><span class="rt rt-cost">COST</span></td><td class="fld">usage.server_tool_use.*</td><td class="carries">server-tool billing (e.g. <code>web_search_requests</code>)</td></tr>
+        <tr><td class="role"><span class="rt rt-cost">COST</span></td><td class="fld">usage.service_tier</td><td class="carries">which tier actually served the request</td></tr>
+        <tr><td class="role"><span class="rt rt-out">OUT</span></td><td class="fld">stop_sequence</td><td class="carries">which custom stop fired (if any)</td></tr>
+        <tr><td class="role"><span class="rt rt-cfg">CFG</span></td><td class="fld">model</td><td class="carries">the model that actually served (may resolve an alias)</td></tr>
+        <tr><td class="role"><span class="rt rt-cfg">CFG</span></td><td class="fld">type · role</td><td class="carries">envelope (<code>message</code> · <code>assistant</code>)</td></tr>
+        <tr><td class="role"><span class="rt rt-id">ID</span></td><td class="fld">container</td><td class="carries">code-execution container id (when that tool ran)</td></tr>
       </tbody>
     </table>
 
-    <p style="margin:18px 0 4px;font-weight:700;color:#dbe2ec">Streaming — the SSE event stream (when <code>stream: true</code>)</p>
-    <table class="ftbl">
-      <thead><tr><th>event</th><th>carries</th></tr></thead>
+    <h3 class="invsec" id="llm-stream">Streaming — the SSE event stream (when <code>stream: true</code>)</h3>
+    <table class="inv">
+      <thead><tr><th>role</th><th>event</th><th>carries</th></tr></thead>
       <tbody>
-        <tr><td class="tab">message_start</td><td>message envelope + initial usage</td></tr>
-        <tr><td class="tab">content_block_start</td><td>block index + type</td></tr>
-        <tr><td class="tab">content_block_delta</td><td>the increments: <code>text_delta</code> · <code>input_json_delta</code> (tool args) · <code>thinking_delta</code> · <code>signature_delta</code> · <code>citations_delta</code></td></tr>
-        <tr><td class="tab">content_block_stop</td><td>block finished</td></tr>
-        <tr><td class="tab">message_delta</td><td>final <code>stop_reason</code> + cumulative usage</td></tr>
-        <tr><td class="tab">message_stop</td><td>end of message</td></tr>
-        <tr><td class="tab">ping · error</td><td>keepalive · mid-stream failures (e.g. overloaded)</td></tr>
+        <tr><td class="role"><span class="rt rt-ctx">CTX</span></td><td class="fld">content_block_delta</td><td class="carries">the increments: <code>text_delta</code> · <code>input_json_delta</code> (tool args) · <code>thinking_delta</code> · <code>signature_delta</code> · <code>citations_delta</code></td></tr>
+        <tr><td class="role"><span class="rt rt-out">OUT</span></td><td class="fld">message_delta</td><td class="carries">final <code>stop_reason</code> + cumulative usage</td></tr>
+        <tr><td class="role"><span class="rt rt-cfg">CFG</span></td><td class="fld">message_start</td><td class="carries">message envelope + initial usage</td></tr>
+        <tr><td class="role"><span class="rt rt-cfg">CFG</span></td><td class="fld">content_block_start · content_block_stop</td><td class="carries">block index + type · block finished</td></tr>
+        <tr><td class="role"><span class="rt rt-cfg">CFG</span></td><td class="fld">message_stop</td><td class="carries">end of message</td></tr>
+        <tr><td class="role"><span class="rt rt-time">TIME</span></td><td class="fld">ping · error</td><td class="carries">keepalive cadence · mid-stream failures (e.g. overloaded)</td></tr>
       </tbody>
     </table>
-    <p style="color:var(--muted);font-size:0.85rem;margin-top:6px">
-      Each event has a wall-clock arrival time — <strong>time-to-first-token and inter-chunk cadence
-      exist only at the stream</strong>; once the response is reassembled into one body, that timing
-      is gone forever.
+    <p style="color:var(--muted);font-size:0.85rem;margin-top:6px;max-width:70ch">
+      <span class="rt rt-time">TIME</span> Each event has a wall-clock arrival time — <strong>time-to-first-token
+      and inter-chunk cadence exist only at the stream</strong>; once the response is reassembled into
+      one body, that timing is gone forever.
     </p>
 
-    <p style="margin:18px 0 4px;font-weight:700;color:#dbe2ec">Headers</p>
-    <table class="ftbl">
-      <thead><tr><th>direction</th><th>header</th><th>carries</th></tr></thead>
+    <h3 class="invsec" id="llm-transport">Headers</h3>
+    <table class="inv">
+      <thead><tr><th>role</th><th>direction</th><th>header</th><th>carries</th></tr></thead>
       <tbody>
-        <tr><td class="src">request</td><td class="tab">x-api-key · anthropic-version · anthropic-beta[]</td><td>auth · schema pin · feature gates</td></tr>
-        <tr><td class="src">response</td><td class="tab">request-id</td><td>provider-side trace id — the join key for support/debugging</td></tr>
-        <tr><td class="src">response</td><td class="tab">anthropic-ratelimit-requests-* · -tokens-*</td><td>limit / remaining / reset — the fleet's real throughput ceiling, per key</td></tr>
-        <tr><td class="src">response</td><td class="tab">retry-after</td><td>backoff hint on 429/529</td></tr>
+        <tr><td class="role"><span class="rt rt-id">ID</span></td><td class="ty">response</td><td class="fld"><span class="core">●</span>request-id</td><td class="carries">provider-side trace id — the join key for support / debugging</td></tr>
+        <tr><td class="role"><span class="rt rt-cost">COST</span></td><td class="ty">response</td><td class="fld">anthropic-ratelimit-requests-* · -tokens-*</td><td class="carries">limit / remaining / reset — the fleet's real throughput ceiling, per key</td></tr>
+        <tr><td class="role"><span class="rt rt-out">OUT</span></td><td class="ty">response</td><td class="fld">retry-after</td><td class="carries">backoff hint on 429 / 529</td></tr>
+        <tr><td class="role"><span class="rt rt-cfg">CFG</span></td><td class="ty">request</td><td class="fld">x-api-key · anthropic-version · anthropic-beta[]</td><td class="carries">auth · schema pin · feature gates</td></tr>
       </tbody>
     </table>
 
-    <p style="margin:18px 0 4px;font-weight:700;color:#dbe2ec">Errors</p>
-    <table class="ftbl">
+    <h4 style="margin:22px 0 2px;color:#dbe2ec;font-size:0.95rem">Errors <span class="rt rt-out" style="vertical-align:middle">OUT</span> <span style="color:var(--muted);font-weight:400;font-size:0.82rem">— every row is outcome signal</span></h4>
+    <table class="inv">
       <thead><tr><th>HTTP</th><th>type</th><th>meaning</th></tr></thead>
       <tbody>
-        <tr><td class="src">400</td><td class="tab">invalid_request_error</td><td>malformed request (schema, size, bad fields)</td></tr>
-        <tr><td class="src">401 · 403</td><td class="tab">authentication_error · permission_error</td><td>key invalid · key lacks access</td></tr>
-        <tr><td class="src">404</td><td class="tab">not_found_error</td><td>unknown model/resource</td></tr>
-        <tr><td class="src">413</td><td class="tab">request_too_large</td><td>body over limit</td></tr>
-        <tr><td class="src">429</td><td class="tab">rate_limit_error</td><td>throttled — retry-storm raw material</td></tr>
-        <tr><td class="src">500 · 529</td><td class="tab">api_error · overloaded_error</td><td>provider-side failure · capacity — the transient class worth tracking separately</td></tr>
+        <tr><td class="fld">500 · 529</td><td class="ty">api_error · overloaded_error</td><td class="carries">provider-side failure · capacity — the <strong>transient class</strong> worth tracking separately (pairs with <code>retry-after</code>)</td></tr>
+        <tr><td class="fld">429</td><td class="ty">rate_limit_error</td><td class="carries">throttled — retry-storm raw material</td></tr>
+        <tr><td class="fld">400</td><td class="ty">invalid_request_error</td><td class="carries">malformed request (schema, size, bad fields)</td></tr>
+        <tr><td class="fld">401 · 403</td><td class="ty">authentication_error · permission_error</td><td class="carries">key invalid · key lacks access</td></tr>
+        <tr><td class="fld">404</td><td class="ty">not_found_error</td><td class="carries">unknown model / resource</td></tr>
+        <tr><td class="fld">413</td><td class="ty">request_too_large</td><td class="carries">body over limit</td></tr>
       </tbody>
     </table>
-    <p style="color:var(--muted);font-size:0.85rem;margin-top:6px">
+    <p style="color:var(--muted);font-size:0.85rem;margin-top:6px;max-width:70ch">
       Error body: <code>{"type":"error","error":{"type","message"},"request_id"}</code> — arrives with
       the same headers (incl. <code>request-id</code>).
     </p>
 
-    <p style="margin:18px 0 4px;font-weight:700;color:#dbe2ec">Variants &amp; adjacent endpoints</p>
-    <table class="ftbl">
+    <h3 class="invsec" id="llm-scope">Scope &amp; other providers</h3>
+    <p style="color:var(--muted);font-size:0.85rem;max-width:70ch;margin-top:0">
+      The inventory above is one endpoint on one provider. Here is what it deliberately does
+      <em>not</em> cover — marked so the gaps are explicit, not hidden.
+    </p>
+    <table class="inv">
       <thead><tr><th>variant</th><th>what changes</th><th>status</th></tr></thead>
       <tbody>
-        <tr><td class="tab">non-streaming vs streaming</td><td>same schema, different transport — streaming adds per-chunk timing that must be captured at the stream or lost</td><td class="src">in scope</td></tr>
-        <tr><td class="tab">/v1/messages/batches</td><td>async batch: submit → poll → fetch; no live wire moment, results arrive as a file</td><td class="src">separate flow — not inventoried</td></tr>
-        <tr><td class="tab">/v1/messages/count_tokens</td><td>pre-flight sizing call; no generation</td><td class="src">separate flow — not inventoried</td></tr>
-        <tr><td class="tab">OpenAI Chat Completions / Responses</td><td>different schema (roles, <code>tool_calls</code>, usage shape)</td><td class="src"><strong>NOT INVENTORIED</strong></td></tr>
-        <tr><td class="tab">Google Gemini generateContent</td><td>different schema (contents/parts, functionCall)</td><td class="src"><strong>NOT INVENTORIED</strong></td></tr>
-        <tr><td class="tab">AWS Bedrock · Vertex (Anthropic pass-through)</td><td>same body, different envelope + auth + endpoint</td><td class="src"><strong>NOT INVENTORIED</strong></td></tr>
+        <tr><td class="fld">non-streaming vs streaming</td><td class="carries">same schema, different transport — streaming adds per-chunk timing that must be captured at the stream or lost</td><td><span class="st st-in">in scope</span></td></tr>
+        <tr><td class="fld">/v1/messages/batches</td><td class="carries">async batch: submit → poll → fetch; no live wire moment, results arrive as a file</td><td><span class="st st-sep">separate flow</span></td></tr>
+        <tr><td class="fld">/v1/messages/count_tokens</td><td class="carries">pre-flight sizing call; no generation</td><td><span class="st st-sep">separate flow</span></td></tr>
+        <tr><td class="fld">OpenAI Chat Completions / Responses</td><td class="carries">different schema (roles, <code>tool_calls</code>, usage shape)</td><td><span class="st st-out">not inventoried</span></td></tr>
+        <tr><td class="fld">Google Gemini generateContent</td><td class="carries">different schema (<code>contents</code>/<code>parts</code>, <code>functionCall</code>)</td><td><span class="st st-out">not inventoried</span></td></tr>
+        <tr><td class="fld">AWS Bedrock · Vertex (Anthropic pass-through)</td><td class="carries">same body, different envelope + auth + endpoint</td><td><span class="st st-out">not inventoried</span></td></tr>
       </tbody>
     </table>
   </section>
@@ -1493,7 +1563,7 @@
       <li><strong>Configurable demo port</strong>: the offline image's host port is now <code>${DASHBOARD_PORT:-5000}</code> (was hard-coded, collided with a live dashboard on <code>:5055</code>) &mdash; <code>DASHBOARD_PORT=5055 make demo</code>. <strong>Verified end-to-end</strong>: image builds from <code>docker/Dockerfile</code>, container boots + seeds, all tab endpoints 200 (Doctor clusters 9 incidents), port override binds a fresh container; 16 unit tests green.</li>
       <li><strong>Docs restructure</strong>: renamed <code>docs/analysis.html</code> &rarr; <code>docs/ctx-viz.html</code> and split it into a tabbed page — <strong>Today</strong> (what it is · features · architecture · repo layout · data · data model), <strong>Target</strong> (layers · architecture target · target repo layout), <strong>Roadmap</strong> (this changelog) — with a sticky top-right nav. Same styling; verified all three tabs render + switch.</li>
       <li><strong>Architecture target diagram</strong> (<em>Target</em> tab): built up the ports-and-adapters SVG step by step — compacted write path (<code>Agents &rarr; Producer &rarr; Collector</code>) into a left column, added the read path as three stacked, left-aligned layers in a right column (<code>Dashboard</code> &rarr; <code>API</code> &rarr; <code>Insights</code>), each rendered as the same eight per-feature tiles (plus a ninth dashed tile for the headless <code>semantic</code> feature in <code>API</code>/<code>Insights</code> only, since it has no frontend tab) — both columns converging on the shared <code>Contract</code> boundary above <code>Adapters</code>/<code>Substrate</code>.</li>
-      <li><strong>&ldquo;The Data&rdquo; section + field-inventory detail pages</strong> (<em>Target</em> tab): documented what an agent run actually produces &mdash; four <em>data-source</em> cards for the natural boundaries where raw material exists (LLM HTTP · MCP · instrumented events · platform signals). The full field-by-field inventory (which was too long to sit inline) moved to a dedicated <em>detail page</em>: a pseudo-tab (<code>data-llm</code>) reached from the source card&rsquo;s &ldquo;See full field inventory&rarr;&rdquo; button, with a &ldquo;&larr; Back to The Data&rdquo; link; the tab switcher now maps detail pages to their parent nav tab and honours hash-link navigation. First inventory complete &mdash; <strong>Source 1 (Anthropic Messages API)</strong>: request/response/streaming/headers/errors/variants, gaps marked <em>NOT INVENTORIED</em>; sources 2&ndash;4 marked <em>pending</em>.</li>
+      <li><strong>&ldquo;The Data&rdquo; section + field-inventory detail pages</strong> (<em>Target</em> tab): documented what an agent run actually produces &mdash; four <em>data-source</em> cards for the natural boundaries where raw material exists (LLM HTTP · MCP · instrumented events · platform signals). The full field-by-field inventory (too long to sit inline) moved to a dedicated <em>detail page</em>: a pseudo-tab (<code>data-llm</code>) reached from the source card&rsquo;s &ldquo;See full field inventory&rarr;&rdquo; button, with a &ldquo;&larr; Back to The Data&rdquo; link; the tab switcher maps detail pages to their parent nav tab and leaves unknown hashes to native anchor scroll (so in-page jump-nav works). First inventory complete &mdash; <strong>Source 1 (Anthropic Messages API)</strong>: request / content-blocks / response / streaming / headers / errors / scope, gaps marked <em>not inventoried</em>; sources 2&ndash;4 marked <em>pending</em>. Reworked from a flat wall of tables into a usable <strong>capture spec</strong>: a colour-coded <em>role rail</em> (CTX · CAP · COST · OUT · ID · TIME · CFG) as every table&rsquo;s first column, <em>must-capture</em> (&#9679;) rows floated to the top of each section, an &ldquo;if you capture nothing else&rdquo; essentials box, and a jump-nav + section anchors for the long page.</li>
       <li><strong>Workspace demo seed</strong>: added <code>scripts/demos/demo_workspace.py</code> (wired into the offline <code>make demo</code> entrypoint) — the first demo that seeds a real <em>orchestrator + subagents</em> conversation. The existing demos only seed flat <code>role@scenario</code> sessions, so Workspace showed one block per agent; this seeds a nested session tree (<code>orchestrator@ws-demo</code> &rarr; <code>.1</code> researcher &rarr; <code>.1.1</code> web-fetch, and &rarr; <code>.2</code> coder), interleaved in time so the handoffs render as edges and one coder turn returns HTTP 500 to exercise the error-toast feature. Verified through the real backend: one conversation, 4 agents, 6 handoffs, 14 turns, and the tree + timeline render in the UI.</li>
     </ul>
     <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do</div>
@@ -1557,11 +1627,14 @@
         show(a.dataset.tab);
       });
     });
-    // Hash links (See details / Back) navigate between tabs and detail pages.
+    // Hash links navigate between tabs/detail pages; unknown hashes are treated
+    // as in-page anchors (jump-nav) and left to the browser's native scroll.
     window.addEventListener('hashchange', function () {
-      show((location.hash || '#today').slice(1));
+      var h = (location.hash || '').slice(1);
+      if (tabs.indexOf(h) !== -1 || detailParent[h]) show(h);
     });
-    show((location.hash || '#today').slice(1));
+    var initial = (location.hash || '#today').slice(1);
+    show(tabs.indexOf(initial) !== -1 || detailParent[initial] ? initial : 'today');
   })();
 </script>
 </body>
