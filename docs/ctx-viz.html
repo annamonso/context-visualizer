@@ -104,6 +104,27 @@
   .st-in  { background: rgba(159,211,86,0.16);  color: #bfe27f; }
   .st-out { background: rgba(255,107,107,0.16); color: #ff9d9d; }
   .st-sep { background: rgba(139,148,167,0.14); color: #aab3c4; }
+  /* drill-down tree navigation */
+  .crumb { font-size: 0.8rem; color: var(--muted); margin: 2px 0 16px; }
+  .crumb a { color: #9fb0c7; text-decoration: none; }
+  .crumb a:hover { color: #fff; text-decoration: underline; }
+  .crumb .sep { margin: 0 7px; opacity: 0.55; }
+  .crumb .here { color: #e7ecf3; font-weight: 600; }
+  .treegrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0 8px; }
+  @media (max-width: 620px) { .treegrid { grid-template-columns: 1fr; } }
+  .treecard { display: block; background: #12151c; border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; text-decoration: none; color: inherit; }
+  a.treecard:hover { border-color: #3a4658; background: #141922; text-decoration: none; }
+  .treecard .tc-h { font-weight: 700; color: #e7ecf3; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .treecard .tc-m { margin-top: 3px; font-size: 0.75rem; color: var(--muted); }
+  .treecard .tc-d { margin-top: 7px; font-size: 0.85rem; color: #c1c9d6; line-height: 1.45; }
+  .treecard.stub { opacity: 0.6; }
+  .treecard .arr { color: #5ea0ff; font-weight: 700; font-size: 0.9rem; }
+  .envelope { border: 1px solid var(--border); border-radius: 10px; background: #12151c; margin: 14px 0 4px; max-width: 72ch; overflow: hidden; }
+  .envelope .er { display: flex; gap: 14px; padding: 9px 16px; border-bottom: 1px solid #20252f; font-size: 0.86rem; }
+  .envelope .er:last-child { border-bottom: none; }
+  .envelope .ek { flex: 0 0 82px; font-weight: 700; color: #8fc0ff; font-family: "SF Mono", "JetBrains Mono", Menlo, monospace; font-size: 0.78rem; }
+  .envelope .ev { color: #c1c9d6; line-height: 1.4; }
+  .envelope .ev em { color: #e3b341; font-style: normal; }
   .layers { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
   .layer { position: relative; display: flex; align-items: center; gap: 20px; border: 1px solid var(--border); border-radius: 14px; padding: 18px 22px; overflow: hidden; }
   .layer .lnum { position: absolute; right: 22px; top: 50%; transform: translateY(-50%); font-size: 5.5rem; font-weight: 800; line-height: 1; opacity: 0.10; pointer-events: none; }
@@ -1127,7 +1148,7 @@
           single source we have.
         </p>
         <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">naturally carries: method · endpoint · full context · response text · tool-use requests · token counts · status · latency</div>
-        <div style="margin-top:10px"><a href="#data-llm" style="display:inline-block;font-size:0.82rem;font-weight:600;color:#5ea0ff;text-decoration:none;border:1px solid #2b3a52;background:#131c2b;border-radius:7px;padding:5px 12px">See full field inventory →</a></div>
+        <div style="margin-top:10px"><a href="#data-llm" style="display:inline-block;font-size:0.82rem;font-weight:600;color:#5ea0ff;text-decoration:none;border:1px solid #2b3a52;background:#131c2b;border-radius:7px;padding:5px 12px">Explore the data →</a></div>
       </div>
 
       <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #41d1a7;border-radius:10px;padding:14px 18px">
@@ -1183,72 +1204,123 @@
 
   </section>
 
-  <section class="tab-content" data-tab="data-llm">
-    <p style="margin-bottom:8px"><a href="#target" style="font-size:0.85rem;font-weight:600;color:#5ea0ff;text-decoration:none">← Back to The Data</a></p>
-    <h2>Source 1 · LLM HTTP traffic — full inventory</h2>
+  <!-- ============ LEVEL 2 · LLM interactions (source landing) ============ -->
+  <section class="tab-content" data-tab="data-llm" data-nav="target">
+    <div class="crumb"><a href="#target">The Data</a><span class="sep">›</span><span class="here">LLM interactions</span></div>
+    <h2>Source 1 · LLM interactions</h2>
     <p style="color:#c1c9d6;font-size:0.9rem;max-width:74ch">
-      Source 1 is the HTTP traffic between an agent and its LLM provider. This maps that traffic
-      exactly as it exists on the wire — every <strong>type of message</strong> exchanged in one
-      interaction, and every field of each. It describes what the wire <em>carries</em>; whether we
-      store a message verbatim or map it onto a provider-neutral structure is a separate, later
-      decision.
+      The HTTP traffic between an agent and its LLM provider. One interaction is a single HTTP
+      request/response exchange. At the transport level it always has the <strong>same four message
+      types</strong> — and this shape is <strong>generic</strong>: it is how any HTTP + SSE LLM API
+      works (OpenAI and Gemini exchange the same four), not something specific to Anthropic.
     </p>
     <p style="color:var(--muted);font-size:0.85rem;max-width:74ch">
-      <strong style="color:#e3b341">Scope.</strong> Today only <strong>one provider and one endpoint</strong>
-      is inventoried: the Anthropic Messages API (<code>POST /v1/messages</code>,
-      <code>anthropic-version: 2023-06-01</code>; newer fields gated by <code>anthropic-beta</code>).
-      Every other provider is a different schema — this is the first extensibility boundary of the
-      source, listed under <a href="#llm-scope">Scope &amp; other providers</a>.
+      Pick a message type to drill in. What is <em>generic</em> (the types, the envelope) is shown at
+      each level; what is <em>provider-specific</em> (the schema that fills the body) sits one level
+      deeper, chosen per provider — so the tree branches exactly where reality does.
     </p>
 
-    <div class="invnav">
-      <a href="#llm-types">Message types</a>
-      <a href="#llm-request">1 · Request</a>
-      <a href="#llm-content">Content blocks</a>
-      <a href="#llm-response">2 · Response</a>
-      <a href="#llm-stream">3 · Stream events</a>
-      <a href="#llm-error">4 · Error</a>
-      <a href="#llm-headers">Headers</a>
-      <a href="#llm-scope">Scope</a>
+    <div class="treegrid">
+      <a class="treecard" href="#data-llm-request">
+        <div class="tc-h">1 · Request <span class="arr">→</span></div>
+        <div class="tc-m">agent → API · every turn</div>
+        <div class="tc-d">The message that starts a turn: endpoint + headers + body. The body is the provider's request schema.</div>
+      </a>
+      <a class="treecard" href="#data-llm-response">
+        <div class="tc-h">2 · Response · Message <span class="arr">→</span></div>
+        <div class="tc-m">API → agent · <code>stream: false</code></div>
+        <div class="tc-d">The reply as one JSON body — the model's output, stop reason, and token usage.</div>
+      </a>
+      <a class="treecard" href="#data-llm-stream">
+        <div class="tc-h">3 · Response · event stream <span class="arr">→</span></div>
+        <div class="tc-m">API → agent · <code>stream: true</code></div>
+        <div class="tc-d">The same reply delivered incrementally as an ordered sequence of SSE events.</div>
+      </a>
+      <a class="treecard" href="#data-llm-error">
+        <div class="tc-h">4 · Error <span class="arr">→</span></div>
+        <div class="tc-m">API → agent · on failure</div>
+        <div class="tc-d">A response with a 4xx/5xx status and an error body, instead of a Message.</div>
+      </a>
     </div>
 
-    <h3 class="invsec" id="llm-types">Message types <span style="color:var(--muted);font-weight:400;font-size:0.8rem">— generic transport shape</span></h3>
-    <p style="color:var(--muted);font-size:0.88rem;max-width:74ch;margin-top:0">
-      One interaction is a single HTTP request/response exchange. At the transport level it always
-      has the same four message types — and <strong>this shape is generic</strong>: it is how any
-      HTTP + SSE LLM API works (OpenAI and Gemini exchange the same four), <em>not</em> something
-      specific to Anthropic. The response takes one of two forms depending on the request's
-      <code>stream</code> flag:
-    </p>
-    <table class="inv">
-      <thead><tr><th>#</th><th>message type</th><th>direction</th><th>when</th><th>shape</th></tr></thead>
-      <tbody>
-        <tr><td class="num">1</td><td class="fld">Request</td><td class="ty">agent → API</td><td>every turn</td><td class="carries"><code>MessageCreateParams</code> — one JSON request body</td></tr>
-        <tr><td class="num">2</td><td class="fld">Response · Message</td><td class="ty">API → agent</td><td><code>stream: false</code></td><td class="carries"><code>Message</code> — one JSON response body</td></tr>
-        <tr><td class="num">3</td><td class="fld">Response · event stream</td><td class="ty">API → agent</td><td><code>stream: true</code></td><td class="carries">an ordered sequence of SSE events that assemble into the same <code>Message</code></td></tr>
-        <tr><td class="num">4</td><td class="fld">Error</td><td class="ty">API → agent</td><td>on failure</td><td class="carries"><code>Error</code> JSON body with an HTTP 4xx/5xx status — or, mid-stream, an <code>error</code> event</td></tr>
-      </tbody>
-    </table>
-    <p style="color:#c1c9d6;font-size:0.85rem;max-width:74ch">
+    <p style="color:#c1c9d6;font-size:0.85rem;max-width:74ch;margin-top:16px">
       What makes this <strong>Source 1 = Anthropic</strong> is not the four types above but the
-      <strong>schema of each</strong>: the request's field set, the <code>Message</code> shape, the
-      stream's event names, the error <code>type</code> strings, and the content-block taxonomy — all
-      inventoried below. That is the seam a provider-neutral model maps across: the four transport
-      types stay; the schemas swap per provider.
-    </p>
-    <p style="color:var(--muted);font-size:0.85rem;max-width:74ch">
-      Two structures are shared across these messages and inventoried once: <a href="#llm-content">content
-      blocks</a> (the elements of message content, in both request and response) and
-      <a href="#llm-headers">HTTP headers</a> (envelope metadata on every exchange).
+      <strong>schema of each</strong> — the request's field set, the <code>Message</code> shape, the
+      stream's event names, the error <code>type</code> strings. That is the seam a provider-neutral
+      model maps across: the four types stay; the schemas swap per provider.
     </p>
 
-    <h3 class="invsec" id="llm-request">1 · Request — <code>MessageCreateParams</code></h3>
-    <p style="color:var(--muted);font-size:0.85rem;margin-top:0">The JSON body of <code>POST /v1/messages</code>. Fields:</p>
+    <h4 style="margin:20px 0 4px;color:#dbe2ec;font-size:0.9rem">Shared structures</h4>
+    <div class="treegrid">
+      <a class="treecard" href="#data-llm-content">
+        <div class="tc-h">Content blocks <span class="arr">→</span></div>
+        <div class="tc-d">The typed elements of message <code>content</code> — used inside both the request body and the response body.</div>
+      </a>
+      <a class="treecard" href="#data-llm-headers">
+        <div class="tc-h">Headers <span class="arr">→</span></div>
+        <div class="tc-d">HTTP envelope metadata (auth, versioning, rate-limit) present on every exchange.</div>
+      </a>
+    </div>
+
+    <h4 style="margin:22px 0 4px;color:#dbe2ec;font-size:0.9rem">Scope — other endpoints &amp; providers</h4>
+    <p style="color:var(--muted);font-size:0.83rem;max-width:74ch;margin-top:0">
+      Only the Anthropic Messages API (<code>POST /v1/messages</code>) is inventoried. Adjacent
+      endpoints on the same provider — <code>/v1/messages/batches</code>,
+      <code>/v1/messages/count_tokens</code> — are separate flows, not inventoried. Other providers
+      (OpenAI, Gemini, Bedrock/Vertex) are different schemas; they appear as
+      <span class="st st-out">not inventoried</span> branches under each message type.
+    </p>
+  </section>
+
+  <!-- ============ LEVEL 3 · Request (type) ============ -->
+  <section class="tab-content" data-tab="data-llm-request" data-nav="target">
+    <div class="crumb"><a href="#target">The Data</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><span class="here">Request</span></div>
+    <h2>Request <span style="color:var(--muted);font-weight:400;font-size:0.85rem">— generic envelope</span></h2>
+    <p style="color:#c1c9d6;font-size:0.88rem;max-width:74ch">
+      The message the agent sends to start a turn. Every HTTP LLM request has the same three parts —
+      this envelope is provider-independent:
+    </p>
+    <div class="envelope">
+      <div class="er"><span class="ek">endpoint</span><span class="ev">HTTP method + URL — <em>provider-specific</em> (e.g. Anthropic <code>POST /v1/messages</code>, OpenAI <code>POST /v1/chat/completions</code>)</span></div>
+      <div class="er"><span class="ek">headers</span><span class="ev">auth + versioning + <code>content-type</code> — auth scheme is <em>provider-specific</em> (see <a href="#data-llm-headers">Headers</a>)</span></div>
+      <div class="er"><span class="ek">body</span><span class="ev">the JSON payload — a <em>provider-specific</em> schema. This is the part that changes most; pick a provider below</span></div>
+    </div>
+    <p style="color:var(--muted);font-size:0.85rem;margin-top:14px">Pick the provider whose request-body schema you want:</p>
+    <div class="treegrid">
+      <a class="treecard" href="#data-llm-request-anthropic">
+        <div class="tc-h">Anthropic <span class="st st-in">inventoried</span></div>
+        <div class="tc-d">Request body <code>MessageCreateParams</code> — 17 fields. <span class="arr">→</span></div>
+      </a>
+      <div class="treecard stub">
+        <div class="tc-h">OpenAI <span class="st st-sep">not inventoried</span></div>
+        <div class="tc-d">Chat Completions / Responses — different body (<code>messages</code> with a system role, <code>tools</code>/<code>tool_calls</code>).</div>
+      </div>
+      <div class="treecard stub">
+        <div class="tc-h">Google Gemini <span class="st st-sep">not inventoried</span></div>
+        <div class="tc-d"><code>generateContent</code> — different body (<code>contents</code> / <code>parts</code>, <code>functionCall</code>).</div>
+      </div>
+      <div class="treecard stub">
+        <div class="tc-h">AWS Bedrock · Google Vertex <span class="st st-sep">not inventoried</span></div>
+        <div class="tc-d">Same Anthropic body, different endpoint + auth envelope.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---- LEVEL 4 · Request · Anthropic (leaf) ---- -->
+  <section class="tab-content" data-tab="data-llm-request-anthropic" data-nav="target">
+    <div class="crumb"><a href="#target">The Data</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><a href="#data-llm-request">Request</a><span class="sep">›</span><span class="here">Anthropic</span></div>
+    <h2>Anthropic · Request body — <code>MessageCreateParams</code></h2>
+    <div class="envelope">
+      <div class="er"><span class="ek">endpoint</span><span class="ev"><code>POST /v1/messages</code></span></div>
+      <div class="er"><span class="ek">headers</span><span class="ev"><code>x-api-key</code> · <code>anthropic-version</code> · <code>anthropic-beta[]</code> · <code>content-type</code> (full list under <a href="#data-llm-headers">Headers</a>)</span></div>
+      <div class="er"><span class="ek">body</span><span class="ev">the schema below</span></div>
+    </div>
+    <p style="color:var(--muted);font-size:0.85rem;margin-top:12px">Request-body fields:</p>
     <table class="inv">
       <thead><tr><th>field</th><th>type</th><th>req</th><th>description</th></tr></thead>
       <tbody>
         <tr><td class="fld">model</td><td class="ty">string</td><td class="num">yes</td><td class="carries">identifier of the model to run this turn</td></tr>
-        <tr><td class="fld">messages[]</td><td class="ty">Message[]</td><td class="num">yes</td><td class="carries">the input conversation: an ordered list of turns, each a <code>role</code> (<code>user</code> | <code>assistant</code>) and <code>content</code> (a string, or a list of <a href="#llm-content">content blocks</a>)</td></tr>
+        <tr><td class="fld">messages[]</td><td class="ty">Message[]</td><td class="num">yes</td><td class="carries">the input conversation: an ordered list of turns, each a <code>role</code> (<code>user</code> | <code>assistant</code>) and <code>content</code> (a string, or a list of <a href="#data-llm-content">content blocks</a>)</td></tr>
         <tr><td class="fld">max_tokens</td><td class="ty">int</td><td class="num">yes</td><td class="carries">maximum number of tokens to generate before stopping</td></tr>
         <tr><td class="fld">system</td><td class="ty">string | block[]</td><td class="num">–</td><td class="carries">system prompt — a string or a list of text blocks</td></tr>
         <tr><td class="fld">tools[]</td><td class="ty">Tool[]</td><td class="num">–</td><td class="carries">tool definitions the model may use: <code>name</code> · <code>description</code> · <code>input_schema</code> (JSON&nbsp;Schema). Also Anthropic-defined typed tools — <code>web_search</code>, <code>computer</code>, <code>text_editor</code>, <code>bash</code>, <code>code_execution</code> (versioned <code>type</code> strings)</td></tr>
@@ -1266,29 +1338,46 @@
         <tr><td class="fld">cache_control</td><td class="ty">object</td><td class="num">–</td><td class="carries">prompt-cache breakpoint, set <em>on a block</em> (system / message content / tool): <code>ephemeral</code> with a 5m or 1h TTL</td></tr>
       </tbody>
     </table>
+  </section>
 
-    <h3 class="invsec" id="llm-content">Content blocks — elements of message content</h3>
-    <p style="color:var(--muted);font-size:0.85rem;max-width:74ch;margin-top:0">
-      The <code>content</code> of a request message (<code>messages[].content</code>) and of a response
-      (<code>content[]</code>) is a list of typed blocks. The full set, and where each appears:
+  <!-- ============ LEVEL 3 · Response · Message (type) ============ -->
+  <section class="tab-content" data-tab="data-llm-response" data-nav="target">
+    <div class="crumb"><a href="#target">The Data</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><span class="here">Response · Message</span></div>
+    <h2>Response · Message <span style="color:var(--muted);font-weight:400;font-size:0.85rem">— generic envelope</span></h2>
+    <p style="color:#c1c9d6;font-size:0.88rem;max-width:74ch">
+      The reply as a single JSON body (returned when the request set <code>stream: false</code>).
+      Generic envelope:
     </p>
-    <table class="inv">
-      <thead><tr><th>block</th><th>appears in</th><th>fields</th></tr></thead>
-      <tbody>
-        <tr><td class="fld">text</td><td class="ty">both</td><td class="carries"><code>text</code>; optional <code>citations</code></td></tr>
-        <tr><td class="fld">image</td><td class="ty">request</td><td class="carries"><code>source</code>: <code>base64</code> | <code>url</code> | <code>file_id</code>; <code>media_type</code></td></tr>
-        <tr><td class="fld">document</td><td class="ty">request</td><td class="carries"><code>source</code>: <code>pdf</code> | <code>text</code> | <code>content</code>; optional <code>title</code>, <code>context</code>, citations config</td></tr>
-        <tr><td class="fld">search_result</td><td class="ty">request</td><td class="carries">pre-fetched result: <code>source</code>, <code>title</code>, <code>content[]</code>, optional <code>citations</code></td></tr>
-        <tr><td class="fld">tool_result</td><td class="ty">request</td><td class="carries"><code>tool_use_id</code>, <code>content</code> (text / image blocks), <code>is_error</code></td></tr>
-        <tr><td class="fld">tool_use</td><td class="ty">response → history</td><td class="carries"><code>id</code>, <code>name</code>, <code>input</code> (JSON) — a tool invocation the model requests; echoed back in a later request's history</td></tr>
-        <tr><td class="fld">thinking · redacted_thinking</td><td class="ty">response → history</td><td class="carries"><code>thinking</code> + <code>signature</code> (redacted variant carries <code>data</code>)</td></tr>
-        <tr><td class="fld">server_tool_use</td><td class="ty">response</td><td class="carries"><code>id</code>, <code>name</code>, <code>input</code> — a tool the provider executes on its own side</td></tr>
-        <tr><td class="fld">web_search_tool_result</td><td class="ty">response</td><td class="carries"><code>tool_use_id</code>, <code>content</code> — results of a provider-executed web search (one of several server-tool result blocks)</td></tr>
-      </tbody>
-    </table>
-    <p style="color:var(--muted);font-size:0.82rem;margin-top:6px">Any input-side block may also carry a <code>cache_control</code> marker (see Request).</p>
+    <div class="envelope">
+      <div class="er"><span class="ek">status</span><span class="ev"><code>200</code> on success (a 4xx/5xx makes it an <a href="#data-llm-error">Error</a> instead)</span></div>
+      <div class="er"><span class="ek">headers</span><span class="ev">rate-limit + trace metadata (see <a href="#data-llm-headers">Headers</a>)</span></div>
+      <div class="er"><span class="ek">body</span><span class="ev">one JSON document — a <em>provider-specific</em> response schema. Pick a provider below</span></div>
+    </div>
+    <p style="color:var(--muted);font-size:0.85rem;margin-top:14px">Pick the provider whose response-body schema you want:</p>
+    <div class="treegrid">
+      <a class="treecard" href="#data-llm-response-anthropic">
+        <div class="tc-h">Anthropic <span class="st st-in">inventoried</span></div>
+        <div class="tc-d">Response body <code>Message</code> — 9 fields. <span class="arr">→</span></div>
+      </a>
+      <div class="treecard stub">
+        <div class="tc-h">OpenAI <span class="st st-sep">not inventoried</span></div>
+        <div class="tc-d"><code>ChatCompletion</code> — <code>choices[].message</code>, <code>finish_reason</code>, <code>usage</code>.</div>
+      </div>
+      <div class="treecard stub">
+        <div class="tc-h">Google Gemini <span class="st st-sep">not inventoried</span></div>
+        <div class="tc-d"><code>GenerateContentResponse</code> — <code>candidates</code>, <code>usageMetadata</code>.</div>
+      </div>
+      <div class="treecard stub">
+        <div class="tc-h">AWS Bedrock · Google Vertex <span class="st st-sep">not inventoried</span></div>
+        <div class="tc-d">Same Anthropic body, different envelope.</div>
+      </div>
+    </div>
+  </section>
 
-    <h3 class="invsec" id="llm-response">2 · Response — <code>Message</code></h3>
+  <!-- ---- LEVEL 4 · Response · Anthropic (leaf) ---- -->
+  <section class="tab-content" data-tab="data-llm-response-anthropic" data-nav="target">
+    <div class="crumb"><a href="#target">The Data</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><a href="#data-llm-response">Response · Message</a><span class="sep">›</span><span class="here">Anthropic</span></div>
+    <h2>Anthropic · Response body — <code>Message</code></h2>
     <p style="color:var(--muted);font-size:0.85rem;margin-top:0">The JSON body returned when <code>stream: false</code>. Fields:</p>
     <table class="inv">
       <thead><tr><th>field</th><th>type</th><th>description</th></tr></thead>
@@ -1297,18 +1386,56 @@
         <tr><td class="fld">type</td><td class="ty">string</td><td class="carries">constant <code>"message"</code></td></tr>
         <tr><td class="fld">role</td><td class="ty">string</td><td class="carries">constant <code>"assistant"</code></td></tr>
         <tr><td class="fld">model</td><td class="ty">string</td><td class="carries">the model that served the request (may resolve an alias)</td></tr>
-        <tr><td class="fld">content[]</td><td class="ty">block[]</td><td class="carries">the output, as <a href="#llm-content">content blocks</a>: <code>text</code>, <code>tool_use</code>, <code>thinking</code>, server-tool results</td></tr>
+        <tr><td class="fld">content[]</td><td class="ty">block[]</td><td class="carries">the output, as <a href="#data-llm-content">content blocks</a>: <code>text</code>, <code>tool_use</code>, <code>thinking</code>, server-tool results</td></tr>
         <tr><td class="fld">stop_reason</td><td class="ty">string | null</td><td class="carries">why generation stopped: <code>end_turn</code> | <code>max_tokens</code> | <code>stop_sequence</code> | <code>tool_use</code> | <code>pause_turn</code> | <code>refusal</code></td></tr>
         <tr><td class="fld">stop_sequence</td><td class="ty">string | null</td><td class="carries">the custom stop sequence that matched, if any</td></tr>
         <tr><td class="fld">usage</td><td class="ty">object</td><td class="carries">token accounting: <code>input_tokens</code>, <code>output_tokens</code>, <code>cache_creation_input_tokens</code>, <code>cache_read_input_tokens</code> (with a 5m/1h ephemeral split), <code>server_tool_use.*</code>, <code>service_tier</code></td></tr>
         <tr><td class="fld">container</td><td class="ty">object | null</td><td class="carries">code-execution container (<code>id</code>, <code>expires_at</code>) when that tool ran</td></tr>
       </tbody>
     </table>
+  </section>
 
-    <h3 class="invsec" id="llm-stream">3 · Response — SSE event stream (<code>stream: true</code>)</h3>
+  <!-- ============ LEVEL 3 · Response · event stream (type) ============ -->
+  <section class="tab-content" data-tab="data-llm-stream" data-nav="target">
+    <div class="crumb"><a href="#target">The Data</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><span class="here">Response · event stream</span></div>
+    <h2>Response · event stream <span style="color:var(--muted);font-weight:400;font-size:0.85rem">— generic envelope</span></h2>
+    <p style="color:#c1c9d6;font-size:0.88rem;max-width:74ch">
+      The reply delivered incrementally (returned when the request set <code>stream: true</code>).
+      Generic envelope:
+    </p>
+    <div class="envelope">
+      <div class="er"><span class="ek">status</span><span class="ev"><code>200</code>, then the connection stays open</span></div>
+      <div class="er"><span class="ek">transport</span><span class="ev">Server-Sent Events (<code>text/event-stream</code>) — a sequence of typed events that assemble into the full reply</span></div>
+      <div class="er"><span class="ek">events</span><span class="ev">the event set + payloads are a <em>provider-specific</em> schema. Pick a provider below</span></div>
+    </div>
+    <p style="color:var(--muted);font-size:0.85rem;margin-top:14px">Pick the provider whose stream schema you want:</p>
+    <div class="treegrid">
+      <a class="treecard" href="#data-llm-stream-anthropic">
+        <div class="tc-h">Anthropic <span class="st st-in">inventoried</span></div>
+        <div class="tc-d">8 named SSE event types (<code>message_start</code> … <code>message_stop</code>). <span class="arr">→</span></div>
+      </a>
+      <div class="treecard stub">
+        <div class="tc-h">OpenAI <span class="st st-sep">not inventoried</span></div>
+        <div class="tc-d">Repeated <code>chat.completion.chunk</code> objects with <code>choices[].delta</code>; a <code>[DONE]</code> sentinel.</div>
+      </div>
+      <div class="treecard stub">
+        <div class="tc-h">Google Gemini <span class="st st-sep">not inventoried</span></div>
+        <div class="tc-d"><code>streamGenerateContent</code> — a stream of partial <code>GenerateContentResponse</code> chunks.</div>
+      </div>
+      <div class="treecard stub">
+        <div class="tc-h">AWS Bedrock · Google Vertex <span class="st st-sep">not inventoried</span></div>
+        <div class="tc-d">Same Anthropic events, different stream framing.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---- LEVEL 4 · Stream · Anthropic (leaf) ---- -->
+  <section class="tab-content" data-tab="data-llm-stream-anthropic" data-nav="target">
+    <div class="crumb"><a href="#target">The Data</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><a href="#data-llm-stream">Response · event stream</a><span class="sep">›</span><span class="here">Anthropic</span></div>
+    <h2>Anthropic · Stream — SSE event set</h2>
     <p style="color:var(--muted);font-size:0.85rem;max-width:74ch;margin-top:0">
-      When <code>stream: true</code>, the response is an ordered sequence of typed events that assemble
-      into the same <code>Message</code> as type 2. Event types, in emission order:
+      An ordered sequence of typed events that assemble into the same <code>Message</code> as the
+      non-streaming response. Event types, in emission order:
     </p>
     <table class="inv">
       <thead><tr><th>event</th><th>payload</th></tr></thead>
@@ -1327,9 +1454,46 @@
       Each event arrives with its own wall-clock time. Per-event timing (time-to-first-token,
       inter-chunk cadence) exists only in the stream; a reassembled body does not carry it.
     </p>
+  </section>
 
-    <h3 class="invsec" id="llm-error">4 · Error</h3>
-    <p style="color:var(--muted);font-size:0.85rem;margin-top:0">Returned instead of a <code>Message</code> on failure. Body: <code>{"type":"error","error":{"type","message"},"request_id"}</code>, with an HTTP status. Types by status:</p>
+  <!-- ============ LEVEL 3 · Error (type) ============ -->
+  <section class="tab-content" data-tab="data-llm-error" data-nav="target">
+    <div class="crumb"><a href="#target">The Data</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><span class="here">Error</span></div>
+    <h2>Error <span style="color:var(--muted);font-weight:400;font-size:0.85rem">— generic envelope</span></h2>
+    <p style="color:#c1c9d6;font-size:0.88rem;max-width:74ch">
+      A response with a failure status, returned instead of a Message. Generic envelope:
+    </p>
+    <div class="envelope">
+      <div class="er"><span class="ek">status</span><span class="ev">an HTTP <code>4xx</code> (client) or <code>5xx</code> (server) code</span></div>
+      <div class="er"><span class="ek">headers</span><span class="ev">same as a normal response, incl. the trace id and <code>retry-after</code> on throttle/overload</span></div>
+      <div class="er"><span class="ek">body</span><span class="ev">a JSON error object — its shape and the <code>type</code> strings are <em>provider-specific</em>. Pick a provider below</span></div>
+    </div>
+    <p style="color:var(--muted);font-size:0.85rem;margin-top:14px">Pick the provider whose error schema you want:</p>
+    <div class="treegrid">
+      <a class="treecard" href="#data-llm-error-anthropic">
+        <div class="tc-h">Anthropic <span class="st st-in">inventoried</span></div>
+        <div class="tc-d">8 error types across HTTP 400–529. <span class="arr">→</span></div>
+      </a>
+      <div class="treecard stub">
+        <div class="tc-h">OpenAI <span class="st st-sep">not inventoried</span></div>
+        <div class="tc-d">Body <code>{error:{message, type, code, param}}</code>; different type strings.</div>
+      </div>
+      <div class="treecard stub">
+        <div class="tc-h">Google Gemini <span class="st st-sep">not inventoried</span></div>
+        <div class="tc-d">Body <code>{error:{code, message, status}}</code> (Google API error shape).</div>
+      </div>
+      <div class="treecard stub">
+        <div class="tc-h">AWS Bedrock · Google Vertex <span class="st st-sep">not inventoried</span></div>
+        <div class="tc-d">Platform error envelope wrapping the provider error.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---- LEVEL 4 · Error · Anthropic (leaf) ---- -->
+  <section class="tab-content" data-tab="data-llm-error-anthropic" data-nav="target">
+    <div class="crumb"><a href="#target">The Data</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><a href="#data-llm-error">Error</a><span class="sep">›</span><span class="here">Anthropic</span></div>
+    <h2>Anthropic · Error</h2>
+    <p style="color:var(--muted);font-size:0.85rem;margin-top:0">Body: <code>{"type":"error","error":{"type","message"},"request_id"}</code>, with an HTTP status. Types by status:</p>
     <table class="inv">
       <thead><tr><th>HTTP</th><th>error.type</th><th>meaning</th></tr></thead>
       <tbody>
@@ -1343,9 +1507,43 @@
         <tr><td class="num">529</td><td class="fld">overloaded_error</td><td class="carries">the API is temporarily overloaded</td></tr>
       </tbody>
     </table>
+  </section>
 
-    <h3 class="invsec" id="llm-headers">Headers</h3>
-    <p style="color:var(--muted);font-size:0.85rem;margin-top:0">HTTP envelope metadata present on every exchange.</p>
+  <!-- ---- SHARED · Content blocks ---- -->
+  <section class="tab-content" data-tab="data-llm-content" data-nav="target">
+    <div class="crumb"><a href="#target">The Data</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><span class="here">Content blocks</span></div>
+    <h2>Content blocks <span style="color:var(--muted);font-weight:400;font-size:0.85rem">— Anthropic schema</span></h2>
+    <p style="color:var(--muted);font-size:0.85rem;max-width:74ch;margin-top:0">
+      A shared sub-structure: the <code>content</code> of a request message
+      (<a href="#data-llm-request-anthropic"><code>messages[].content</code></a>) and of a response
+      (<a href="#data-llm-response-anthropic"><code>content[]</code></a>) is a list of typed blocks.
+      The full set, and where each appears:
+    </p>
+    <table class="inv">
+      <thead><tr><th>block</th><th>appears in</th><th>fields</th></tr></thead>
+      <tbody>
+        <tr><td class="fld">text</td><td class="ty">both</td><td class="carries"><code>text</code>; optional <code>citations</code></td></tr>
+        <tr><td class="fld">image</td><td class="ty">request</td><td class="carries"><code>source</code>: <code>base64</code> | <code>url</code> | <code>file_id</code>; <code>media_type</code></td></tr>
+        <tr><td class="fld">document</td><td class="ty">request</td><td class="carries"><code>source</code>: <code>pdf</code> | <code>text</code> | <code>content</code>; optional <code>title</code>, <code>context</code>, citations config</td></tr>
+        <tr><td class="fld">search_result</td><td class="ty">request</td><td class="carries">pre-fetched result: <code>source</code>, <code>title</code>, <code>content[]</code>, optional <code>citations</code></td></tr>
+        <tr><td class="fld">tool_result</td><td class="ty">request</td><td class="carries"><code>tool_use_id</code>, <code>content</code> (text / image blocks), <code>is_error</code></td></tr>
+        <tr><td class="fld">tool_use</td><td class="ty">response → history</td><td class="carries"><code>id</code>, <code>name</code>, <code>input</code> (JSON) — a tool invocation the model requests; echoed back in a later request's history</td></tr>
+        <tr><td class="fld">thinking · redacted_thinking</td><td class="ty">response → history</td><td class="carries"><code>thinking</code> + <code>signature</code> (redacted variant carries <code>data</code>)</td></tr>
+        <tr><td class="fld">server_tool_use</td><td class="ty">response</td><td class="carries"><code>id</code>, <code>name</code>, <code>input</code> — a tool the provider executes on its own side</td></tr>
+        <tr><td class="fld">web_search_tool_result</td><td class="ty">response</td><td class="carries"><code>tool_use_id</code>, <code>content</code> — results of a provider-executed web search (one of several server-tool result blocks)</td></tr>
+      </tbody>
+    </table>
+    <p style="color:var(--muted);font-size:0.82rem;margin-top:6px">Any input-side block may also carry a <code>cache_control</code> marker (see <a href="#data-llm-request-anthropic">Request</a>).</p>
+  </section>
+
+  <!-- ---- SHARED · Headers ---- -->
+  <section class="tab-content" data-tab="data-llm-headers" data-nav="target">
+    <div class="crumb"><a href="#target">The Data</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><span class="here">Headers</span></div>
+    <h2>Headers <span style="color:var(--muted);font-weight:400;font-size:0.85rem">— Anthropic values</span></h2>
+    <p style="color:var(--muted);font-size:0.85rem;max-width:74ch;margin-top:0">
+      HTTP envelope metadata present on every exchange. The slots (auth, versioning, rate-limit) are
+      generic; the concrete header names below are Anthropic's.
+    </p>
     <table class="inv">
       <thead><tr><th>direction</th><th>header</th><th>description</th></tr></thead>
       <tbody>
@@ -1356,23 +1554,6 @@
         <tr><td class="ty">response</td><td class="fld">request-id</td><td class="carries">provider-side request identifier</td></tr>
         <tr><td class="ty">response</td><td class="fld">anthropic-ratelimit-requests-* · -tokens-*</td><td class="carries">rate-limit <code>limit</code> / <code>remaining</code> / <code>reset</code>, per key</td></tr>
         <tr><td class="ty">response</td><td class="fld">retry-after</td><td class="carries">seconds to wait before retrying (429 / 529)</td></tr>
-      </tbody>
-    </table>
-
-    <h3 class="invsec" id="llm-scope">Scope &amp; other providers</h3>
-    <p style="color:var(--muted);font-size:0.85rem;max-width:74ch;margin-top:0">
-      This inventory covers one endpoint on one provider. What it does not cover, marked so the gaps
-      are explicit:
-    </p>
-    <table class="inv">
-      <thead><tr><th>variant</th><th>what changes</th><th>status</th></tr></thead>
-      <tbody>
-        <tr><td class="fld">non-streaming &amp; streaming</td><td class="carries">both response forms (types 2 and 3) of <code>/v1/messages</code></td><td><span class="st st-in">inventoried</span></td></tr>
-        <tr><td class="fld">/v1/messages/batches</td><td class="carries">async batch: submit → poll → fetch; results arrive as a file, no live exchange</td><td><span class="st st-sep">separate flow</span></td></tr>
-        <tr><td class="fld">/v1/messages/count_tokens</td><td class="carries">pre-flight token-sizing call; no generation</td><td><span class="st st-sep">separate flow</span></td></tr>
-        <tr><td class="fld">OpenAI Chat Completions / Responses</td><td class="carries">different schema (roles, <code>tool_calls</code>, usage shape)</td><td><span class="st st-out">not inventoried</span></td></tr>
-        <tr><td class="fld">Google Gemini generateContent</td><td class="carries">different schema (<code>contents</code> / <code>parts</code>, <code>functionCall</code>)</td><td><span class="st st-out">not inventoried</span></td></tr>
-        <tr><td class="fld">AWS Bedrock · Google Vertex</td><td class="carries">same Anthropic body, different envelope + auth + endpoint</td><td><span class="st st-out">not inventoried</span></td></tr>
       </tbody>
     </table>
   </section>
@@ -1582,7 +1763,7 @@
       <li><strong>Configurable demo port</strong>: the offline image's host port is now <code>${DASHBOARD_PORT:-5000}</code> (was hard-coded, collided with a live dashboard on <code>:5055</code>) &mdash; <code>DASHBOARD_PORT=5055 make demo</code>. <strong>Verified end-to-end</strong>: image builds from <code>docker/Dockerfile</code>, container boots + seeds, all tab endpoints 200 (Doctor clusters 9 incidents), port override binds a fresh container; 16 unit tests green.</li>
       <li><strong>Docs restructure</strong>: renamed <code>docs/analysis.html</code> &rarr; <code>docs/ctx-viz.html</code> and split it into a tabbed page — <strong>Today</strong> (what it is · features · architecture · repo layout · data · data model), <strong>Target</strong> (layers · architecture target · target repo layout), <strong>Roadmap</strong> (this changelog) — with a sticky top-right nav. Same styling; verified all three tabs render + switch.</li>
       <li><strong>Architecture target diagram</strong> (<em>Target</em> tab): built up the ports-and-adapters SVG step by step — compacted write path (<code>Agents &rarr; Producer &rarr; Collector</code>) into a left column, added the read path as three stacked, left-aligned layers in a right column (<code>Dashboard</code> &rarr; <code>API</code> &rarr; <code>Insights</code>), each rendered as the same eight per-feature tiles (plus a ninth dashed tile for the headless <code>semantic</code> feature in <code>API</code>/<code>Insights</code> only, since it has no frontend tab) — both columns converging on the shared <code>Contract</code> boundary above <code>Adapters</code>/<code>Substrate</code>.</li>
-      <li><strong>&ldquo;The Data&rdquo; section + field-inventory detail pages</strong> (<em>Target</em> tab): documented what an agent run actually produces &mdash; four <em>data-source</em> cards for the natural boundaries where raw material exists (LLM HTTP · MCP · instrumented events · platform signals). The full field-by-field inventory (too long to sit inline) moved to a dedicated <em>detail page</em>: a pseudo-tab (<code>data-llm</code>) reached from the source card&rsquo;s &ldquo;See full field inventory&rarr;&rdquo; button, with a &ldquo;&larr; Back to The Data&rdquo; link; the tab switcher maps detail pages to their parent nav tab and leaves unknown hashes to native anchor scroll (so in-page jump-nav works). First inventory complete &mdash; <strong>Source 1 (Anthropic Messages API)</strong>. Structured as a neutral <em>data map</em> (no opinion on what to capture): it leads with the <strong>message types</strong> exchanged in one interaction (1 Request &middot; 2 Response&nbsp;Message &middot; 3 Response event-stream &middot; 4 Error), then lists every field of each type, plus the shared content-block set and HTTP headers. Scope is stated up front &mdash; one provider / one endpoint &mdash; and the gaps (batches, count_tokens, OpenAI, Gemini, Bedrock/Vertex) are marked. Sources 2&ndash;4 marked <em>pending</em>.</li>
+      <li><strong>&ldquo;The Data&rdquo; section + drill-down data map</strong> (<em>Target</em> tab): documented what an agent run actually produces &mdash; four <em>data-source</em> cards (LLM HTTP · MCP · instrumented events · platform signals). Source 1 is built as a <strong>nested drill-down tree</strong> (breadcrumb navigation, one focused page per level), not a flat inventory, so the layers of the data are explicit and adding a provider later is a localised edit. Path: <em>The Data</em> &rarr; <strong>LLM interactions</strong> (the 4 generic message types &mdash; request / response&nbsp;Message / response event-stream / error, the same for any HTTP+SSE API) &rarr; a <strong>type</strong> (its generic <em>envelope</em>: endpoint + headers + body) &rarr; a <strong>provider</strong> (where the schema branches) &rarr; the <strong>field table</strong>. Only <strong>Anthropic</strong> leaves are populated (<code>MessageCreateParams</code>, <code>Message</code>, the SSE event set, the error taxonomy, + shared content-blocks &amp; headers); OpenAI / Gemini / Bedrock&middot;Vertex are visible <span style="color:#8b94a7">not-inventoried</span> branches. Mechanism: each node is a hash-routed pseudo-page (<code>data-llm-*</code>) that declares its nav tab via <code>data-nav</code>; the switcher shows one page at a time and leaves non-section hashes to native scroll. Sources 2&ndash;4 marked <em>pending</em>.</li>
       <li><strong>Workspace demo seed</strong>: added <code>scripts/demos/demo_workspace.py</code> (wired into the offline <code>make demo</code> entrypoint) — the first demo that seeds a real <em>orchestrator + subagents</em> conversation. The existing demos only seed flat <code>role@scenario</code> sessions, so Workspace showed one block per agent; this seeds a nested session tree (<code>orchestrator@ws-demo</code> &rarr; <code>.1</code> researcher &rarr; <code>.1.1</code> web-fetch, and &rarr; <code>.2</code> coder), interleaved in time so the handoffs render as edges and one coder turn returns HTTP 500 to exercise the error-toast feature. Verified through the real backend: one conversation, 4 agents, 6 handoffs, 14 turns, and the tree + timeline render in the UI.</li>
     </ul>
     <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do</div>
@@ -1626,14 +1807,16 @@
 <script>
   (function () {
     var tabs = ['today', 'target', 'roadmap'];
-    // Detail pages live outside the top nav; each maps to the nav tab it belongs under.
-    var detailParent = { 'data-llm': 'target' };
+    function sectionFor(t) { return document.querySelector('section[data-tab="' + (t || '').replace(/"/g, '') + '"]'); }
+    // A "page" is any section: a top-nav tab, or a detail/tree node that declares
+    // which nav tab to highlight via data-nav (default: target).
     function show(t) {
-      if (tabs.indexOf(t) === -1 && !detailParent[t]) t = 'today';
+      if (!sectionFor(t)) t = 'today';
       document.querySelectorAll('section[data-tab]').forEach(function (s) {
         s.classList.toggle('active', s.dataset.tab === t);
       });
-      var navFor = detailParent[t] || t;
+      var sec = sectionFor(t);
+      var navFor = tabs.indexOf(t) !== -1 ? t : ((sec && sec.dataset.nav) || 'target');
       document.querySelectorAll('nav.tabs a').forEach(function (a) {
         a.classList.toggle('active', a.dataset.tab === navFor);
       });
@@ -1646,14 +1829,14 @@
         show(a.dataset.tab);
       });
     });
-    // Hash links navigate between tabs/detail pages; unknown hashes are treated
-    // as in-page anchors (jump-nav) and left to the browser's native scroll.
+    // Hash links navigate between pages; hashes with no matching section are left
+    // to the browser (native in-page anchor scroll).
     window.addEventListener('hashchange', function () {
       var h = (location.hash || '').slice(1);
-      if (tabs.indexOf(h) !== -1 || detailParent[h]) show(h);
+      if (sectionFor(h)) show(h);
     });
     var initial = (location.hash || '#today').slice(1);
-    show(tabs.indexOf(initial) !== -1 || detailParent[initial] ? initial : 'today');
+    show(sectionFor(initial) ? initial : 'today');
   })();
 </script>
 </body>
