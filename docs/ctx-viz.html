@@ -1107,6 +1107,7 @@
           single source we have.
         </p>
         <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">naturally carries: method · endpoint · full context · response text · tool-use requests · token counts · status · latency</div>
+        <div style="margin-top:10px"><a href="#data-llm" style="display:inline-block;font-size:0.82rem;font-weight:600;color:#5ea0ff;text-decoration:none;border:1px solid #2b3a52;background:#131c2b;border-radius:7px;padding:5px 12px">See full field inventory →</a></div>
       </div>
 
       <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #41d1a7;border-radius:10px;padding:14px 18px">
@@ -1126,6 +1127,7 @@
             boundary — what makes it "inter-agent" is a label we add, not a different wire format.</li>
         </ul>
         <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">naturally carries: tool name · arguments · structured result · error state · timing (from the request/response pair)</div>
+        <div style="margin-top:10px;font-size:0.78rem;color:var(--muted)">Field inventory — <em>pending</em></div>
       </div>
 
       <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #b98bff;border-radius:10px;padding:14px 18px">
@@ -1141,6 +1143,7 @@
           together-with-whom</em>.
         </p>
         <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">exists only if the harness cooperates: context ops · recovery · session id · run id · correlation / parent ids · roles</div>
+        <div style="margin-top:10px;font-size:0.78rem;color:var(--muted)">Field inventory — <em>pending</em></div>
       </div>
 
       <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #e3b341;border-radius:10px;padding:14px 18px">
@@ -1153,11 +1156,16 @@
           produces them.
         </p>
         <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">carries: node state · store topology &amp; holdings · pipeline liveness · derived rollups</div>
+        <div style="margin-top:10px;font-size:0.78rem;color:var(--muted)">Field inventory — <em>pending</em></div>
       </div>
 
     </div>
 
-    <h3 style="margin-top:28px">Source 1 · LLM HTTP — full field inventory</h3>
+  </section>
+
+  <section class="tab-content" data-tab="data-llm">
+    <p style="margin-bottom:8px"><a href="#target" style="font-size:0.85rem;font-weight:600;color:#5ea0ff;text-decoration:none">← Back to The Data</a></p>
+    <h2>Source 1 · LLM HTTP — full field inventory</h2>
     <p style="color:var(--muted);font-size:0.9rem">
       The complete contents of the wire, field by field. Scope: the <strong>Anthropic Messages
       API</strong> (<code>POST /v1/messages</code>, <code>anthropic-version: 2023-06-01</code>; newer
@@ -1485,6 +1493,7 @@
       <li><strong>Configurable demo port</strong>: the offline image's host port is now <code>${DASHBOARD_PORT:-5000}</code> (was hard-coded, collided with a live dashboard on <code>:5055</code>) &mdash; <code>DASHBOARD_PORT=5055 make demo</code>. <strong>Verified end-to-end</strong>: image builds from <code>docker/Dockerfile</code>, container boots + seeds, all tab endpoints 200 (Doctor clusters 9 incidents), port override binds a fresh container; 16 unit tests green.</li>
       <li><strong>Docs restructure</strong>: renamed <code>docs/analysis.html</code> &rarr; <code>docs/ctx-viz.html</code> and split it into a tabbed page — <strong>Today</strong> (what it is · features · architecture · repo layout · data · data model), <strong>Target</strong> (layers · architecture target · target repo layout), <strong>Roadmap</strong> (this changelog) — with a sticky top-right nav. Same styling; verified all three tabs render + switch.</li>
       <li><strong>Architecture target diagram</strong> (<em>Target</em> tab): built up the ports-and-adapters SVG step by step — compacted write path (<code>Agents &rarr; Producer &rarr; Collector</code>) into a left column, added the read path as three stacked, left-aligned layers in a right column (<code>Dashboard</code> &rarr; <code>API</code> &rarr; <code>Insights</code>), each rendered as the same eight per-feature tiles (plus a ninth dashed tile for the headless <code>semantic</code> feature in <code>API</code>/<code>Insights</code> only, since it has no frontend tab) — both columns converging on the shared <code>Contract</code> boundary above <code>Adapters</code>/<code>Substrate</code>.</li>
+      <li><strong>&ldquo;The Data&rdquo; section + field-inventory detail pages</strong> (<em>Target</em> tab): documented what an agent run actually produces &mdash; four <em>data-source</em> cards for the natural boundaries where raw material exists (LLM HTTP · MCP · instrumented events · platform signals). The full field-by-field inventory (which was too long to sit inline) moved to a dedicated <em>detail page</em>: a pseudo-tab (<code>data-llm</code>) reached from the source card&rsquo;s &ldquo;See full field inventory&rarr;&rdquo; button, with a &ldquo;&larr; Back to The Data&rdquo; link; the tab switcher now maps detail pages to their parent nav tab and honours hash-link navigation. First inventory complete &mdash; <strong>Source 1 (Anthropic Messages API)</strong>: request/response/streaming/headers/errors/variants, gaps marked <em>NOT INVENTORIED</em>; sources 2&ndash;4 marked <em>pending</em>.</li>
       <li><strong>Workspace demo seed</strong>: added <code>scripts/demos/demo_workspace.py</code> (wired into the offline <code>make demo</code> entrypoint) — the first demo that seeds a real <em>orchestrator + subagents</em> conversation. The existing demos only seed flat <code>role@scenario</code> sessions, so Workspace showed one block per agent; this seeds a nested session tree (<code>orchestrator@ws-demo</code> &rarr; <code>.1</code> researcher &rarr; <code>.1.1</code> web-fetch, and &rarr; <code>.2</code> coder), interleaved in time so the handoffs render as edges and one coder turn returns HTTP 500 to exercise the error-toast feature. Verified through the real backend: one conversation, 4 agents, 6 handoffs, 14 turns, and the tree + timeline render in the UI.</li>
     </ul>
     <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do</div>
@@ -1528,13 +1537,16 @@
 <script>
   (function () {
     var tabs = ['today', 'target', 'roadmap'];
+    // Detail pages live outside the top nav; each maps to the nav tab it belongs under.
+    var detailParent = { 'data-llm': 'target' };
     function show(t) {
-      if (tabs.indexOf(t) === -1) t = 'current';
+      if (tabs.indexOf(t) === -1 && !detailParent[t]) t = 'today';
       document.querySelectorAll('section[data-tab]').forEach(function (s) {
         s.classList.toggle('active', s.dataset.tab === t);
       });
+      var navFor = detailParent[t] || t;
       document.querySelectorAll('nav.tabs a').forEach(function (a) {
-        a.classList.toggle('active', a.dataset.tab === t);
+        a.classList.toggle('active', a.dataset.tab === navFor);
       });
       window.scrollTo(0, 0);
     }
@@ -1544,6 +1556,10 @@
         history.replaceState(null, '', '#' + a.dataset.tab);
         show(a.dataset.tab);
       });
+    });
+    // Hash links (See details / Back) navigate between tabs and detail pages.
+    window.addEventListener('hashchange', function () {
+      show((location.hash || '#today').slice(1));
     });
     show((location.hash || '#today').slice(1));
   })();
