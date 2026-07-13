@@ -1212,11 +1212,13 @@
       <a href="#llm-scope">Scope</a>
     </div>
 
-    <h3 class="invsec" id="llm-types">Message types</h3>
+    <h3 class="invsec" id="llm-types">Message types <span style="color:var(--muted);font-weight:400;font-size:0.8rem">— generic transport shape</span></h3>
     <p style="color:var(--muted);font-size:0.88rem;max-width:74ch;margin-top:0">
-      One interaction is a single HTTP request/response exchange on <code>POST /v1/messages</code>.
-      The messages exchanged fall into four types — the response takes one of two forms depending on
-      the request's <code>stream</code> flag:
+      One interaction is a single HTTP request/response exchange. At the transport level it always
+      has the same four message types — and <strong>this shape is generic</strong>: it is how any
+      HTTP + SSE LLM API works (OpenAI and Gemini exchange the same four), <em>not</em> something
+      specific to Anthropic. The response takes one of two forms depending on the request's
+      <code>stream</code> flag:
     </p>
     <table class="inv">
       <thead><tr><th>#</th><th>message type</th><th>direction</th><th>when</th><th>shape</th></tr></thead>
@@ -1227,6 +1229,13 @@
         <tr><td class="num">4</td><td class="fld">Error</td><td class="ty">API → agent</td><td>on failure</td><td class="carries"><code>Error</code> JSON body with an HTTP 4xx/5xx status — or, mid-stream, an <code>error</code> event</td></tr>
       </tbody>
     </table>
+    <p style="color:#c1c9d6;font-size:0.85rem;max-width:74ch">
+      What makes this <strong>Source 1 = Anthropic</strong> is not the four types above but the
+      <strong>schema of each</strong>: the request's field set, the <code>Message</code> shape, the
+      stream's event names, the error <code>type</code> strings, and the content-block taxonomy — all
+      inventoried below. That is the seam a provider-neutral model maps across: the four transport
+      types stay; the schemas swap per provider.
+    </p>
     <p style="color:var(--muted);font-size:0.85rem;max-width:74ch">
       Two structures are shared across these messages and inventoried once: <a href="#llm-content">content
       blocks</a> (the elements of message content, in both request and response) and
