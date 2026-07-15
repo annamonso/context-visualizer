@@ -1163,7 +1163,7 @@
   </section>
 
   <section class="tab-content" data-tab="data" id="data-sources">
-    <h2>Data sources</h2>
+    <h2>Collected Data</h2>
     <p>
       From the ground up: what an agent run actually produces, and what we make of it. An agent keeps
       <strong>no logbook</strong> — while it runs, its raw material exists only <em>transiently</em>,
@@ -1246,11 +1246,11 @@
 
   </section>
 
-  <!-- ============ Stored data ============ -->
+  <!-- ============ Stored Data ============ -->
   <section class="tab-content" data-tab="data" id="stored-data">
-    <h2>Stored data</h2>
+    <h2>Stored Data</h2>
     <p style="max-width:74ch">
-      <a href="#data">Data sources</a> are what the agents <em>produce</em>. This is what we
+      <a href="#data">Collected Data</a> are what the agents <em>produce</em>. This is what we
       actually <strong>persist</strong>. Everything is written to <strong>ChronoLog</strong> as
       append-only records, grouped into named <em>chronicles</em>. Starting simple — the list of what
       exists today; mapping each store back to the source it comes from (and spotting what we produce
@@ -1276,12 +1276,12 @@
     </p>
   </section>
 
-  <!-- ============ Read data ============ -->
+  <!-- ============ Served Data ============ -->
   <section class="tab-content" data-tab="data" id="read-data">
-    <h2>Read data</h2>
+    <h2>Served Data</h2>
     <p style="max-width:74ch">
-      <a href="#data">Data sources</a> = what agents produce; <a href="#data">Stored data</a> =
-      what we persist. <strong>Read data</strong> is what each <em>feature</em> consumes. One card per
+      <a href="#data">Collected Data</a> = what agents produce; <a href="#data">Stored Data</a> =
+      what we persist. <strong>Served Data</strong> is what each <em>feature</em> consumes. One card per
       feature that reads; open it for that feature's <strong>ideal read model</strong> &mdash; the shape
       the data wants for the feature to work, independent of what is stored today. (Playground generates
       traffic: it writes rather than reads.)
@@ -1311,9 +1311,9 @@
     </div>
   </section>
 
-  <!-- Read-data feature detail pages -->
+  <!-- Served-data feature detail pages -->
   <section class="tab-content" data-tab="data-read-runs" data-nav="data">
-    <div class="crumb"><a href="#data">Read data</a><span class="sep">›</span><span class="here">Runs</span></div>
+    <div class="crumb"><a href="#data">Served Data</a><span class="sep">›</span><span class="here">Runs</span></div>
     <h2>Runs · ideal read model</h2>
     <div class="glance">Run&nbsp; ›&nbsp; Agent<span class="rep">*</span>&nbsp; ›&nbsp; Turn<span class="rep">*</span>&nbsp; ›&nbsp; Call<span class="rep">*</span> &nbsp;&nbsp;<span class="rep">( * = repeats; a Call may point back to a child Agent — that edge is both the tree and the trace )</span></div>
 
@@ -1385,26 +1385,26 @@
   </section>
 
   <section class="tab-content" data-tab="data-read-doctor" data-nav="data">
-    <div class="crumb"><a href="#data">Read data</a><span class="sep">›</span><span class="here">Doctor</span></div>
+    <div class="crumb"><a href="#data">Served Data</a><span class="sep">›</span><span class="here">Doctor</span></div>
     <h2>Doctor · ideal read model</h2>
     <p style="color:var(--muted);font-size:0.86rem;max-width:74ch">Ideal read model &mdash; <em>pending</em>.</p>
   </section>
 
   <section class="tab-content" data-tab="data-read-infra" data-nav="data">
-    <div class="crumb"><a href="#data">Read data</a><span class="sep">›</span><span class="here">Infrastructure</span></div>
+    <div class="crumb"><a href="#data">Served Data</a><span class="sep">›</span><span class="here">Infrastructure</span></div>
     <h2>Infrastructure · ideal read model</h2>
     <p style="color:var(--muted);font-size:0.86rem;max-width:74ch">Ideal read model &mdash; <em>pending</em>.</p>
   </section>
 
   <section class="tab-content" data-tab="data-read-usage" data-nav="data">
-    <div class="crumb"><a href="#data">Read data</a><span class="sep">›</span><span class="here">Usage</span></div>
+    <div class="crumb"><a href="#data">Served Data</a><span class="sep">›</span><span class="here">Usage</span></div>
     <h2>Usage · ideal read model</h2>
     <p style="color:var(--muted);font-size:0.86rem;max-width:74ch">Ideal read model &mdash; <em>pending</em>.</p>
   </section>
 
   <!-- ============ LEVEL 2 · LLM interactions (source landing) ============ -->
   <section class="tab-content" data-tab="data-llm" data-nav="data">
-    <div class="crumb"><a href="#data">Data sources</a><span class="sep">›</span><span class="here">LLM interactions</span></div>
+    <div class="crumb"><a href="#data">Collected Data</a><span class="sep">›</span><span class="here">LLM interactions</span></div>
     <h2>Source 1 · LLM interactions</h2>
     <p style="color:#c1c9d6;font-size:0.9rem;max-width:74ch">
       The HTTP traffic between an agent and its LLM provider. One interaction is a single HTTP
@@ -1472,7 +1472,7 @@
 
   <!-- ============ LEVEL 3 · Request (type) ============ -->
   <section class="tab-content" data-tab="data-llm-request" data-nav="data">
-    <div class="crumb"><a href="#data">Data sources</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><span class="here">Request</span></div>
+    <div class="crumb"><a href="#data">Collected Data</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><span class="here">Request</span></div>
     <h2>Request <span style="color:var(--muted);font-weight:400;font-size:0.85rem">— generic envelope</span></h2>
     <p style="color:#c1c9d6;font-size:0.88rem;max-width:74ch">
       The message the agent sends to start a turn. Every HTTP LLM request has the same three parts —
@@ -1506,7 +1506,7 @@
 
   <!-- ---- LEVEL 4 · Request · Anthropic (leaf) ---- -->
   <section class="tab-content" data-tab="data-llm-request-anthropic" data-nav="data">
-    <div class="crumb"><a href="#data">Data sources</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><a href="#data-llm-request">Request</a><span class="sep">›</span><span class="here">Anthropic</span></div>
+    <div class="crumb"><a href="#data">Collected Data</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><a href="#data-llm-request">Request</a><span class="sep">›</span><span class="here">Anthropic</span></div>
     <h2>Anthropic · Request body — <code>MessageCreateParams</code></h2>
     <div class="envelope">
       <div class="er"><span class="ek">endpoint</span><span class="ev"><code>POST /v1/messages</code></span></div>
@@ -1540,7 +1540,7 @@
 
   <!-- ============ LEVEL 3 · Response · Message (type) ============ -->
   <section class="tab-content" data-tab="data-llm-response" data-nav="data">
-    <div class="crumb"><a href="#data">Data sources</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><span class="here">Response · Message</span></div>
+    <div class="crumb"><a href="#data">Collected Data</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><span class="here">Response · Message</span></div>
     <h2>Response · Message <span style="color:var(--muted);font-weight:400;font-size:0.85rem">— generic envelope</span></h2>
     <p style="color:#c1c9d6;font-size:0.88rem;max-width:74ch">
       The reply as a single JSON body (returned when the request set <code>stream: false</code>).
@@ -1574,7 +1574,7 @@
 
   <!-- ---- LEVEL 4 · Response · Anthropic (leaf) ---- -->
   <section class="tab-content" data-tab="data-llm-response-anthropic" data-nav="data">
-    <div class="crumb"><a href="#data">Data sources</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><a href="#data-llm-response">Response · Message</a><span class="sep">›</span><span class="here">Anthropic</span></div>
+    <div class="crumb"><a href="#data">Collected Data</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><a href="#data-llm-response">Response · Message</a><span class="sep">›</span><span class="here">Anthropic</span></div>
     <h2>Anthropic · Response body — <code>Message</code></h2>
     <p style="color:var(--muted);font-size:0.85rem;margin-top:0">The JSON body returned when <code>stream: false</code>. Fields:</p>
     <table class="inv">
@@ -1595,7 +1595,7 @@
 
   <!-- ============ LEVEL 3 · Response · event stream (type) ============ -->
   <section class="tab-content" data-tab="data-llm-stream" data-nav="data">
-    <div class="crumb"><a href="#data">Data sources</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><span class="here">Response · event stream</span></div>
+    <div class="crumb"><a href="#data">Collected Data</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><span class="here">Response · event stream</span></div>
     <h2>Response · event stream <span style="color:var(--muted);font-weight:400;font-size:0.85rem">— generic envelope</span></h2>
     <p style="color:#c1c9d6;font-size:0.88rem;max-width:74ch">
       The reply delivered incrementally (returned when the request set <code>stream: true</code>).
@@ -1629,7 +1629,7 @@
 
   <!-- ---- LEVEL 4 · Stream · Anthropic (leaf) ---- -->
   <section class="tab-content" data-tab="data-llm-stream-anthropic" data-nav="data">
-    <div class="crumb"><a href="#data">Data sources</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><a href="#data-llm-stream">Response · event stream</a><span class="sep">›</span><span class="here">Anthropic</span></div>
+    <div class="crumb"><a href="#data">Collected Data</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><a href="#data-llm-stream">Response · event stream</a><span class="sep">›</span><span class="here">Anthropic</span></div>
     <h2>Anthropic · Stream — SSE event set</h2>
     <p style="color:var(--muted);font-size:0.85rem;max-width:74ch;margin-top:0">
       An ordered sequence of typed events that assemble into the same <code>Message</code> as the
@@ -1656,7 +1656,7 @@
 
   <!-- ============ LEVEL 3 · Error (type) ============ -->
   <section class="tab-content" data-tab="data-llm-error" data-nav="data">
-    <div class="crumb"><a href="#data">Data sources</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><span class="here">Error</span></div>
+    <div class="crumb"><a href="#data">Collected Data</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><span class="here">Error</span></div>
     <h2>Error <span style="color:var(--muted);font-weight:400;font-size:0.85rem">— generic envelope</span></h2>
     <p style="color:#c1c9d6;font-size:0.88rem;max-width:74ch">
       A response with a failure status, returned instead of a Message. Generic envelope:
@@ -1689,7 +1689,7 @@
 
   <!-- ---- LEVEL 4 · Error · Anthropic (leaf) ---- -->
   <section class="tab-content" data-tab="data-llm-error-anthropic" data-nav="data">
-    <div class="crumb"><a href="#data">Data sources</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><a href="#data-llm-error">Error</a><span class="sep">›</span><span class="here">Anthropic</span></div>
+    <div class="crumb"><a href="#data">Collected Data</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><a href="#data-llm-error">Error</a><span class="sep">›</span><span class="here">Anthropic</span></div>
     <h2>Anthropic · Error</h2>
     <p style="color:var(--muted);font-size:0.85rem;margin-top:0">Body: <code>{"type":"error","error":{"type","message"},"request_id"}</code>, with an HTTP status. Types by status:</p>
     <table class="inv">
@@ -1709,7 +1709,7 @@
 
   <!-- ---- SHARED · Content blocks ---- -->
   <section class="tab-content" data-tab="data-llm-content" data-nav="data">
-    <div class="crumb"><a href="#data">Data sources</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><span class="here">Content blocks</span></div>
+    <div class="crumb"><a href="#data">Collected Data</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><span class="here">Content blocks</span></div>
     <h2>Content blocks <span style="color:var(--muted);font-weight:400;font-size:0.85rem">— Anthropic schema</span></h2>
     <p style="color:var(--muted);font-size:0.85rem;max-width:74ch;margin-top:0">
       A shared sub-structure: the <code>content</code> of a request message
@@ -1736,7 +1736,7 @@
 
   <!-- ---- SHARED · Headers ---- -->
   <section class="tab-content" data-tab="data-llm-headers" data-nav="data">
-    <div class="crumb"><a href="#data">Data sources</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><span class="here">Headers</span></div>
+    <div class="crumb"><a href="#data">Collected Data</a><span class="sep">›</span><a href="#data-llm">LLM interactions</a><span class="sep">›</span><span class="here">Headers</span></div>
     <h2>Headers <span style="color:var(--muted);font-weight:400;font-size:0.85rem">— Anthropic values</span></h2>
     <p style="color:var(--muted);font-size:0.85rem;max-width:74ch;margin-top:0">
       HTTP envelope metadata present on every exchange. The slots (auth, versioning, rate-limit) are
@@ -1964,6 +1964,7 @@
       <li><strong>&ldquo;Data sources&rdquo; section + drill-down data map</strong> (<em>Target</em> tab): documented what an agent run actually produces &mdash; four <em>data-source</em> cards (LLM HTTP · MCP · instrumented events · platform signals). Source 1 is built as a <strong>nested drill-down tree</strong> (breadcrumb navigation, one focused page per level), not a flat inventory, so the layers of the data are explicit and adding a provider later is a localised edit. Path: <em>Data sources</em> &rarr; <strong>LLM interactions</strong> (the 4 generic message types &mdash; request / response&nbsp;Message / response event-stream / error, the same for any HTTP+SSE API) &rarr; a <strong>type</strong> (its generic <em>envelope</em>: endpoint + headers + body) &rarr; a <strong>provider</strong> (where the schema branches) &rarr; the <strong>field table</strong>. Only <strong>Anthropic</strong> leaves are populated (<code>MessageCreateParams</code>, <code>Message</code>, the SSE event set, the error taxonomy, + shared content-blocks &amp; headers); OpenAI / Gemini / Bedrock&middot;Vertex are visible <span style="color:#8b94a7">not-inventoried</span> branches. Mechanism: each node is a hash-routed pseudo-page (<code>data-llm-*</code>) that declares its nav tab via <code>data-nav</code>; the switcher shows one page at a time and leaves non-section hashes to native scroll. Sources 2&ndash;4 marked <em>pending</em>.</li>
       <li><strong>&ldquo;Stored data&rdquo; section</strong> (<em>Target</em> tab, after Data sources): the counterpart to the sources &mdash; what we actually <em>persist</em> vs what agents produce. A simple table of every ChronoLog chronicle (grounded in <code>backend/chronolog/constants.py</code>): <code>llm_interactions</code> · <code>context_graphs</code> · <code>recovery_events</code> · <code>ia_&lt;scenario&gt;</code> edges (<em>collected</em>), <code>metrics_rollup</code> (<em>derived</em>), <code>checkpoints</code> (<em>dormant</em> &mdash; never written today), <code>__index__</code> (<em>housekeeping</em>). First pass; mapping each store back to its source comes next.</li>
       <li><strong>Workspace demo seed</strong>: added <code>scripts/demos/demo_workspace.py</code> (wired into the offline <code>make demo</code> entrypoint) — the first demo that seeds a real <em>orchestrator + subagents</em> conversation. The existing demos only seed flat <code>role@scenario</code> sessions, so Workspace showed one block per agent; this seeds a nested session tree (<code>orchestrator@ws-demo</code> &rarr; <code>.1</code> researcher &rarr; <code>.1.1</code> web-fetch, and &rarr; <code>.2</code> coder), interleaved in time so the handoffs render as edges and one coder turn returns HTTP 500 to exercise the error-toast feature. Verified through the real backend: one conversation, 4 agents, 6 handoffs, 14 turns, and the tree + timeline render in the UI.</li>
+      <li><strong>Target tab split &rarr; Overview · Architecture · Data</strong>: the single <em>Target</em> tab was broken into three top-nav tabs — <strong>Overview</strong> (what it is · features · layers), <strong>Architecture</strong> (architecture target · repo layout), <strong>Data</strong> (the data map). The <strong>Data</strong> tab opens with a pipeline overview — a three-block <em>Collect &rarr; Store &rarr; Serve</em> diagram — then three sections renamed to match: <strong>Collected Data</strong> (what agents produce — the drill-down source tree), <strong>Stored Data</strong> (ChronoLog chronicles), <strong>Served Data</strong> (one clickable card per read feature; the <em>Runs</em> card drills into the ideal <code>Run &rarr; Agent &rarr; Turn &rarr; Call</code> read model). Breadcrumb roots and cross-links updated to the new names; verified tabs + drill-down pages render and the nav highlights correctly.</li>
     </ul>
     <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do</div>
     <ul style="font-size:0.88rem">
