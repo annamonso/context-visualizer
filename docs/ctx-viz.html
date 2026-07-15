@@ -2235,7 +2235,9 @@
       (0&ndash;7), plus one <strong>cross-cutting track</strong> (the ChronoLog read path) that runs
       alongside them. The order is logical, not a schedule: <em>when and how</em> each phase is worked
       (and what runs in parallel) is a separate conversation. Each phase has its own section below;
-      anything that does not sit inside a single phase is gathered in <em>Others / TBD</em>.
+      anything that does not sit inside a single phase is gathered in <em>Others / TBD</em>. Each phase
+      carries its own progress inline (<span style="color:#9fd356;font-weight:700">&#10003; done</span>
+      &middot; <span style="color:#e3b341;font-weight:700">&#9675; to&nbsp;do</span>).
     </p>
     <div style="display:grid;gap:9px;margin-top:16px;font-size:0.9rem">
       <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">0</span><span><strong>Alignment</strong> <span style="color:var(--muted)">· agree direction &amp; settle decisions</span> <span style="color:#8b94a7;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">this&nbsp;meeting</span></span></div>
@@ -2279,6 +2281,12 @@
       <li>Each open decision is resolved or has an owner.</li>
       <li>The phase sequence is agreed, with scope and owners.</li>
     </ul>
+
+    <div style="font-weight:700;color:#8b94a7;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:20px 0 6px;border-top:1px solid #20262f;padding-top:14px">Progress</div>
+    <div style="color:#9fd356;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:8px 0 4px">&#10003; Done</div>
+    <ul style="font-size:0.88rem">
+      <li>This analysis document itself, as the alignment artifact: the tabbed <code>ctx-viz.html</code> (<em>Today · Overview · Architecture · Data · Roadmap</em>), the Architecture <em>Overview</em> + the ports-and-adapters diagram (read column redrawn to the 4 consolidated features), and this phased Roadmap. The material to walk in the meeting is built.</li>
+    </ul>
   </section>
 
   <section class="tab-content" data-tab="roadmap">
@@ -2312,6 +2320,16 @@
       <li>The canonical event schema is documented in the <em>Data</em> tab (the write-side counterpart to the Served read models).</li>
       <li>Each of the four read models maps to it field-by-field.</li>
       <li>It is agreed as the contract to implement (Phase 2) and eventually freeze (Phase 7).</li>
+    </ul>
+
+    <div style="font-weight:700;color:#8b94a7;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:20px 0 6px;border-top:1px solid #20262f;padding-top:14px">Progress</div>
+    <div style="color:#9fd356;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:8px 0 4px">&#10003; Done</div>
+    <ul style="font-size:0.88rem">
+      <li>Landed the <em>Data</em> tab this design will complete: the <em>Collect &rarr; Store &rarr; Serve</em> pipeline overview, <strong>Collected Data</strong> (the source drill-down &mdash; LLM interactions &rarr; type &rarr; provider &rarr; field tables, Anthropic populated; sources 2&ndash;4 pending), <strong>Stored Data</strong> (the ChronoLog chronicles, grounded in <code>constants.py</code>), and <strong>Served Data</strong> &mdash; all unified onto one card format.</li>
+    </ul>
+    <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:10px 0 4px">&#9675; To do</div>
+    <ul style="font-size:0.88rem">
+      <li>The design itself &mdash; the canonical records, the identities, and the projection proof (the three parts above); land the write-side event schema next to the Served read models in the Data tab.</li>
     </ul>
   </section>
 
@@ -2358,6 +2376,21 @@
       <li>The emitted records carry the read-model identities from Phase 1.</li>
       <li>The app still runs end-to-end (offline + online) and tests are green; pointing the sink at a local / JSONL adapter works.</li>
     </ul>
+
+    <div style="font-weight:700;color:#8b94a7;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:20px 0 6px;border-top:1px solid #20262f;padding-top:14px">Progress</div>
+    <div style="color:#9fd356;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:8px 0 4px">&#10003; Done <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(groundwork)</span></div>
+    <ul style="font-size:0.88rem">
+      <li>ChronoLog client integration hardened (<code>client.py</code>): <strong>writer-only</strong> client, <strong>archive-first reads</strong>, double-checked-locking singleton, <code>CreateChronicle</code> / <code>AcquireStory</code> arg-drift shims.</li>
+      <li><a href="https://github.com/grc-iit/chronolog/issues/692">#692</a> &mdash; write-path SIGSEGV fixed (<code>ChronologClientImpl</code> reference-counted, no double-free in <code>~Client()</code>/<code>Disconnect()</code>) &middot; <code>9f3d1b0b</code>.</li>
+      <li>Permanent <code>ctx-viz-capture</code> service drains the Path-A spool every ~5&nbsp;s; drain latency tuned ~180&ndash;420&nbsp;s &rarr; ~20&ndash;40&nbsp;s (grapher <code>story_chunk_duration_secs</code> 60&rarr;20); <code>drain_window_sec</code> made env-driven.</li>
+      <li>Repo-layout cleanup: <code>src/chronolog_observability/</code> &rarr; <code>backend/</code> and the inner access layer &rarr; <code>backend/chronolog/</code> (the single write door already lives in one folder); root decluttered into <code>docker/</code> + <code>docs/</code>.</li>
+      <li>Operational hardening of the offline / live stack: Dockerized <code>ctx-viz</code> stack (visor / keepers / grapher / player + dashboard + capture), self-heal restart policy, configurable demo port, debug scaffolding removed.</li>
+    </ul>
+    <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:10px 0 4px">&#9675; To do</div>
+    <ul style="font-size:0.88rem">
+      <li>The seam / structure / emit work above (<code>EventSink</code>, <code>producer/</code> vs <code>collector/</code>, canonical records).</li>
+      <li>Capture worker <strong>auto-reconnect</strong> on client connection loss (survive cluster restarts; today it hits <code>AcquireStory&nbsp;-3</code> until bounced).</li>
+    </ul>
   </section>
 
   <section class="tab-content" data-tab="roadmap">
@@ -2380,6 +2413,13 @@
     <ul style="font-size:0.9rem">
       <li>The Runs view renders from <code>compute</code> (a projection); the old scraping path for it is gone; <code>insights/runs</code> is the template the next verticals follow.</li>
     </ul>
+
+    <div style="font-weight:700;color:#8b94a7;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:20px 0 6px;border-top:1px solid #20262f;padding-top:14px">Progress</div>
+    <div style="color:#9fd356;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:8px 0 4px">&#10003; Done</div>
+    <ul style="font-size:0.88rem">
+      <li>The <em>Runs</em> ideal read model designed (<em>Run &rarr; Agent &rarr; Turn &rarr; Call</em>: box containment schema + per-entity field tables) &mdash; the target this vertical realizes.</li>
+      <li><strong>Workspace demo seed</strong> (<code>scripts/demos/demo_workspace.py</code>): the first orchestrator + subagents conversation (nested session tree, interleaved handoffs, one failed turn), verified end-to-end through the real backend.</li>
+    </ul>
   </section>
 
   <section class="tab-content" data-tab="roadmap">
@@ -2399,6 +2439,12 @@
     <div style="font-weight:700;color:#9fd356;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Done when</div>
     <ul style="font-size:0.9rem">
       <li>Incidents persist across scans (a stable <code>signature</code>), open into the runs that caused them, and the <code>insights/doctor</code> slice is in place.</li>
+    </ul>
+
+    <div style="font-weight:700;color:#8b94a7;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:20px 0 6px;border-top:1px solid #20262f;padding-top:14px">Progress</div>
+    <div style="color:#9fd356;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:8px 0 4px">&#10003; Done</div>
+    <ul style="font-size:0.88rem">
+      <li>The <em>Doctor</em> ideal read model designed, built around the durable <strong>Incident</strong> (stable <code>incident_id</code>, a <code>status</code> lifecycle, clustered <em>Signals</em>, one <em>Diagnosis</em>, <code>runs[] &rarr; Runs</code>; <em>Scan</em> demoted to a thin envelope), grounded in <code>diagnostics/{incidents,detectors,diagnoser,scan}.py</code>.</li>
     </ul>
   </section>
 
@@ -2420,6 +2466,12 @@
     <ul style="font-size:0.9rem">
       <li>Fleet + cluster + pipeline render from one snapshot model; the topology port is defined; the <code>insights/infrastructure</code> slice is in place.</li>
     </ul>
+
+    <div style="font-weight:700;color:#8b94a7;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:20px 0 6px;border-top:1px solid #20262f;padding-top:14px">Progress</div>
+    <div style="color:#9fd356;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:8px 0 4px">&#10003; Done</div>
+    <ul style="font-size:0.88rem">
+      <li>The <em>Infrastructure</em> ideal read model designed as a <strong>Cluster</strong> snapshot (<em>Node</em>&times;many + <em>Store</em> + <em>Pipeline</em>), grounded in <code>fleet/rollup.py</code> · <code>fleet/store.py</code> · <code>api/chronolog_view.py</code> (node health from <code>metrics_rollup</code>; <em>Store</em> + allocation from the topology port).</li>
+    </ul>
   </section>
 
   <section class="tab-content" data-tab="roadmap">
@@ -2440,6 +2492,12 @@
     <ul style="font-size:0.9rem">
       <li>Usage rolls up from the <em>Turn</em> samples (no separate capture); the <code>insights/usage</code> slice is in place &mdash; all four read features are now realized.</li>
     </ul>
+
+    <div style="font-weight:700;color:#8b94a7;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:20px 0 6px;border-top:1px solid #20262f;padding-top:14px">Progress</div>
+    <div style="color:#9fd356;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:8px 0 4px">&#10003; Done</div>
+    <ul style="font-size:0.88rem">
+      <li>The <em>Usage</em> ideal read model designed as a re-aggregation ledger (<em>Slice</em> / <em>Series</em> / <em>ContextWindow</em>), grounded in <code>analysis/context_graph.py</code> + the interaction metrics; every figure rolls up from the per-turn <em>Turn</em> samples.</li>
+    </ul>
   </section>
 
   <section class="tab-content" data-tab="roadmap">
@@ -2454,6 +2512,12 @@
     <ul style="font-size:0.9rem">
       <li><code>producer/</code> ships as the <code>chrono-agent</code> plugin; the app consumes it instead of its own producer code; the frozen contract is the Phase 1 schema.</li>
     </ul>
+
+    <div style="font-weight:700;color:#8b94a7;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:20px 0 6px;border-top:1px solid #20262f;padding-top:14px">Progress</div>
+    <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:8px 0 4px">&#9675; To do</div>
+    <ul style="font-size:0.88rem">
+      <li><a href="https://github.com/grc-iit/chronolog/issues/688">#688</a> &mdash; the <code>chrono-agent</code> plugin: transparent Path-A capture that formalizes the spool + drain the app hand-rolls today. The groundwork (the producer boundary + event schema) is Phases 1&ndash;2; the write API itself is otherwise solid, no outstanding write bugs.</li>
+    </ul>
   </section>
 
   <section class="tab-content" data-tab="roadmap">
@@ -2464,8 +2528,23 @@
     </p>
 
     <div style="font-weight:700;color:#e3b341;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Cross-cutting track &middot; ChronoLog read path</div>
-    <ul style="font-size:0.9rem">
-      <li><strong>Range-query performance, tail / recent reads, topology / health API</strong> &mdash; needed for the read verticals (Phases 3&ndash;6) to read live without CSV scraping or the in-process hot store. Runs in parallel with the app phases; the detailed to-do is in the Work log below.</li>
+    <p style="color:var(--muted);font-size:0.86rem;max-width:78ch;margin:2px 0 8px">
+      Runs in parallel with the app phases; the read verticals (3&ndash;6) depend on it to read live without CSV
+      scraping or the in-process hot store. Most ChronoLog bugs we hit were read-path or client-lifecycle.
+    </p>
+    <div style="color:#9fd356;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:8px 0 4px">&#10003; Done <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(fixed on <code>ctx-viz-integration</code>, verified)</span></div>
+    <ul style="font-size:0.88rem">
+      <li><a href="https://github.com/grc-iit/chronolog/issues/689">#689</a> &mdash; <code>AcquireStory</code> reports success only when a reader actually registers (was <code>-5</code>) &middot; <code>63121f3f</code>.</li>
+      <li><a href="https://github.com/grc-iit/chronolog/issues/690">#690</a> &mdash; concurrent <code>ReplayStory</code> made thread-safe (was SIGSEGV) &middot; <code>9981a6a3</code>.</li>
+      <li>Player no longer drops archive reads with <code>startTime==0</code> &middot; <code>4871754d</code>.</li>
+      <li><code>ReplayStory</code> visibility-window / callback-threading docs &middot; <code>dc903e86</code>.</li>
+    </ul>
+    <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:10px 0 4px">&#9675; To do <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(new issues to file)</span></div>
+    <ul style="font-size:0.88rem">
+      <li><strong>Range-query performance</strong> &mdash; <code>ReplayStory</code> is ~3&nbsp;s/call and serializes; unusable for a live reader (vs ~1&ndash;4&nbsp;ms for the CSV archive).</li>
+      <li><strong>Tail / recent reads</strong> &mdash; a cheap &ldquo;last N / since HWM&rdquo; so live views need neither drained data nor a hot store.</li>
+      <li><strong>Topology / health API</strong> &mdash; <code>ShowKeepers</code> / <code>GetTopology</code> instead of parsing CSV filenames to discover keepers (feeds Phase 5's topology port).</li>
+      <li>App follow-ups once the above land: drop the <code>__index__</code> enumeration trick (use <code>ShowChronicles</code> / <code>ShowStories</code>, already fast); retire CSV scraping + the in-process hot store.</li>
     </ul>
 
     <div style="font-weight:700;color:#e9c66f;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Open decisions (settled in Phase 0, then become work)</div>
@@ -2477,84 +2556,8 @@
 
     <div style="font-weight:700;color:#8b94a7;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Not yet slotted</div>
     <ul style="font-size:0.9rem">
-      <li style="color:var(--muted)">Anything that comes up and does not fit a phase lands here first, to be triaged into a phase later.</li>
-    </ul>
-  </section>
-
-  <section class="tab-content" data-tab="roadmap">
-    <h2>Work log <span style="color:var(--muted);font-weight:400;font-size:0.9rem">(detailed status)</span></h2>
-    <p style="color:var(--muted);font-size:0.9rem;max-width:78ch">
-      What has changed so far, split by where the change lives: the dashboard app, the ChronoLog
-      <em>read</em> path, and the ChronoLog <em>write</em> path. Legend:
-      <span style="color:#9fd356;font-weight:700">&#10003; done</span> &middot;
-      <span style="color:#e3b341;font-weight:700">&#9675; to&nbsp;do</span>.
-      Note: most of the ChronoLog bugs we hit were <em>read-path or client-lifecycle</em>; the
-      write API itself was solid.
-    </p>
-
-    <h4 style="color:#5ea0ff">1 &middot; ctx-viz (dashboard app)</h4>
-    <div style="color:#9fd356;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#10003; Done</div>
-    <ul style="font-size:0.88rem">
-      <li>Client-integration fixes in <code>client.py</code>: arg-drift shims (<code>CreateChronicle</code>/<code>AcquireStory</code>), <strong>writer-only</strong> client, double-checked-locking singleton, <strong>archive-first reads</strong>.</li>
-      <li>Dockerized <code>ctx-viz</code> stack (Portainer): visor / keeper / grapher / player + dashboard + capture; shared volume; hostnames aligned to container names (<code>ctx-viz-*</code>).</li>
-      <li>Permanent <code>ctx-viz-capture</code> service — drains the Path-A spool every 5&nbsp;s so <strong>Workspace auto-populates</strong>.</li>
-      <li>Self-heal restart policy on the dashboard; stale demo data cleared; consistent <code>ctx-viz-*</code> naming everywhere.</li>
-      <li>Debug scaffolding removed (core dumps / ptrace) &rarr; clean compose; <code>drain_window_sec</code> made env-driven.</li>
-      <li>Drain latency tuned from ~180&ndash;420&nbsp;s down to ~20&ndash;40&nbsp;s (grapher <code>story_chunk_duration_secs</code> 60&rarr;20).</li>
-      <li><strong>Repo-layout cleanup (step 1)</strong>: moved the Python package <code>src/chronolog_observability/</code> &rarr; <code>backend/</code> (so the root reads <code>frontend/</code> + <code>backend/</code>) and renamed the inner ChronoLog-access layer &rarr; <code>backend/chronolog/</code>. Entry points, Docker, Vite, scripts, tests &amp; docs updated; app + 16 tests green. Committed &amp; pushed on <code>experiment/repo-structure</code>.</li>
-      <li><strong>Repo-layout cleanup (step 2)</strong>: decluttered the repo root into <code>docker/</code> (Dockerfile, compose, entrypoint, README) and <code>docs/</code> (this file + ANALYSIS / FEATURES / MIGRATION); <code>README.md</code> and <code>.dockerignore</code> stay at root by necessity (landing page; Docker reads <code>.dockerignore</code> only from the build-context root). Compose build context re-pointed to the root; added <code>make demo</code> / <code>demo-down</code> / <code>demo-reseed</code> wrappers.</li>
-      <li><strong>Configurable demo port</strong>: the offline image's host port is now <code>${DASHBOARD_PORT:-5000}</code> (was hard-coded, collided with a live dashboard on <code>:5055</code>) &mdash; <code>DASHBOARD_PORT=5055 make demo</code>. <strong>Verified end-to-end</strong>: image builds from <code>docker/Dockerfile</code>, container boots + seeds, all tab endpoints 200 (Doctor clusters 9 incidents), port override binds a fresh container; 16 unit tests green.</li>
-      <li><strong>Docs restructure</strong>: renamed <code>docs/analysis.html</code> &rarr; <code>docs/ctx-viz.html</code> and split it into a tabbed page — <strong>Today</strong> (what it is · features · architecture · repo layout · data · data model), <strong>Target</strong> (layers · architecture target · target repo layout), <strong>Roadmap</strong> (this changelog) — with a sticky top-right nav. Same styling; verified all three tabs render + switch.</li>
-      <li><strong>Architecture target diagram</strong> (<em>Target</em> tab): built up the ports-and-adapters SVG step by step — compacted write path (<code>Agents &rarr; Producer &rarr; Collector</code>) into a left column, added the read path as three stacked, left-aligned layers in a right column (<code>Dashboard</code> &rarr; <code>API</code> &rarr; <code>Insights</code>), each rendered as the same eight per-feature tiles (plus a ninth dashed tile for the headless <code>semantic</code> feature in <code>API</code>/<code>Insights</code> only, since it has no frontend tab) — both columns converging on the shared <code>Contract</code> boundary above <code>Adapters</code>/<code>Substrate</code>.</li>
-      <li><strong>&ldquo;Data sources&rdquo; section + drill-down data map</strong> (<em>Target</em> tab): documented what an agent run actually produces &mdash; four <em>data-source</em> cards (LLM HTTP · MCP · instrumented events · platform signals). Source 1 is built as a <strong>nested drill-down tree</strong> (breadcrumb navigation, one focused page per level), not a flat inventory, so the layers of the data are explicit and adding a provider later is a localised edit. Path: <em>Data sources</em> &rarr; <strong>LLM interactions</strong> (the 4 generic message types &mdash; request / response&nbsp;Message / response event-stream / error, the same for any HTTP+SSE API) &rarr; a <strong>type</strong> (its generic <em>envelope</em>: endpoint + headers + body) &rarr; a <strong>provider</strong> (where the schema branches) &rarr; the <strong>field table</strong>. Only <strong>Anthropic</strong> leaves are populated (<code>MessageCreateParams</code>, <code>Message</code>, the SSE event set, the error taxonomy, + shared content-blocks &amp; headers); OpenAI / Gemini / Bedrock&middot;Vertex are visible <span style="color:#8b94a7">not-inventoried</span> branches. Mechanism: each node is a hash-routed pseudo-page (<code>data-llm-*</code>) that declares its nav tab via <code>data-nav</code>; the switcher shows one page at a time and leaves non-section hashes to native scroll. Sources 2&ndash;4 marked <em>pending</em>.</li>
-      <li><strong>&ldquo;Stored data&rdquo; section</strong> (<em>Target</em> tab, after Data sources): the counterpart to the sources &mdash; what we actually <em>persist</em> vs what agents produce. A simple table of every ChronoLog chronicle (grounded in <code>backend/chronolog/constants.py</code>): <code>llm_interactions</code> · <code>context_graphs</code> · <code>recovery_events</code> · <code>ia_&lt;scenario&gt;</code> edges (<em>collected</em>), <code>metrics_rollup</code> (<em>derived</em>), <code>checkpoints</code> (<em>dormant</em> &mdash; never written today), <code>__index__</code> (<em>housekeeping</em>). First pass; mapping each store back to its source comes next.</li>
-      <li><strong>Workspace demo seed</strong>: added <code>scripts/demos/demo_workspace.py</code> (wired into the offline <code>make demo</code> entrypoint) — the first demo that seeds a real <em>orchestrator + subagents</em> conversation. The existing demos only seed flat <code>role@scenario</code> sessions, so Workspace showed one block per agent; this seeds a nested session tree (<code>orchestrator@ws-demo</code> &rarr; <code>.1</code> researcher &rarr; <code>.1.1</code> web-fetch, and &rarr; <code>.2</code> coder), interleaved in time so the handoffs render as edges and one coder turn returns HTTP 500 to exercise the error-toast feature. Verified through the real backend: one conversation, 4 agents, 6 handoffs, 14 turns, and the tree + timeline render in the UI.</li>
-      <li><strong>Target tab split &rarr; Overview · Architecture · Data</strong>: the single <em>Target</em> tab was broken into three top-nav tabs — <strong>Overview</strong> (what it is · features · layers), <strong>Architecture</strong> (architecture target · repo layout), <strong>Data</strong> (the data map). The <strong>Data</strong> tab opens with a pipeline overview — a three-block <em>Collect &rarr; Store &rarr; Serve</em> diagram — then three sections renamed to match: <strong>Collected Data</strong> (what agents produce — the drill-down source tree), <strong>Stored Data</strong> (ChronoLog chronicles), <strong>Served Data</strong> (one clickable card per read feature; the <em>Runs</em> card drills into the ideal <code>Run &rarr; Agent &rarr; Turn &rarr; Call</code> read model). Breadcrumb roots and cross-links updated to the new names; verified tabs + drill-down pages render and the nav highlights correctly.</li>
-      <li><strong>Unified the three Data-tab sections onto one card format</strong>: <strong>Collected</strong>, <strong>Stored</strong> and <strong>Served Data</strong> now all read <em>title &rarr; short intro &rarr; grid of cards</em> (the <code>.treecard</code> component). <strong>Collected</strong>'s four verbose source panels became four cards with simplified descriptions (source&nbsp;1 clickable into the drill-down, sources&nbsp;2&ndash;4 <em>pending</em>); <strong>Stored</strong>'s chronicle table became one card per chronicle (name + <em>collected/derived/dormant/housekeeping</em> pill + what it holds, legend kept); <strong>Served</strong> was already card-based and stays. Cross-links now point at the section anchors (<code>#data-sources</code>/<code>#stored-data</code>) instead of the tab top. Verified all three render and the source-1 card navigates.</li>
-      <li><strong>Reworked the Served &rarr; Runs detail page</strong>: dropped the <em>Runs · ideal read model</em> heading and opened with a short contextualization (the feature reconstructs a whole run &mdash; orchestrator + subagents + activity &mdash; into one nested data model). Replaced the one-line <code>Run › Agent › Turn › Call</code> glance with a <strong>box-based containment schema</strong> (nested, colour-coded boxes for Run &sup; Agent &sup; Turn &sup; Call, with the Call&rarr;Agent back-edge called out as tree = trace). The four per-entity field tables stay below as the detail.</li>
-      <li><strong>Built the Served &rarr; Doctor ideal read model</strong> (same shape as Runs): contextualization &rarr; box-based containment schema &rarr; per-entity field tables. Grounded in the real diagnostics pipeline (<code>gather &rarr; detect &rarr; cluster &rarr; diagnose</code>), with fields from <code>diagnostics/incidents.py</code> · <code>detectors.py</code> · <code>diagnoser.py</code> · <code>scan.py</code>. Built <strong>around the Incident</strong> as the unit (not the scan): the <strong>Incident</strong> is the durable, rememberable noun (stable <code>incident_id</code>, a <code>status</code> lifecycle, aggregates, <code>runs[] &rarr; Runs</code>), clustering many <strong>Signals</strong> (individual occurrences) and carrying one <strong>Diagnosis</strong> (root cause / blast radius / remediation / confidence). The <strong>Scan</strong> is demoted to a thin query envelope (scope = window + optional run/scenario/host filter, totals) shown last. A Signal's <code>session</code>+<code>ts</code> link back into the Runs model (an incident opens into the runs that produced it). Served-Data Doctor card flipped from <em>pending</em> to <em>ideal model</em>.</li>
-      <li><strong>Built the Served &rarr; Infrastructure ideal read model</strong>: same page shape, but modelled honestly as a <strong>snapshot of the substrate</strong> (not one deep tree). A <strong>Cluster</strong> snapshot holds the repeating unit <strong>Node</strong> (the fleet heatmap: roles, status, error rate, latency, tokens, cost, agents, allocation) plus two singletons, <strong>Store</strong> (the ChronoLog deployment: visor / keepers / grapher / player placement + chronicle holdings) and <strong>Pipeline</strong> (ingest liveness: accepting, spool depth, drain lag, last write/drain). Grounded in <code>fleet/rollup.py</code> (<code>NodeHealth</code>/<code>Bucket</code>) · <code>fleet/store.py</code> · <code>api/chronolog_view.py</code>. Note records that node health comes from <code>metrics_rollup</code> while Store + allocation come from the cluster's own topology port. Served-Data Infrastructure card flipped from <em>pending</em> to <em>ideal model</em>.</li>
-      <li><strong>Built the Served &rarr; Usage ideal read model</strong> (closes the four read features): a <strong>Usage</strong> ledger over a scope (a run or a fleet window) holding three parts, the <strong>Slice</strong> (the primary lens: a breakdown by <em>agent</em> / <em>model</em> / <em>node</em>), the <strong>Series</strong> (time buckets of tokens &amp; cost), and the <strong>ContextWindow</strong> (the memory facet: window size + composition into system / user / assistant / tool-call / tool-result tokens, plus add/evict churn). Grounded in <code>analysis/context_graph.py</code> (<code>compute_analysis</code>, the per-turn decomposition) and the interaction metrics (<code>delta_input_tokens</code> / <code>delta_output_tokens</code> / <code>delta_cost_usd</code>). Framed as a <strong>re-aggregation</strong> (no new capture): every figure rolls up from per-turn samples on the <em>Turn</em> in the Runs model. Served-Data Usage card flipped from <em>pending</em> to <em>ideal model</em> &mdash; all four read features now have an ideal model.</li>
-      <li><strong>Added an Overview section to the Architecture tab</strong> (leads the tab, before <em>Architecture target</em> and <em>Backend repo layout</em>): a brief intro framing the goal as a <strong>functional, decoupled, modular</strong> architecture where every component has one purpose and talks to the rest only through defined interfaces (ports), so the write path / read path / storage engine each change independently and any single engine stays swappable.</li>
-      <li><strong>Redrew the read column of the architecture diagram</strong>: collapsed the <em>Web client</em> and <em>API</em> into single blocks (uniform boundaries: presentation-only, and a thin HTTP/SSE serve layer that delegates down) instead of the old 8-per-feature tile grids. The structure now lives in the middle, <strong>Insights</strong>, drawn as <strong>one vertical slice per feature</strong> (<em>Runs · Doctor · Infrastructure · Usage</em>, the 4 consolidated read features, replacing the old 8 tabs), each doing <em>read &rarr; compute &rarr; view</em> and reading through the shared <code>Contract</code> (EventSource) port. Ties the Architecture tab to the Served-Data ideal read models: each slice's <em>compute</em> produces exactly one of those models.</li>
-      <li><strong>Restructured the Roadmap tab into a communication artifact</strong>: leads with <em>Alignment</em> (the shared picture + the open decisions to settle) and <em>Proposed phases</em> (Phase 0 stabilize &rarr; Phase 5, plus a ChronoLog-upstream parallel track), with this detailed changelog demoted to a <em>Work log</em> below. Meant as the spine for aligning on direction and agreeing next steps rather than a flat to-do list.</li>
-      <li><strong>Rebuilt the Roadmap as one clean phase sequence (0&ndash;7) + Others/TBD</strong>: gave every phase its own section and reframed the plan around <em>vertical, per-feature</em> phases. Inserted <strong>Phase 1 &middot; Data model</strong> (design the canonical event contract and land it in the Data tab &mdash; the write-side mirror of the ideal read models) <em>before</em> <strong>Phase 2 &middot; Write path</strong> (which now just implements + emits it); then one phase per read feature (<strong>3 Runs</strong> the tracer bullet, <strong>4 Doctor</strong>, <strong>5 Infrastructure</strong>, <strong>6 Usage</strong>), each realizing its ideal read model <em>and</em> restructuring that code into an <code>insights/&lt;feature&gt;</code> slice as it goes, then <strong>7 chrono-agent</strong>. The ChronoLog read path became a <em>cross-cutting track</em> (runs alongside 3&ndash;6) and the leftover product decisions (multi-engine 2nd adapter, semantic/checkpointing, frontend 8&rarr;4) moved into a final <strong>Others / TBD</strong> section. Overview phase-map and the redundant Alignment/Proposed-phases blocks folded in; this Work log preserved as the record.</li>
-    </ul>
-    <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do</div>
-    <ul style="font-size:0.88rem">
-      <li>Drop the <code>__index__</code> enumeration trick &rarr; use <code>ShowChronicles</code> / <code>ShowStories</code> (confirmed working &amp; fast).</li>
-      <li>Capture worker <strong>auto-reconnect</strong> on client connection loss (survive cluster restarts; today it hits <code>AcquireStory&nbsp;-3</code> until bounced).</li>
-      <li>Retire CSV scraping + the in-process hot store once read-path #1/#2 land.</li>
-      <li><strong>Read-side restructure</strong> (designed &mdash; see <em>Backend repo layout &mdash; target</em>): collapse <code>analysis/</code> · <code>diagnostics/</code> · <code>fleet/</code> · <code>semantic/</code> · <code>checkpointing/</code> into <code>insights/&lt;feature&gt;</code> modules, one per tab/capability (<code>read.py</code> · <code>compute.py</code> · <code>view.py</code>), with a thin blueprint per feature staying in the <code>api/</code> serve layer; route every read through <code>contract.EventSource</code> (kills the <code>analysis&rarr;fleet</code> / <code>fleet&rarr;diagnostics</code> feature imports); fold <code>adapters/shape/</code> into each module's <code>view.py</code>.</li>
-      <li><strong>Decide the headless <code>semantic</code> feature</strong>: <code>semantic/</code> + <code>checkpointing/</code> have no tab and checkpoints are never created &mdash; finish it (add a page + wire checkpoint creation into the write path) or park it as experimental.</li>
-      <li>Finish this document; optionally expose the <code>CHRONOLOG_REPLAY_LIVE</code> A/B switch cleanly.</li>
-    </ul>
-
-    <h4 style="color:#e3b341">2 &middot; ChronoLog &mdash; read path</h4>
-    <div style="color:#9fd356;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#10003; Done <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(fixed on <code>ctx-viz-integration</code>, verified)</span></div>
-    <ul style="font-size:0.88rem">
-      <li><a href="https://github.com/grc-iit/chronolog/issues/689">#689</a> &mdash; <code>AcquireStory</code> reports success only when a reader actually registers (was <code>-5</code>) &middot; <code>63121f3f</code>.</li>
-      <li><a href="https://github.com/grc-iit/chronolog/issues/690">#690</a> &mdash; concurrent <code>ReplayStory</code> made thread-safe (was SIGSEGV) &middot; <code>9981a6a3</code>.</li>
-      <li>Player no longer drops archive reads with <code>startTime==0</code> &middot; <code>4871754d</code>.</li>
-      <li><code>ReplayStory</code> visibility-window / callback-threading docs &middot; <code>dc903e86</code>.</li>
-    </ul>
-    <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(new issues to file)</span></div>
-    <ul style="font-size:0.88rem">
-      <li><strong>Range-query performance</strong> &mdash; <code>ReplayStory</code> is ~3&nbsp;s/call and serializes; unusable for a live reader (vs ~1&ndash;4&nbsp;ms for the CSV archive).</li>
-      <li><strong>Tail / recent reads</strong> &mdash; a cheap &ldquo;last N / since HWM&rdquo; so live views need neither drained data nor a hot store.</li>
-      <li><strong>Topology / health API</strong> &mdash; <code>ShowKeepers</code> / <code>GetTopology</code> instead of parsing CSV filenames to discover keepers.</li>
-      <li style="color:var(--muted)"><strong>Not needed</strong> &mdash; chronicle/story listing: <code>ShowChronicles</code> / <code>ShowStories</code> already exist and are fast (this makes the app's <code>__index__</code> trick redundant, above).</li>
-    </ul>
-
-    <h4 style="color:#e3b341">3 &middot; ChronoLog &mdash; write path</h4>
-    <div style="color:#9fd356;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#10003; Done</div>
-    <ul style="font-size:0.88rem">
-      <li><a href="https://github.com/grc-iit/chronolog/issues/692">#692</a> &mdash; <code>ChronologClientImpl</code> singleton reference-counted &rarr; no double-free in <code>~Client()</code>/<code>Disconnect()</code> (the intermittent SIGSEGV, root-caused from a core-dump backtrace) &middot; <code>9f3d1b0b</code>.</li>
-    </ul>
-    <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do</div>
-    <ul style="font-size:0.88rem">
-      <li><a href="https://github.com/grc-iit/chronolog/issues/688">#688</a> &mdash; <strong><code>chrono-agent</code> plugin</strong>: transparent Path-A capture that formalizes the spool + drain the app hand-rolls today.</li>
-      <li style="color:var(--muted)">Write API is otherwise solid &mdash; no outstanding write bugs.</li>
+      <li>Finish this document; optionally expose the <code>CHRONOLOG_REPLAY_LIVE</code> live-read A/B switch cleanly.</li>
+      <li style="color:var(--muted)">Anything else that comes up and does not fit a phase lands here first, to be triaged into a phase later.</li>
     </ul>
   </section>
 </div>
