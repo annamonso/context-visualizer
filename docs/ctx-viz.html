@@ -1325,7 +1325,8 @@
           <tr><td class="fld">run_id</td><td class="ty">id</td><td class="carries">stable run identity (not a scenario string)</td></tr>
           <tr><td class="fld">goal</td><td class="ty">string</td><td class="carries">the top-level task the run pursues</td></tr>
           <tr><td class="fld">root_agent_id</td><td class="ty"><span class="ref">→ Agent</span></td><td class="carries">the orchestrator</td></tr>
-          <tr><td class="fld">started_at · ended_at</td><td class="ty">time</td><td class="carries">run span</td></tr>
+          <tr><td class="fld">started_at</td><td class="ty">time</td><td class="carries">when the run began</td></tr>
+          <tr><td class="fld">ended_at</td><td class="ty">time</td><td class="carries">when the run finished (null while running)</td></tr>
           <tr><td class="fld">status</td><td class="ty">running | ok | error</td><td class="carries">overall outcome</td></tr>
           <tr><td class="fld">totals</td><td class="ty">object</td><td class="carries"><code>{ agents, turns, tokens, cost, errors }</code>, precomputed, so a run reads without fanning out over sessions</td></tr>
           <tr><td class="fld">agents[]</td><td class="ty">[Agent] <span class="down">↓</span></td><td class="carries">every agent in the run; the tree is formed by <code>parent_agent_id</code></td></tr>
@@ -1344,7 +1345,9 @@
           <tr><td class="fld">role</td><td class="ty">string</td><td class="carries">orchestrator | researcher | coder | …</td></tr>
           <tr><td class="fld">host</td><td class="ty">string</td><td class="carries">node it ran on</td></tr>
           <tr><td class="fld">model</td><td class="ty">string</td><td class="carries">default model</td></tr>
-          <tr><td class="fld">started_at · ended_at · status</td><td class="ty">time · enum</td><td class="carries">agent span &amp; outcome</td></tr>
+          <tr><td class="fld">started_at</td><td class="ty">time</td><td class="carries">when the agent started</td></tr>
+          <tr><td class="fld">ended_at</td><td class="ty">time</td><td class="carries">when the agent finished (null while running)</td></tr>
+          <tr><td class="fld">status</td><td class="ty">running | ok | error</td><td class="carries">agent outcome</td></tr>
           <tr><td class="fld">totals</td><td class="ty">object</td><td class="carries"><code>{ turns, tokens, cost }</code></td></tr>
           <tr><td class="fld">turns[]</td><td class="ty">[Turn] <span class="down">↓</span></td><td class="carries">this agent's turns, in order</td></tr>
         </tbody>
@@ -1358,7 +1361,9 @@
         <tbody>
           <tr><td class="fld">turn_id</td><td class="ty">id</td><td class="carries">&nbsp;</td></tr>
           <tr><td class="fld">index</td><td class="ty">int</td><td class="carries">order within the agent</td></tr>
-          <tr><td class="fld">started_at · ended_at · latency_ms</td><td class="ty">time · int</td><td class="carries">turn timing (bar on the timeline)</td></tr>
+          <tr><td class="fld">started_at</td><td class="ty">time</td><td class="carries">when the turn started</td></tr>
+          <tr><td class="fld">ended_at</td><td class="ty">time</td><td class="carries">when the turn finished</td></tr>
+          <tr><td class="fld">latency_ms</td><td class="ty">int</td><td class="carries">turn duration (bar on the timeline)</td></tr>
           <tr><td class="fld">model</td><td class="ty">string</td><td class="carries">model for this turn</td></tr>
           <tr><td class="fld">status</td><td class="ty">ok | http status | error</td><td class="carries">per-turn outcome</td></tr>
           <tr><td class="fld">input</td><td class="ty">object</td><td class="carries"><code>{ prompt_preview, tokens_in }</code> + a <span class="ref">ref → full LLM interaction</span> (the rich Source-1 body, for drill-in)</td></tr>
@@ -1377,8 +1382,12 @@
           <tr><td class="fld">from_turn_id</td><td class="ty"><span class="ref">→ Turn</span></td><td class="carries">the turn that made it: precise causality</td></tr>
           <tr><td class="fld">kind</td><td class="ty">tool | subagent | mcp</td><td class="carries">what kind of act</td></tr>
           <tr><td class="fld">target</td><td class="ty">tool_name | <span class="ref">→ Agent</span></td><td class="carries">a tool, or the <strong>child agent it spawned</strong>: this is the tree/trace edge</td></tr>
-          <tr><td class="fld">started_at · ended_at · latency_ms · status</td><td class="ty">time · int · enum</td><td class="carries">call span &amp; outcome</td></tr>
-          <tr><td class="fld">input_preview · output_preview</td><td class="ty">string</td><td class="carries">what crossed the call</td></tr>
+          <tr><td class="fld">started_at</td><td class="ty">time</td><td class="carries">when the call started</td></tr>
+          <tr><td class="fld">ended_at</td><td class="ty">time</td><td class="carries">when the call finished</td></tr>
+          <tr><td class="fld">latency_ms</td><td class="ty">int</td><td class="carries">call duration</td></tr>
+          <tr><td class="fld">status</td><td class="ty">ok | error</td><td class="carries">call outcome</td></tr>
+          <tr><td class="fld">input_preview</td><td class="ty">string</td><td class="carries">what was sent into the call</td></tr>
+          <tr><td class="fld">output_preview</td><td class="ty">string</td><td class="carries">what came back</td></tr>
         </tbody>
       </table>
     </div>
