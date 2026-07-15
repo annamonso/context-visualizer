@@ -118,10 +118,10 @@
   .glance .rep { color: #8b94a7; }
   .ent { border: 1px solid var(--border); border-left: 3px solid #5ea0ff; border-radius: 10px; padding: 12px 15px 14px; background: #12151c; }
   .ent + .ent { margin-top: 10px; }
-  .ent-run,   .ent-report    { border-left-color: #5ea0ff; }
-  .ent-agent, .ent-incident  { border-left-color: #b98bff; }
-  .ent-turn,  .ent-signal    { border-left-color: #41d1a7; }
-  .ent-call,  .ent-diagnosis { border-left-color: #e3b341; }
+  .ent-run,   .ent-report,    .ent-cluster  { border-left-color: #5ea0ff; }
+  .ent-agent, .ent-incident,  .ent-node     { border-left-color: #b98bff; }
+  .ent-turn,  .ent-signal,    .ent-store    { border-left-color: #41d1a7; }
+  .ent-call,  .ent-diagnosis, .ent-pipeline { border-left-color: #e3b341; }
   .ent .ent-h { font-weight: 700; color: #e7ecf3; font-size: 1rem; }
   .ent .ent-h .role { font-weight: 400; color: var(--muted); font-size: 0.8rem; margin-left: 8px; }
   .ent .inv { margin-top: 8px; }
@@ -131,10 +131,10 @@
   .schema { margin: 16px 0 18px; }
   .sbox { border: 1px solid var(--border); border-left: 3px solid #5ea0ff; border-radius: 10px; padding: 11px 13px; }
   .sbox .sbox { margin-top: 10px; }
-  .sbox-run,   .sbox-report    { border-left-color: #5ea0ff; background: rgba(94,160,255,0.06); }
-  .sbox-agent, .sbox-incident  { border-left-color: #b98bff; background: rgba(185,139,255,0.06); }
-  .sbox-turn,  .sbox-signal    { border-left-color: #41d1a7; background: rgba(65,209,167,0.06); }
-  .sbox-call,  .sbox-diagnosis { border-left-color: #e3b341; background: rgba(227,179,65,0.06); }
+  .sbox-run,   .sbox-report,    .sbox-cluster  { border-left-color: #5ea0ff; background: rgba(94,160,255,0.06); }
+  .sbox-agent, .sbox-incident,  .sbox-node     { border-left-color: #b98bff; background: rgba(185,139,255,0.06); }
+  .sbox-turn,  .sbox-signal,    .sbox-store    { border-left-color: #41d1a7; background: rgba(65,209,167,0.06); }
+  .sbox-call,  .sbox-diagnosis, .sbox-pipeline { border-left-color: #e3b341; background: rgba(227,179,65,0.06); }
   .sbox-h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
   .sbox-h .sbox-n { font-weight: 700; color: #e7ecf3; font-size: 0.95rem; }
   .sbox-h .rep { color: #8b94a7; font-weight: 700; font-size: 0.9rem; }
@@ -1278,7 +1278,7 @@
       </a>
       <a class="treecard" href="#data-read-infra">
         <div class="tc-h">3 · Infrastructure <span class="arr">→</span></div>
-        <div class="tc-m">absorbs Fleet · Cluster + pipeline health &nbsp;·&nbsp; <span class="st st-sep">pending</span></div>
+        <div class="tc-m">absorbs Fleet · Cluster + pipeline health &nbsp;·&nbsp; <span class="st st-in">ideal model</span></div>
         <div class="tc-d">Per-node health, where the store runs and what it holds, pipeline liveness.</div>
       </a>
       <a class="treecard" href="#data-read-usage">
@@ -1502,8 +1502,103 @@
 
   <section class="tab-content" data-tab="data-read-infra" data-nav="data">
     <div class="crumb"><a href="#data">Served Data</a><span class="sep">›</span><span class="here">Infrastructure</span></div>
-    <h2>Infrastructure · ideal read model</h2>
-    <p style="color:var(--muted);font-size:0.86rem;max-width:74ch">Ideal read model: <em>pending</em>.</p>
+    <p style="max-width:74ch">
+      Infrastructure is about the <strong>ground the agents run on</strong>, not the agents themselves:
+      the compute nodes, the storage cluster underneath them, and the pipeline that moves data from one
+      to the other. Unlike a run or an incident it is not one nested thing but a <strong>snapshot of the
+      substrate</strong> with a few parallel parts. Its repeating unit is the <strong>Node</strong> (the
+      fleet heatmap is one row per node); alongside the nodes sit the <em>Store</em> (the ChronoLog
+      deployment) and the <em>Pipeline</em> (ingest liveness). The schema is below, with each part's
+      fields in the tables that follow.
+    </p>
+
+    <div class="schema">
+      <div class="sbox sbox-cluster">
+        <div class="sbox-h"><span class="sbox-n">Cluster</span><span class="sbox-s">a snapshot of the substrate: the SLURM allocation + what runs on it</span></div>
+        <div class="sbox sbox-node">
+          <div class="sbox-h"><span class="sbox-n">Node</span><span class="rep">×&nbsp;many</span><span class="st st-in">the unit</span><span class="sbox-s">one machine: the roles it plays and how healthy it is</span></div>
+        </div>
+        <div class="sbox sbox-store">
+          <div class="sbox-h"><span class="sbox-n">Store</span><span class="rep">×&nbsp;1</span><span class="sbox-s">the ChronoLog deployment: where components run + what they hold</span></div>
+        </div>
+        <div class="sbox sbox-pipeline">
+          <div class="sbox-h"><span class="sbox-n">Pipeline</span><span class="rep">×&nbsp;1</span><span class="sbox-s">the ingest path: capture → collect → store liveness</span></div>
+        </div>
+      </div>
+      <p class="schema-note">Node health is derived from the <code>metrics_rollup</code> buckets; the
+        <em>Store</em> deployment and the SLURM allocation come from the cluster's own topology port, not the
+        captured event stream. A Node that runs a keeper is where the <em>Store</em> physically lives.</p>
+    </div>
+
+    <div class="ent ent-cluster">
+      <div class="ent-h">Cluster <span class="role">· a snapshot of the substrate</span></div>
+      <table class="inv">
+        <thead><tr><th>field</th><th>type</th><th>note</th></tr></thead>
+        <tbody>
+          <tr><td class="fld">generated_at</td><td class="ty">time</td><td class="carries">when the snapshot was taken</td></tr>
+          <tr><td class="fld">allocation[]</td><td class="ty">string[]</td><td class="carries">the SLURM nodes in the current allocation (ordered; visor first, grapher / player last by convention)</td></tr>
+          <tr><td class="fld">window</td><td class="ty">{ from, to }</td><td class="carries">the time span the node health covers</td></tr>
+          <tr><td class="fld">totals</td><td class="ty">object</td><td class="carries">node counts by status: <code>{ nodes, ok, warn, crit }</code></td></tr>
+          <tr><td class="fld">nodes[]</td><td class="ty">[Node] <span class="down">↓</span></td><td class="carries">per-node health and roles</td></tr>
+          <tr><td class="fld">store</td><td class="ty">Store <span class="down">↓</span></td><td class="carries">the ChronoLog deployment</td></tr>
+          <tr><td class="fld">pipeline</td><td class="ty">Pipeline <span class="down">↓</span></td><td class="carries">ingest-path liveness</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="ent ent-node">
+      <div class="ent-h">Node <span class="role">· the unit: one machine · repeats</span></div>
+      <table class="inv">
+        <thead><tr><th>field</th><th>type</th><th>note</th></tr></thead>
+        <tbody>
+          <tr><td class="fld">host</td><td class="ty">id</td><td class="carries">node name (e.g. <code>ares-comp-03</code>)</td></tr>
+          <tr><td class="fld">in_allocation</td><td class="ty">bool</td><td class="carries">whether it is part of the current SLURM allocation</td></tr>
+          <tr><td class="fld">roles[]</td><td class="ty">string[]</td><td class="carries">what runs here: <code>compute</code> | <code>keeper</code> | <code>visor</code> | <code>grapher</code> | <code>player</code></td></tr>
+          <tr><td class="fld">status</td><td class="ty">ok | warn | crit</td><td class="carries">derived node health (from error rate &amp; p95 latency)</td></tr>
+          <tr><td class="fld">events</td><td class="ty">int</td><td class="carries">interactions seen in the window</td></tr>
+          <tr><td class="fld">errors</td><td class="ty">int</td><td class="carries">failed interactions in the window</td></tr>
+          <tr><td class="fld">error_rate</td><td class="ty">number</td><td class="carries">errors / events</td></tr>
+          <tr><td class="fld">avg_latency_ms</td><td class="ty">number</td><td class="carries">mean turn latency</td></tr>
+          <tr><td class="fld">p95_latency_ms</td><td class="ty">number</td><td class="carries">p95 turn latency</td></tr>
+          <tr><td class="fld">input_tokens</td><td class="ty">int</td><td class="carries">tokens sent, summed over the window</td></tr>
+          <tr><td class="fld">output_tokens</td><td class="ty">int</td><td class="carries">tokens generated, summed over the window</td></tr>
+          <tr><td class="fld">cost_usd</td><td class="ty">number</td><td class="carries">spend over the window</td></tr>
+          <tr><td class="fld">agents</td><td class="ty">int</td><td class="carries">distinct sessions (agents) seen on this node</td></tr>
+          <tr><td class="fld">last_active</td><td class="ty">time</td><td class="carries">most recent activity bucket</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="ent ent-store">
+      <div class="ent-h">Store <span class="role">· the ChronoLog deployment · one</span></div>
+      <table class="inv">
+        <thead><tr><th>field</th><th>type</th><th>note</th></tr></thead>
+        <tbody>
+          <tr><td class="fld">visor</td><td class="ty">{ host, ip }</td><td class="carries">the coordinator process and where it runs</td></tr>
+          <tr><td class="fld">keepers[]</td><td class="ty">[{ host, events }]</td><td class="carries">the ingest daemons, one per compute node, with what each has accepted</td></tr>
+          <tr><td class="fld">grapher</td><td class="ty">{ host }</td><td class="carries">drains accepted stories to CSV / archive</td></tr>
+          <tr><td class="fld">player</td><td class="ty">{ host }</td><td class="carries">serves replay reads</td></tr>
+          <tr><td class="fld">chronicles[]</td><td class="ty">[{ name, stories, events }]</td><td class="carries">holdings: what is stored and how much</td></tr>
+          <tr><td class="fld">last_event_at</td><td class="ty">time</td><td class="carries">newest event the store has accepted</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="ent ent-pipeline">
+      <div class="ent-h">Pipeline <span class="role">· ingest-path liveness · one</span></div>
+      <table class="inv">
+        <thead><tr><th>field</th><th>type</th><th>note</th></tr></thead>
+        <tbody>
+          <tr><td class="fld">stages[]</td><td class="ty">string[]</td><td class="carries"><code>producer</code> → <code>collector</code> → <code>keeper</code> → <code>grapher</code> → <code>player</code></td></tr>
+          <tr><td class="fld">accepting</td><td class="ty">bool</td><td class="carries">whether keepers are currently accepting writes</td></tr>
+          <tr><td class="fld">spool_depth</td><td class="ty">int</td><td class="carries">events buffered in the capture spool, not yet flushed</td></tr>
+          <tr><td class="fld">drain_lag_ms</td><td class="ty">number</td><td class="carries">how far the drain / grapher trails live (the ~180s acceptance window)</td></tr>
+          <tr><td class="fld">last_write_at</td><td class="ty">time</td><td class="carries">most recent event accepted by a keeper</td></tr>
+          <tr><td class="fld">last_drain_at</td><td class="ty">time</td><td class="carries">most recent story drained to the archive</td></tr>
+          <tr><td class="fld">status</td><td class="ty">ok | warn | crit</td><td class="carries">overall pipeline health</td></tr>
+        </tbody>
+      </table>
+    </div>
   </section>
 
   <section class="tab-content" data-tab="data-read-usage" data-nav="data">
@@ -2078,6 +2173,7 @@
       <li><strong>Unified the three Data-tab sections onto one card format</strong>: <strong>Collected</strong>, <strong>Stored</strong> and <strong>Served Data</strong> now all read <em>title &rarr; short intro &rarr; grid of cards</em> (the <code>.treecard</code> component). <strong>Collected</strong>'s four verbose source panels became four cards with simplified descriptions (source&nbsp;1 clickable into the drill-down, sources&nbsp;2&ndash;4 <em>pending</em>); <strong>Stored</strong>'s chronicle table became one card per chronicle (name + <em>collected/derived/dormant/housekeeping</em> pill + what it holds, legend kept); <strong>Served</strong> was already card-based and stays. Cross-links now point at the section anchors (<code>#data-sources</code>/<code>#stored-data</code>) instead of the tab top. Verified all three render and the source-1 card navigates.</li>
       <li><strong>Reworked the Served &rarr; Runs detail page</strong>: dropped the <em>Runs · ideal read model</em> heading and opened with a short contextualization (the feature reconstructs a whole run &mdash; orchestrator + subagents + activity &mdash; into one nested data model). Replaced the one-line <code>Run › Agent › Turn › Call</code> glance with a <strong>box-based containment schema</strong> (nested, colour-coded boxes for Run &sup; Agent &sup; Turn &sup; Call, with the Call&rarr;Agent back-edge called out as tree = trace). The four per-entity field tables stay below as the detail.</li>
       <li><strong>Built the Served &rarr; Doctor ideal read model</strong> (same shape as Runs): contextualization &rarr; box-based containment schema &rarr; per-entity field tables. Grounded in the real diagnostics pipeline (<code>gather &rarr; detect &rarr; cluster &rarr; diagnose</code>), with fields from <code>diagnostics/incidents.py</code> · <code>detectors.py</code> · <code>diagnoser.py</code> · <code>scan.py</code>. Built <strong>around the Incident</strong> as the unit (not the scan): the <strong>Incident</strong> is the durable, rememberable noun (stable <code>incident_id</code>, a <code>status</code> lifecycle, aggregates, <code>runs[] &rarr; Runs</code>), clustering many <strong>Signals</strong> (individual occurrences) and carrying one <strong>Diagnosis</strong> (root cause / blast radius / remediation / confidence). The <strong>Scan</strong> is demoted to a thin query envelope (scope = window + optional run/scenario/host filter, totals) shown last. A Signal's <code>session</code>+<code>ts</code> link back into the Runs model (an incident opens into the runs that produced it). Served-Data Doctor card flipped from <em>pending</em> to <em>ideal model</em>.</li>
+      <li><strong>Built the Served &rarr; Infrastructure ideal read model</strong>: same page shape, but modelled honestly as a <strong>snapshot of the substrate</strong> (not one deep tree). A <strong>Cluster</strong> snapshot holds the repeating unit <strong>Node</strong> (the fleet heatmap: roles, status, error rate, latency, tokens, cost, agents, allocation) plus two singletons, <strong>Store</strong> (the ChronoLog deployment: visor / keepers / grapher / player placement + chronicle holdings) and <strong>Pipeline</strong> (ingest liveness: accepting, spool depth, drain lag, last write/drain). Grounded in <code>fleet/rollup.py</code> (<code>NodeHealth</code>/<code>Bucket</code>) · <code>fleet/store.py</code> · <code>api/chronolog_view.py</code>. Note records that node health comes from <code>metrics_rollup</code> while Store + allocation come from the cluster's own topology port. Served-Data Infrastructure card flipped from <em>pending</em> to <em>ideal model</em>.</li>
     </ul>
     <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do</div>
     <ul style="font-size:0.88rem">
