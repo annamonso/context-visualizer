@@ -1247,52 +1247,40 @@
     <h2>Read data</h2>
     <p style="max-width:74ch">
       <a href="#data">Data sources</a> = what agents produce; <a href="#data">Stored data</a> =
-      what we persist. <strong>Read data</strong> is what each <em>feature</em> actually consumes.
-      Working by the target features (the 5-page model, not today's tabs). For each feature: the
-      information it reads and which <a href="#data">store</a> it comes from. This is the useful
-      direction &mdash; whatever no feature reads is a candidate to stop capturing, and whatever a
-      feature needs but no store holds is a gap.
+      what we persist. <strong>Read data</strong> is what each <em>feature</em> consumes. One card per
+      feature that reads; open it for that feature's <strong>ideal read model</strong> &mdash; the shape
+      the data wants for the feature to work, independent of what is stored today. (Playground generates
+      traffic: it writes rather than reads.)
     </p>
 
-    <h3 class="invsec">1 · Runs <span style="color:var(--muted);font-weight:400;font-size:0.82rem">— absorbs Workspace · Scenarios · Traces</span></h3>
-    <p style="color:var(--muted);font-size:0.86rem;max-width:74ch;margin-top:0">
-      Reconstructs a run three ways: the <strong>agent tree</strong> (orchestrator → subagents), each
-      agent's <strong>turn timeline</strong>, and the <strong>inter-agent trace</strong>. It reads from
-      two stores:
-    </p>
-    <table class="inv">
-      <thead><tr><th>information read</th><th>from</th><th>used for</th></tr></thead>
-      <tbody>
-        <tr><td class="fld">session_id <span style="color:var(--muted);font-weight:400">(+ dotted lineage <code>a</code>→<code>a.1</code>→<code>a.1.1</code>)</span></td><td class="ty">llm_interactions <span style="color:var(--muted)">(story key)</span></td><td class="carries">group turns into agents; the dotted suffix builds the orchestrator → subagent tree</td></tr>
-        <tr><td class="fld">sequence_id</td><td class="ty">llm_interactions</td><td class="carries">order turns within an agent</td></tr>
-        <tr><td class="fld">timestamp</td><td class="ty">llm_interactions</td><td class="carries">place turns on the timeline</td></tr>
-        <tr><td class="fld">scenario_id</td><td class="ty">llm_interactions</td><td class="carries">group agents into one run</td></tr>
-        <tr><td class="fld">host</td><td class="ty">llm_interactions</td><td class="carries">which node ran the agent</td></tr>
-        <tr><td class="fld">provider · model</td><td class="ty">llm_interactions</td><td class="carries">label the turn</td></tr>
-        <tr><td class="fld">request.method · request.path</td><td class="ty">llm_interactions</td><td class="carries">the call target</td></tr>
-        <tr><td class="fld">request.body.messages <span style="color:var(--muted);font-weight:400">(prompt)</span></td><td class="ty">llm_interactions</td><td class="carries">show what the agent was asked</td></tr>
-        <tr><td class="fld">response.status_code</td><td class="ty">llm_interactions</td><td class="carries">success / error per turn (turns go red on 5xx)</td></tr>
-        <tr><td class="fld">response.text <span style="color:var(--muted);font-weight:400">(preview)</span> · is_streaming</td><td class="ty">llm_interactions</td><td class="carries">show the reply</td></tr>
-        <tr><td class="fld">metrics.total_latency_ms</td><td class="ty">llm_interactions</td><td class="carries">per-turn duration</td></tr>
-        <tr><td class="fld">metrics.delta_input/output_tokens · delta_cost_usd</td><td class="ty">llm_interactions</td><td class="carries">per-turn tokens &amp; cost (rolled up to per-agent totals)</td></tr>
-        <tr><td class="fld">correlation_id</td><td class="ty">ia_&lt;scenario&gt; · edges</td><td class="carries">identify one inter-agent call — the join key stitching start/done</td></tr>
-        <tr><td class="fld">parent_correlation_id</td><td class="ty">ia_&lt;scenario&gt; · edges</td><td class="carries">nest calls into the trace tree (which call spawned which)</td></tr>
-        <tr><td class="fld">from_session · from_host → to_session · to_host</td><td class="ty">ia_&lt;scenario&gt; · edges</td><td class="carries">who called whom — the topology edges</td></tr>
-        <tr><td class="fld">kind · tool_name</td><td class="ty">ia_&lt;scenario&gt; · edges</td><td class="carries">what kind of call it was</td></tr>
-        <tr><td class="fld">ts_start · ts_done · latency_ms</td><td class="ty">ia_&lt;scenario&gt; · edges</td><td class="carries">span timing — bar length &amp; ordering in the trace</td></tr>
-        <tr><td class="fld">status</td><td class="ty">ia_&lt;scenario&gt; · edges</td><td class="carries">call ok / error</td></tr>
-        <tr><td class="fld">payload_digest · payload_preview</td><td class="ty">ia_&lt;scenario&gt; · edges</td><td class="carries">what was passed across the call</td></tr>
-      </tbody>
-    </table>
+    <div class="treegrid">
+      <a class="treecard" href="#data-read-runs">
+        <div class="tc-h">1 · Runs <span class="arr">→</span></div>
+        <div class="tc-m">absorbs Workspace · Scenarios · Traces &nbsp;·&nbsp; <span class="st st-in">ideal model</span></div>
+        <div class="tc-d">The agent tree, each agent's turn timeline, and the inter-agent trace of a run.</div>
+      </a>
+      <a class="treecard" href="#data-read-doctor">
+        <div class="tc-h">2 · Doctor <span class="arr">→</span></div>
+        <div class="tc-m">absorbs Doctor · Interactions &nbsp;·&nbsp; <span class="st st-sep">pending</span></div>
+        <div class="tc-d">Failures found, ranked, and diagnosed; the feed of every call behind them.</div>
+      </a>
+      <a class="treecard" href="#data-read-infra">
+        <div class="tc-h">3 · Infrastructure <span class="arr">→</span></div>
+        <div class="tc-m">absorbs Fleet · Cluster + pipeline health &nbsp;·&nbsp; <span class="st st-sep">pending</span></div>
+        <div class="tc-d">Per-node health, where the store runs and what it holds, pipeline liveness.</div>
+      </a>
+      <a class="treecard" href="#data-read-usage">
+        <div class="tc-h">4 · Usage <span class="arr">→</span></div>
+        <div class="tc-m">absorbs Memory + cost KPIs &nbsp;·&nbsp; <span class="st st-sep">pending</span></div>
+        <div class="tc-d">Tokens, cost, and context memory over a run, sliced by agent / model / node.</div>
+      </a>
+    </div>
+  </section>
 
-    <h4 style="margin:24px 0 4px;color:#dbe2ec;font-size:0.98rem">Ideal read model</h4>
-    <p style="color:var(--muted);font-size:0.86rem;max-width:74ch;margin-top:0">
-      Those fields live in two stores today (<code>llm_interactions</code> keyed by session +
-      <code>ia_&lt;scenario&gt;</code> edges) and are <strong>stitched together on every read</strong> —
-      dotted session-id strings parsed into a tree, correlation ids matched into a trace. But a run is
-      one thing. The shape that data <em>wants</em> to be — every relationship a real reference, not a
-      reconstruction:
-    </p>
+  <!-- Read-data feature detail pages -->
+  <section class="tab-content" data-tab="data-read-runs" data-nav="data">
+    <div class="crumb"><a href="#data">Read data</a><span class="sep">›</span><span class="here">Runs</span></div>
+    <h2>Runs · ideal read model</h2>
     <div class="glance">Run&nbsp; ›&nbsp; Agent<span class="rep">*</span>&nbsp; ›&nbsp; Turn<span class="rep">*</span>&nbsp; ›&nbsp; Call<span class="rep">*</span> &nbsp;&nbsp;<span class="rep">( * = repeats; a Call may point back to a child Agent — that edge is both the tree and the trace )</span></div>
 
     <div class="ent ent-run">
@@ -1360,26 +1348,24 @@
         </tbody>
       </table>
     </div>
+  </section>
 
-    <p style="color:#c1c9d6;font-size:0.85rem;max-width:74ch;margin-top:12px">
-      <strong>The tree and the trace are one graph.</strong> <code>parent_agent_id</code> /
-      <code>spawned_by</code> build the agent tree; <code>Call.from_turn_id → target (Agent)</code>
-      builds the trace — from a single source, so they can't disagree (today they come from separate
-      Path-A and Path-B stores and can). Everything Runs draws is a traversal of this: no dotted-string
-      parsing, no correlation stitching, no fan-out over sessions.
-    </p>
+  <section class="tab-content" data-tab="data-read-doctor" data-nav="data">
+    <div class="crumb"><a href="#data">Read data</a><span class="sep">›</span><span class="here">Doctor</span></div>
+    <h2>Doctor · ideal read model</h2>
+    <p style="color:var(--muted);font-size:0.86rem;max-width:74ch">Ideal read model &mdash; <em>pending</em>.</p>
+  </section>
 
-    <h3 class="invsec">2 · Doctor <span style="color:var(--muted);font-weight:400;font-size:0.82rem">— absorbs Doctor · Interactions</span></h3>
-    <p style="color:var(--muted);font-size:0.86rem;margin-top:0">Field inventory — <em>pending</em>.</p>
+  <section class="tab-content" data-tab="data-read-infra" data-nav="data">
+    <div class="crumb"><a href="#data">Read data</a><span class="sep">›</span><span class="here">Infrastructure</span></div>
+    <h2>Infrastructure · ideal read model</h2>
+    <p style="color:var(--muted);font-size:0.86rem;max-width:74ch">Ideal read model &mdash; <em>pending</em>.</p>
+  </section>
 
-    <h3 class="invsec">3 · Infrastructure <span style="color:var(--muted);font-weight:400;font-size:0.82rem">— absorbs Fleet · Cluster + pipeline health</span></h3>
-    <p style="color:var(--muted);font-size:0.86rem;margin-top:0">Field inventory — <em>pending</em>.</p>
-
-    <h3 class="invsec">4 · Usage <span style="color:var(--muted);font-weight:400;font-size:0.82rem">— absorbs Memory + cost KPIs</span></h3>
-    <p style="color:var(--muted);font-size:0.86rem;margin-top:0">Field inventory — <em>pending</em>.</p>
-
-    <h3 class="invsec">5 · Playground <span style="color:var(--muted);font-weight:400;font-size:0.82rem">— the generator; writes rather than reads</span></h3>
-    <p style="color:var(--muted);font-size:0.86rem;margin-top:0">Field inventory — <em>pending</em>.</p>
+  <section class="tab-content" data-tab="data-read-usage" data-nav="data">
+    <div class="crumb"><a href="#data">Read data</a><span class="sep">›</span><span class="here">Usage</span></div>
+    <h2>Usage · ideal read model</h2>
+    <p style="color:var(--muted);font-size:0.86rem;max-width:74ch">Ideal read model &mdash; <em>pending</em>.</p>
   </section>
 
   <!-- ============ LEVEL 2 · LLM interactions (source landing) ============ -->
