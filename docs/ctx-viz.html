@@ -1396,19 +1396,20 @@
   <section class="tab-content" data-tab="data-read-doctor" data-nav="data">
     <div class="crumb"><a href="#data">Served Data</a><span class="sep">›</span><span class="here">Doctor</span></div>
     <p style="max-width:74ch">
-      The Doctor feature finds what went wrong across the whole fleet, then groups, ranks, and explains
-      it. Raw failures are noisy (500 identical timeouts are one problem, not 500 rows), so the model
-      clusters individual failure <em>signals</em> into <em>incidents</em>, ranks each by severity, and
-      attaches a <em>diagnosis</em>. The ideal shape is one <strong>scan</strong> that holds those
-      incidents, each incident holding the signals behind it and its diagnosis. The schema is below,
+      Doctor is built around the <strong>Incident</strong>: a single recurring problem, not a stream of
+      individual failures. Hundreds of identical timeouts across the fleet are <em>one</em> incident with
+      a count, a severity, and a diagnosis, not hundreds of rows. Each incident clusters the raw failure
+      <em>signals</em> that are its evidence, carries one <em>diagnosis</em>, and has its own identity and
+      lifecycle so it can be tracked and remembered across scans. A <em>scan</em> is just the query that
+      surfaces the incidents active in a window (optionally narrowed to one run). The schema is below,
       with each level's fields in the tables that follow.
     </p>
 
     <div class="schema">
       <div class="sbox sbox-report">
-        <div class="sbox-h"><span class="sbox-n">Report</span><span class="sbox-s">one scan over a time window</span></div>
+        <div class="sbox-h"><span class="sbox-n">Scan</span><span class="sbox-s">a query result: scope + window + totals (a thin envelope)</span></div>
         <div class="sbox sbox-incident">
-          <div class="sbox-h"><span class="sbox-n">Incident</span><span class="rep">×&nbsp;many</span><span class="sbox-s">a cluster of identical failures, ranked &amp; diagnosed</span></div>
+          <div class="sbox-h"><span class="sbox-n">Incident</span><span class="rep">×&nbsp;many</span><span class="st st-in">the unit</span><span class="sbox-s">a recurring, diagnosable problem with its own identity</span></div>
           <div class="sbox sbox-signal">
             <div class="sbox-h"><span class="sbox-n">Signal</span><span class="rep">×&nbsp;many</span><span class="sbox-s">one observed failure occurrence (the evidence)</span></div>
           </div>
@@ -1419,38 +1420,25 @@
       </div>
       <p class="schema-note">A <em>Signal</em>'s <code>session</code> + <code>ts</code> point back to the exact
         <em>Turn</em> / <em>Call</em> in the <a href="#data-read-runs">Runs</a> model that produced it, so an
-        incident opens straight into the run where it happened.</p>
-    </div>
-
-    <div class="ent ent-report">
-      <div class="ent-h">Report <span class="role">· one scan over a window</span></div>
-      <table class="inv">
-        <thead><tr><th>field</th><th>type</th><th>note</th></tr></thead>
-        <tbody>
-          <tr><td class="fld">generated_at</td><td class="ty">time</td><td class="carries">when this scan ran</td></tr>
-          <tr><td class="fld">window</td><td class="ty">{ from, to }</td><td class="carries">the span of fleet activity it examined</td></tr>
-          <tr><td class="fld">scanned</td><td class="ty">int</td><td class="carries">how many records were examined</td></tr>
-          <tr><td class="fld">totals</td><td class="ty">object</td><td class="carries">counts by severity: <code>{ incidents, critical, error, warning }</code></td></tr>
-          <tr><td class="fld">incidents[]</td><td class="ty">[Incident] <span class="down">↓</span></td><td class="carries">the clusters found, ranked worst-first</td></tr>
-          <tr><td class="fld">error</td><td class="ty">string | null</td><td class="carries">the scan's own failure message, if it could not complete</td></tr>
-        </tbody>
-      </table>
+        incident opens straight into the runs where it happened.</p>
     </div>
 
     <div class="ent ent-incident">
-      <div class="ent-h">Incident <span class="role">· a cluster of identical failures · repeats</span></div>
+      <div class="ent-h">Incident <span class="role">· the unit: a recurring, diagnosable problem</span></div>
       <table class="inv">
         <thead><tr><th>field</th><th>type</th><th>note</th></tr></thead>
         <tbody>
-          <tr><td class="fld">signature</td><td class="ty">id</td><td class="carries">stable cluster id (hash of <code>kind</code> + normalized message)</td></tr>
+          <tr><td class="fld">incident_id</td><td class="ty">id</td><td class="carries">stable identity across scans (today's <code>signature</code>: a hash of <code>kind</code> + normalized message); this is what makes an incident trackable and rememberable</td></tr>
           <tr><td class="fld">kind</td><td class="ty">enum</td><td class="carries"><code>http_error</code> | <code>interaction_error</code> | <code>edge_error</code> | <code>latency_outlier</code> | <code>retry_storm</code> | <code>orphan_call</code> | <code>slow_edge</code> | <code>recovery</code></td></tr>
           <tr><td class="fld">title</td><td class="ty">string</td><td class="carries">human-readable label (e.g. "HTTP errors on LLM calls")</td></tr>
-          <tr><td class="fld">severity</td><td class="ty">info | warning | error | critical</td><td class="carries">ranked; escalated a rung when <code>count</code> is high</td></tr>
-          <tr><td class="fld">count</td><td class="ty">int</td><td class="carries">how many signals clustered here (500 timeouts = one incident)</td></tr>
-          <tr><td class="fld">first_ts</td><td class="ty">time</td><td class="carries">earliest occurrence</td></tr>
-          <tr><td class="fld">last_ts</td><td class="ty">time</td><td class="carries">latest occurrence</td></tr>
+          <tr><td class="fld">severity</td><td class="ty">info | warning | error | critical</td><td class="carries">current rank; escalated a rung when <code>count</code> is high</td></tr>
+          <tr><td class="fld">status</td><td class="ty">active | acknowledged | resolved</td><td class="carries">lifecycle: is it still recurring, has someone handled it (the field that turns a feed row into a tracked problem)</td></tr>
+          <tr><td class="fld">count</td><td class="ty">int</td><td class="carries">total occurrences clustered here (500 timeouts = one incident)</td></tr>
+          <tr><td class="fld">first_seen</td><td class="ty">time</td><td class="carries">first occurrence (persists across scans)</td></tr>
+          <tr><td class="fld">last_seen</td><td class="ty">time</td><td class="carries">most recent occurrence</td></tr>
           <tr><td class="fld">hosts[]</td><td class="ty">string[]</td><td class="carries">nodes affected</td></tr>
-          <tr><td class="fld">sessions[]</td><td class="ty">string[] <span class="ref">→ Runs</span></td><td class="carries">sessions affected; each opens a run</td></tr>
+          <tr><td class="fld">sessions[]</td><td class="ty">string[]</td><td class="carries">sessions affected (raw, as captured)</td></tr>
+          <tr><td class="fld">runs[]</td><td class="ty">[Run] <span class="ref">→ Runs</span></td><td class="carries">the runs it touched, resolved from the sessions; opens straight into a run</td></tr>
           <tr><td class="fld">tools[]</td><td class="ty">string[]</td><td class="carries">tools involved</td></tr>
           <tr><td class="fld">models[]</td><td class="ty">string[]</td><td class="carries">models involved</td></tr>
           <tr><td class="fld">scenarios[]</td><td class="ty">string[]</td><td class="carries">scenarios affected</td></tr>
@@ -1490,6 +1478,23 @@
           <tr><td class="fld">remediation</td><td class="ty">string</td><td class="carries">the suggested fix</td></tr>
           <tr><td class="fld">confidence</td><td class="ty">number</td><td class="carries">0 to 1; how sure the diagnoser is</td></tr>
           <tr><td class="fld">source</td><td class="ty">heuristic | llm</td><td class="carries">who produced the diagnosis</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p style="color:var(--muted);font-size:0.86rem;max-width:74ch;margin-top:18px">And the envelope the incidents are delivered in, a scan being just a query result (not a thing you revisit):</p>
+
+    <div class="ent ent-report">
+      <div class="ent-h">Scan <span class="role">· the query result that surfaces incidents</span></div>
+      <table class="inv">
+        <thead><tr><th>field</th><th>type</th><th>note</th></tr></thead>
+        <tbody>
+          <tr><td class="fld">generated_at</td><td class="ty">time</td><td class="carries">when the scan ran</td></tr>
+          <tr><td class="fld">scope</td><td class="ty">{ window, run_id?, scenario?, host? }</td><td class="carries">what it covered: a time window, optionally narrowed to a run / scenario / host</td></tr>
+          <tr><td class="fld">scanned</td><td class="ty">int</td><td class="carries">how many records were examined</td></tr>
+          <tr><td class="fld">totals</td><td class="ty">object</td><td class="carries">counts by severity: <code>{ incidents, critical, error, warning }</code></td></tr>
+          <tr><td class="fld">incidents[]</td><td class="ty">[Incident]</td><td class="carries">the incidents it surfaced, ranked worst-first (the entity above)</td></tr>
+          <tr><td class="fld">error</td><td class="ty">string | null</td><td class="carries">the scan's own failure message, if it could not complete</td></tr>
         </tbody>
       </table>
     </div>
@@ -2072,7 +2077,7 @@
       <li><strong>Target tab split &rarr; Overview · Architecture · Data</strong>: the single <em>Target</em> tab was broken into three top-nav tabs — <strong>Overview</strong> (what it is · features · layers), <strong>Architecture</strong> (architecture target · repo layout), <strong>Data</strong> (the data map). The <strong>Data</strong> tab opens with a pipeline overview — a three-block <em>Collect &rarr; Store &rarr; Serve</em> diagram — then three sections renamed to match: <strong>Collected Data</strong> (what agents produce — the drill-down source tree), <strong>Stored Data</strong> (ChronoLog chronicles), <strong>Served Data</strong> (one clickable card per read feature; the <em>Runs</em> card drills into the ideal <code>Run &rarr; Agent &rarr; Turn &rarr; Call</code> read model). Breadcrumb roots and cross-links updated to the new names; verified tabs + drill-down pages render and the nav highlights correctly.</li>
       <li><strong>Unified the three Data-tab sections onto one card format</strong>: <strong>Collected</strong>, <strong>Stored</strong> and <strong>Served Data</strong> now all read <em>title &rarr; short intro &rarr; grid of cards</em> (the <code>.treecard</code> component). <strong>Collected</strong>'s four verbose source panels became four cards with simplified descriptions (source&nbsp;1 clickable into the drill-down, sources&nbsp;2&ndash;4 <em>pending</em>); <strong>Stored</strong>'s chronicle table became one card per chronicle (name + <em>collected/derived/dormant/housekeeping</em> pill + what it holds, legend kept); <strong>Served</strong> was already card-based and stays. Cross-links now point at the section anchors (<code>#data-sources</code>/<code>#stored-data</code>) instead of the tab top. Verified all three render and the source-1 card navigates.</li>
       <li><strong>Reworked the Served &rarr; Runs detail page</strong>: dropped the <em>Runs · ideal read model</em> heading and opened with a short contextualization (the feature reconstructs a whole run &mdash; orchestrator + subagents + activity &mdash; into one nested data model). Replaced the one-line <code>Run › Agent › Turn › Call</code> glance with a <strong>box-based containment schema</strong> (nested, colour-coded boxes for Run &sup; Agent &sup; Turn &sup; Call, with the Call&rarr;Agent back-edge called out as tree = trace). The four per-entity field tables stay below as the detail.</li>
-      <li><strong>Built the Served &rarr; Doctor ideal read model</strong> (same shape as Runs): contextualization &rarr; box-based containment schema &rarr; per-entity field tables. Grounded in the real diagnostics pipeline (<code>gather &rarr; detect &rarr; cluster &rarr; diagnose</code>): a <strong>Report</strong> holds ranked <strong>Incidents</strong>, each Incident clusters many <strong>Signals</strong> (individual failure occurrences) and carries one <strong>Diagnosis</strong> (root cause / blast radius / remediation / confidence). Fields taken from <code>diagnostics/incidents.py</code> · <code>detectors.py</code> · <code>diagnoser.py</code> · <code>scan.py</code>. A Signal's <code>session</code>+<code>ts</code> link back into the Runs model (an incident opens into the run that produced it). Served-Data Doctor card flipped from <em>pending</em> to <em>ideal model</em>.</li>
+      <li><strong>Built the Served &rarr; Doctor ideal read model</strong> (same shape as Runs): contextualization &rarr; box-based containment schema &rarr; per-entity field tables. Grounded in the real diagnostics pipeline (<code>gather &rarr; detect &rarr; cluster &rarr; diagnose</code>), with fields from <code>diagnostics/incidents.py</code> · <code>detectors.py</code> · <code>diagnoser.py</code> · <code>scan.py</code>. Built <strong>around the Incident</strong> as the unit (not the scan): the <strong>Incident</strong> is the durable, rememberable noun (stable <code>incident_id</code>, a <code>status</code> lifecycle, aggregates, <code>runs[] &rarr; Runs</code>), clustering many <strong>Signals</strong> (individual occurrences) and carrying one <strong>Diagnosis</strong> (root cause / blast radius / remediation / confidence). The <strong>Scan</strong> is demoted to a thin query envelope (scope = window + optional run/scenario/host filter, totals) shown last. A Signal's <code>session</code>+<code>ts</code> link back into the Runs model (an incident opens into the runs that produced it). Served-Data Doctor card flipped from <em>pending</em> to <em>ideal model</em>.</li>
     </ul>
     <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do</div>
     <ul style="font-size:0.88rem">
