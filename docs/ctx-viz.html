@@ -1164,84 +1164,34 @@
 
   <section class="tab-content" data-tab="data" id="data-sources">
     <h2>Collected Data</h2>
-    <p>
-      From the ground up: what an agent run actually produces, and what we make of it. An agent keeps
-      <strong>no logbook</strong>: while it runs, its raw material exists only <em>transiently</em>,
-      at a few natural boundaries. Capture is the act of writing those signals down before they
-      evaporate.
+    <p style="max-width:74ch">
+      What an agent run actually produces. An agent keeps <strong>no logbook</strong>: while it runs,
+      its raw material exists only <em>transiently</em>, at a few natural boundaries. Those boundaries
+      are the sources below, each one structured and each one gone unless recorded. One card per
+      source; open it to explore the data.
     </p>
 
-    <h3>Data sources</h3>
-    <p style="color:var(--muted);font-size:0.9rem">
-      The natural boundaries where raw material exists, each one structured, each one gone unless
-      recorded.
-    </p>
-
-    <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
-
-      <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #5ea0ff;border-radius:10px;padding:14px 18px">
-        <div style="font-weight:700;color:#fff">1 · LLM HTTP traffic <span style="color:#8b94a7;font-weight:400;font-size:0.85rem">· one request/response pair per turn</span></div>
-        <p style="margin:8px 0 0;color:#c4ccd8;font-size:0.9rem">
-          Every "think" step is an HTTPS call to the model provider, and because the API is
-          <strong>stateless</strong>, the request body carries the agent's <em>entire context
-          window</em>: system prompt, full message history, tool definitions. The response carries the
-          reply, the tool-use decisions, and exact token counts. So one intercepted pair = a complete
-          snapshot of the agent's working memory at that turn, plus what it decided next: the richest
-          single source we have.
-        </p>
-        <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">naturally carries: method · endpoint · full context · response text · tool-use requests · token counts · status · latency</div>
-        <div style="margin-top:10px"><a href="#data-llm" style="display:inline-block;font-size:0.82rem;font-weight:600;color:#5ea0ff;text-decoration:none;border:1px solid #2b3a52;background:#131c2b;border-radius:7px;padding:5px 12px">Explore the data →</a></div>
+    <div class="treegrid">
+      <a class="treecard" href="#data-llm">
+        <div class="tc-h">1 · LLM HTTP traffic <span class="arr">→</span></div>
+        <div class="tc-m">one request/response pair per turn &nbsp;·&nbsp; <span class="st st-in">inventoried</span></div>
+        <div class="tc-d">A stateless HTTPS call to the model: the request carries the agent's full context window, the response its reply, tool-use decisions, and token counts. The richest single source.</div>
+      </a>
+      <div class="treecard stub">
+        <div class="tc-h">2 · MCP traffic</div>
+        <div class="tc-m">one JSON-RPC pair per tool call &nbsp;·&nbsp; <span class="st st-sep">pending</span></div>
+        <div class="tc-d">JSON-RPC 2.0 tool calls over stdio or HTTP: <code>tools/call</code> with name + arguments in, a structured result out. Inter-agent calls are a labelled subset of this.</div>
       </div>
-
-      <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #41d1a7;border-radius:10px;padding:14px 18px">
-        <div style="font-weight:700;color:#fff">2 · MCP traffic <span style="color:#8b94a7;font-weight:400;font-size:0.85rem">· one JSON-RPC request/response pair per call</span></div>
-        <p style="margin:8px 0 0;color:#c4ccd8;font-size:0.9rem">
-          The second real boundary. MCP is <strong>JSON-RPC 2.0</strong> over stdio or HTTP, an
-          actual spec, uniform across providers and languages: a <code>tools/call</code> request with
-          name + arguments, a structured response. Observable and interceptable exactly the way HTTP
-          is. Two things that look like boundaries but aren't:
-        </p>
-        <ul style="margin:8px 0 0;padding-left:18px;color:#c4ccd8;font-size:0.88rem">
-          <li><strong>Local tool execution</strong>: a plain function call inside the process; no wire,
-            nothing to intercept. Its intent and result are visible only as the
-            <code>tool_use</code>/<code>tool_result</code> blocks back in source 1.</li>
-          <li><strong>Inter-agent calls</strong> are not a separate protocol: an MCP call whose handler
-            contacts another agent (<code>call_remote_agent</code>). A <em>semantic subset</em> of this
-            boundary: what makes it "inter-agent" is a label we add, not a different wire format.</li>
-        </ul>
-        <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">naturally carries: tool name · arguments · structured result · error state · timing (from the request/response pair)</div>
-        <div style="margin-top:10px;font-size:0.78rem;color:var(--muted)">Field inventory: <em>pending</em></div>
+      <div class="treecard stub">
+        <div class="tc-h">3 · Instrumented events</div>
+        <div class="tc-m">emitted by the harness &nbsp;·&nbsp; <span class="st st-sep">pending</span></div>
+        <div class="tc-d">Data no wire carries: context <code>add</code>/<code>evict</code> diffs, recovery events, and the identity labels (session, run, correlation ids) that link everything together.</div>
       </div>
-
-      <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #b98bff;border-radius:10px;padding:14px 18px">
-        <div style="font-weight:700;color:#fff">3 · Instrumented events <span style="color:#8b94a7;font-weight:400;font-size:0.85rem">· manufactured, not intercepted, captured from nothing</span></div>
-        <p style="margin:8px 0 0;color:#c4ccd8;font-size:0.9rem">
-          Data no wire carries: code we place in the agent's harness <em>decides</em> to emit it.
-          Two kinds. <strong>Semantic events</strong>: context <code>add</code>/<code>evict</code>
-          diffs (the agent's own interpretation of its memory management) and recovery events
-          (backtracks, restores). <strong>Labels</strong>: the identity and linkage the wires lack:
-          session ids (who is this agent), run/scenario ids (which coordinated job), correlation ids
-          (this outbound call = that inbound run, stamped by the MCP handler at the boundary). The
-          wires tell you <em>what happened</em>; only instrumentation tells you <em>who and
-          together-with-whom</em>.
-        </p>
-        <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">exists only if the harness cooperates: context ops · recovery · session id · run id · correlation / parent ids · roles</div>
-        <div style="margin-top:10px;font-size:0.78rem;color:var(--muted)">Field inventory: <em>pending</em></div>
+      <div class="treecard stub">
+        <div class="tc-h">4 · Platform signals</div>
+        <div class="tc-m">about the ground, not the agents &nbsp;·&nbsp; <span class="st st-sep">pending</span></div>
+        <div class="tc-d">Cluster and store telemetry: SLURM node state, storage-engine topology &amp; holdings, pipeline liveness, and derived rollups. No agent produces these.</div>
       </div>
-
-      <div style="background:#12151c;border:1px solid var(--border);border-left:3px solid #e3b341;border-radius:10px;padding:14px 18px">
-        <div style="font-weight:700;color:#fff">4 · Platform signals <span style="color:#8b94a7;font-weight:400;font-size:0.85rem">· about the ground the agents run on, not the agents</span></div>
-        <p style="margin:8px 0 0;color:#c4ccd8;font-size:0.9rem">
-          A different origin entirely: the cluster and the store's own telemetry. SLURM node state
-          (<code>sinfo</code>: idle · busy · down), the storage engine's deployment and holdings
-          (keepers, chronicles, drain state), and <em>derived</em> records we compute later from other
-          records (fleet rollup buckets). The Infrastructure feature runs on these; no agent ever
-          produces them.
-        </p>
-        <div style="margin-top:8px;font-size:0.76rem;color:var(--muted)">carries: node state · store topology &amp; holdings · pipeline liveness · derived rollups</div>
-        <div style="margin-top:10px;font-size:0.78rem;color:var(--muted)">Field inventory: <em>pending</em></div>
-      </div>
-
     </div>
 
   </section>
@@ -1250,24 +1200,41 @@
   <section class="tab-content" data-tab="data" id="stored-data">
     <h2>Stored Data</h2>
     <p style="max-width:74ch">
-      <a href="#data">Collected Data</a> are what the agents <em>produce</em>. This is what we
-      actually <strong>persist</strong>. Everything is written to <strong>ChronoLog</strong> as
-      append-only records, grouped into named <em>chronicles</em>. Starting simple: the list of what
-      exists today; mapping each store back to the source it comes from (and spotting what we produce
-      but drop) comes later.
+      <a href="#data-sources">Collected Data</a> is what agents produce; this is what we actually
+      <strong>persist</strong>. Everything is written to <strong>ChronoLog</strong> as append-only
+      records, grouped into named <em>chronicles</em>. One card per chronicle that exists today.
     </p>
-    <table class="inv">
-      <thead><tr><th>chronicle</th><th>holds</th><th>kind</th></tr></thead>
-      <tbody>
-        <tr><td class="fld">llm_interactions</td><td class="carries">one record per LLM turn: the interaction captured from an agent's think step</td><td><span class="st st-in">collected</span></td></tr>
-        <tr><td class="fld">context_graphs</td><td class="carries">context-window <code>add</code> / <code>evict</code> nodes, per session</td><td><span class="st st-in">collected</span></td></tr>
-        <tr><td class="fld">recovery_events</td><td class="carries">backtrack / restore events, per session</td><td><span class="st st-in">collected</span></td></tr>
-        <tr><td class="fld">ia_&lt;scenario&gt; · edges</td><td class="carries">inter-agent call edges: one chronicle per scenario, one <code>edges</code> story</td><td><span class="st st-in">collected</span></td></tr>
-        <tr><td class="fld">metrics_rollup · minute</td><td class="carries">pre-aggregated per-(host, minute) fleet metrics, computed from the records above, not captured</td><td><span class="st st-dv">derived</span></td></tr>
-        <tr><td class="fld">checkpoints</td><td class="carries">conversation checkpoints: defined, but nothing writes them in the running system</td><td><span class="st st-sep">dormant</span></td></tr>
-        <tr><td class="fld">__index__ · scenarios / sessions / hosts</td><td class="carries">a one-off marker per scenario / session / host ever seen, so listing has something to read</td><td><span class="st st-sep">housekeeping</span></td></tr>
-      </tbody>
-    </table>
+
+    <div class="treegrid">
+      <div class="treecard stub">
+        <div class="tc-h"><code>llm_interactions</code> <span class="st st-in">collected</span></div>
+        <div class="tc-d">One record per LLM turn, captured from an agent's think step.</div>
+      </div>
+      <div class="treecard stub">
+        <div class="tc-h"><code>context_graphs</code> <span class="st st-in">collected</span></div>
+        <div class="tc-d">Context-window <code>add</code> / <code>evict</code> nodes, per session.</div>
+      </div>
+      <div class="treecard stub">
+        <div class="tc-h"><code>recovery_events</code> <span class="st st-in">collected</span></div>
+        <div class="tc-d">Backtrack / restore events, per session.</div>
+      </div>
+      <div class="treecard stub">
+        <div class="tc-h"><code>ia_&lt;scenario&gt;</code> <span class="st st-in">collected</span></div>
+        <div class="tc-d">Inter-agent call edges: one chronicle per scenario, one <code>edges</code> story.</div>
+      </div>
+      <div class="treecard stub">
+        <div class="tc-h"><code>metrics_rollup</code> <span class="st st-dv">derived</span></div>
+        <div class="tc-d">Pre-aggregated per-(host, minute) fleet metrics in a <code>minute</code> story, computed from the records above, not captured.</div>
+      </div>
+      <div class="treecard stub">
+        <div class="tc-h"><code>checkpoints</code> <span class="st st-sep">dormant</span></div>
+        <div class="tc-d">Conversation checkpoints: defined, but nothing writes them in the running system.</div>
+      </div>
+      <div class="treecard stub">
+        <div class="tc-h"><code>__index__</code> <span class="st st-sep">housekeeping</span></div>
+        <div class="tc-d">A marker per scenario / session / host ever seen, so listing has something to read.</div>
+      </div>
+    </div>
     <p style="color:var(--muted);font-size:0.82rem;max-width:74ch;margin-top:8px">
       <span class="st st-in">collected</span> written from a data source &middot;
       <span class="st st-dv">derived</span> computed from other records &middot;
@@ -1280,7 +1247,7 @@
   <section class="tab-content" data-tab="data" id="read-data">
     <h2>Served Data</h2>
     <p style="max-width:74ch">
-      <a href="#data">Collected Data</a> = what agents produce; <a href="#data">Stored Data</a> =
+      <a href="#data-sources">Collected Data</a> = what agents produce; <a href="#stored-data">Stored Data</a> =
       what we persist. <strong>Served Data</strong> is what each <em>feature</em> consumes. One card per
       feature that reads; open it for that feature's <strong>ideal read model</strong>: the shape
       the data wants for the feature to work, independent of what is stored today. (Playground generates
@@ -1965,6 +1932,7 @@
       <li><strong>&ldquo;Stored data&rdquo; section</strong> (<em>Target</em> tab, after Data sources): the counterpart to the sources &mdash; what we actually <em>persist</em> vs what agents produce. A simple table of every ChronoLog chronicle (grounded in <code>backend/chronolog/constants.py</code>): <code>llm_interactions</code> · <code>context_graphs</code> · <code>recovery_events</code> · <code>ia_&lt;scenario&gt;</code> edges (<em>collected</em>), <code>metrics_rollup</code> (<em>derived</em>), <code>checkpoints</code> (<em>dormant</em> &mdash; never written today), <code>__index__</code> (<em>housekeeping</em>). First pass; mapping each store back to its source comes next.</li>
       <li><strong>Workspace demo seed</strong>: added <code>scripts/demos/demo_workspace.py</code> (wired into the offline <code>make demo</code> entrypoint) — the first demo that seeds a real <em>orchestrator + subagents</em> conversation. The existing demos only seed flat <code>role@scenario</code> sessions, so Workspace showed one block per agent; this seeds a nested session tree (<code>orchestrator@ws-demo</code> &rarr; <code>.1</code> researcher &rarr; <code>.1.1</code> web-fetch, and &rarr; <code>.2</code> coder), interleaved in time so the handoffs render as edges and one coder turn returns HTTP 500 to exercise the error-toast feature. Verified through the real backend: one conversation, 4 agents, 6 handoffs, 14 turns, and the tree + timeline render in the UI.</li>
       <li><strong>Target tab split &rarr; Overview · Architecture · Data</strong>: the single <em>Target</em> tab was broken into three top-nav tabs — <strong>Overview</strong> (what it is · features · layers), <strong>Architecture</strong> (architecture target · repo layout), <strong>Data</strong> (the data map). The <strong>Data</strong> tab opens with a pipeline overview — a three-block <em>Collect &rarr; Store &rarr; Serve</em> diagram — then three sections renamed to match: <strong>Collected Data</strong> (what agents produce — the drill-down source tree), <strong>Stored Data</strong> (ChronoLog chronicles), <strong>Served Data</strong> (one clickable card per read feature; the <em>Runs</em> card drills into the ideal <code>Run &rarr; Agent &rarr; Turn &rarr; Call</code> read model). Breadcrumb roots and cross-links updated to the new names; verified tabs + drill-down pages render and the nav highlights correctly.</li>
+      <li><strong>Unified the three Data-tab sections onto one card format</strong>: <strong>Collected</strong>, <strong>Stored</strong> and <strong>Served Data</strong> now all read <em>title &rarr; short intro &rarr; grid of cards</em> (the <code>.treecard</code> component). <strong>Collected</strong>'s four verbose source panels became four cards with simplified descriptions (source&nbsp;1 clickable into the drill-down, sources&nbsp;2&ndash;4 <em>pending</em>); <strong>Stored</strong>'s chronicle table became one card per chronicle (name + <em>collected/derived/dormant/housekeeping</em> pill + what it holds, legend kept); <strong>Served</strong> was already card-based and stays. Cross-links now point at the section anchors (<code>#data-sources</code>/<code>#stored-data</code>) instead of the tab top. Verified all three render and the source-1 card navigates.</li>
     </ul>
     <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do</div>
     <ul style="font-size:0.88rem">
