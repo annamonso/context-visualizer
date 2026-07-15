@@ -118,10 +118,10 @@
   .glance .rep { color: #8b94a7; }
   .ent { border: 1px solid var(--border); border-left: 3px solid #5ea0ff; border-radius: 10px; padding: 12px 15px 14px; background: #12151c; }
   .ent + .ent { margin-top: 10px; }
-  .ent-run,   .ent-report,    .ent-cluster  { border-left-color: #5ea0ff; }
-  .ent-agent, .ent-incident,  .ent-node     { border-left-color: #b98bff; }
-  .ent-turn,  .ent-signal,    .ent-store    { border-left-color: #41d1a7; }
-  .ent-call,  .ent-diagnosis, .ent-pipeline { border-left-color: #e3b341; }
+  .ent-run,   .ent-report,    .ent-cluster,  .ent-usage  { border-left-color: #5ea0ff; }
+  .ent-agent, .ent-incident,  .ent-node,     .ent-slice  { border-left-color: #b98bff; }
+  .ent-turn,  .ent-signal,    .ent-store,    .ent-series { border-left-color: #41d1a7; }
+  .ent-call,  .ent-diagnosis, .ent-pipeline, .ent-ctx    { border-left-color: #e3b341; }
   .ent .ent-h { font-weight: 700; color: #e7ecf3; font-size: 1rem; }
   .ent .ent-h .role { font-weight: 400; color: var(--muted); font-size: 0.8rem; margin-left: 8px; }
   .ent .inv { margin-top: 8px; }
@@ -131,10 +131,10 @@
   .schema { margin: 16px 0 18px; }
   .sbox { border: 1px solid var(--border); border-left: 3px solid #5ea0ff; border-radius: 10px; padding: 11px 13px; }
   .sbox .sbox { margin-top: 10px; }
-  .sbox-run,   .sbox-report,    .sbox-cluster  { border-left-color: #5ea0ff; background: rgba(94,160,255,0.06); }
-  .sbox-agent, .sbox-incident,  .sbox-node     { border-left-color: #b98bff; background: rgba(185,139,255,0.06); }
-  .sbox-turn,  .sbox-signal,    .sbox-store    { border-left-color: #41d1a7; background: rgba(65,209,167,0.06); }
-  .sbox-call,  .sbox-diagnosis, .sbox-pipeline { border-left-color: #e3b341; background: rgba(227,179,65,0.06); }
+  .sbox-run,   .sbox-report,    .sbox-cluster,  .sbox-usage  { border-left-color: #5ea0ff; background: rgba(94,160,255,0.06); }
+  .sbox-agent, .sbox-incident,  .sbox-node,     .sbox-slice  { border-left-color: #b98bff; background: rgba(185,139,255,0.06); }
+  .sbox-turn,  .sbox-signal,    .sbox-store,    .sbox-series { border-left-color: #41d1a7; background: rgba(65,209,167,0.06); }
+  .sbox-call,  .sbox-diagnosis, .sbox-pipeline, .sbox-ctx    { border-left-color: #e3b341; background: rgba(227,179,65,0.06); }
   .sbox-h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
   .sbox-h .sbox-n { font-weight: 700; color: #e7ecf3; font-size: 0.95rem; }
   .sbox-h .rep { color: #8b94a7; font-weight: 700; font-size: 0.9rem; }
@@ -1283,7 +1283,7 @@
       </a>
       <a class="treecard" href="#data-read-usage">
         <div class="tc-h">4 · Usage <span class="arr">→</span></div>
-        <div class="tc-m">absorbs Memory + cost KPIs &nbsp;·&nbsp; <span class="st st-sep">pending</span></div>
+        <div class="tc-m">absorbs Memory + cost KPIs &nbsp;·&nbsp; <span class="st st-in">ideal model</span></div>
         <div class="tc-d">Tokens, cost, and context memory over a run, sliced by agent / model / node.</div>
       </a>
     </div>
@@ -1603,8 +1603,106 @@
 
   <section class="tab-content" data-tab="data-read-usage" data-nav="data">
     <div class="crumb"><a href="#data">Served Data</a><span class="sep">›</span><span class="here">Usage</span></div>
-    <h2>Usage · ideal read model</h2>
-    <p style="color:var(--muted);font-size:0.86rem;max-width:74ch">Ideal read model: <em>pending</em>.</p>
+    <p style="max-width:74ch">
+      Usage answers <em>where the tokens, money, and context went</em> over a run: what each turn cost,
+      what it added up to in dollars, and how the context window grew and churned. It captures nothing
+      new; every figure is a <strong>re-aggregation</strong> of what a run already produced, rolled into
+      headline totals and sliced by <em>agent</em>, <em>model</em>, or <em>node</em>. It has two facets:
+      the cost / token ledger (totals, slices, a time series) and the context-window memory (how big the
+      window got and what filled it). The schema is below, with each part's fields in the tables that
+      follow.
+    </p>
+
+    <div class="schema">
+      <div class="sbox sbox-usage">
+        <div class="sbox-h"><span class="sbox-n">Usage</span><span class="sbox-s">a resource ledger over a scope (a run, or a fleet window); carries the headline totals</span></div>
+        <div class="sbox sbox-slice">
+          <div class="sbox-h"><span class="sbox-n">Slice</span><span class="rep">×&nbsp;many</span><span class="st st-in">the lens</span><span class="sbox-s">a breakdown by one dimension: agent | model | node</span></div>
+        </div>
+        <div class="sbox sbox-series">
+          <div class="sbox-h"><span class="sbox-n">Series</span><span class="rep">×&nbsp;many</span><span class="sbox-s">time buckets: tokens &amp; cost over the scope</span></div>
+        </div>
+        <div class="sbox sbox-ctx">
+          <div class="sbox-h"><span class="sbox-n">ContextWindow</span><span class="rep">×&nbsp;1</span><span class="sbox-s">the memory facet: the window's composition &amp; size over the run</span></div>
+        </div>
+      </div>
+      <p class="schema-note">Every figure rolls up from per-turn samples: each turn's
+        <code>delta_input_tokens</code> / <code>delta_output_tokens</code> / <code>delta_cost_usd</code> and its
+        context-window composition, which live on the <a href="#data-read-runs">Turn</a> in the Runs model.
+        Usage adds no new capture; it re-aggregates what a run already produced.</p>
+    </div>
+
+    <div class="ent ent-usage">
+      <div class="ent-h">Usage <span class="role">· the resource ledger</span></div>
+      <table class="inv">
+        <thead><tr><th>field</th><th>type</th><th>note</th></tr></thead>
+        <tbody>
+          <tr><td class="fld">scope</td><td class="ty">{ run_id? | window, group_by }</td><td class="carries">what it covers: a single run, or a fleet time window; plus the dimension it is grouped by</td></tr>
+          <tr><td class="fld">window</td><td class="ty">{ from, to }</td><td class="carries">the time span the figures cover</td></tr>
+          <tr><td class="fld">calls</td><td class="ty">int</td><td class="carries">number of LLM turns counted</td></tr>
+          <tr><td class="fld">input_tokens</td><td class="ty">int</td><td class="carries">total tokens sent</td></tr>
+          <tr><td class="fld">output_tokens</td><td class="ty">int</td><td class="carries">total tokens generated</td></tr>
+          <tr><td class="fld">total_tokens</td><td class="ty">int</td><td class="carries">input + output</td></tr>
+          <tr><td class="fld">cost_usd</td><td class="ty">number</td><td class="carries">total spend over the scope</td></tr>
+          <tr><td class="fld">peak_context_tokens</td><td class="ty">int</td><td class="carries">the largest the context window got</td></tr>
+          <tr><td class="fld">slices[]</td><td class="ty">[Slice] <span class="down">↓</span></td><td class="carries">the breakdowns</td></tr>
+          <tr><td class="fld">series[]</td><td class="ty">[Series] <span class="down">↓</span></td><td class="carries">the time buckets</td></tr>
+          <tr><td class="fld">context</td><td class="ty">ContextWindow <span class="down">↓</span></td><td class="carries">the memory facet</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="ent ent-slice">
+      <div class="ent-h">Slice <span class="role">· the lens: a breakdown by dimension · repeats</span></div>
+      <table class="inv">
+        <thead><tr><th>field</th><th>type</th><th>note</th></tr></thead>
+        <tbody>
+          <tr><td class="fld">dimension</td><td class="ty">agent | model | node</td><td class="carries">which axis this row groups by</td></tr>
+          <tr><td class="fld">key</td><td class="ty">string <span class="ref">→ Agent</span></td><td class="carries">the value (a model name, a host, or an agent id; the agent dimension resolves to an <em>Agent</em> in Runs)</td></tr>
+          <tr><td class="fld">calls</td><td class="ty">int</td><td class="carries">turns attributed to this key</td></tr>
+          <tr><td class="fld">input_tokens</td><td class="ty">int</td><td class="carries">tokens sent</td></tr>
+          <tr><td class="fld">output_tokens</td><td class="ty">int</td><td class="carries">tokens generated</td></tr>
+          <tr><td class="fld">total_tokens</td><td class="ty">int</td><td class="carries">input + output</td></tr>
+          <tr><td class="fld">cost_usd</td><td class="ty">number</td><td class="carries">spend attributed to this key</td></tr>
+          <tr><td class="fld">avg_latency_ms</td><td class="ty">number</td><td class="carries">mean turn latency for this key</td></tr>
+          <tr><td class="fld">share_pct</td><td class="ty">number</td><td class="carries">this key's share of total cost</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="ent ent-series">
+      <div class="ent-h">Series <span class="role">· time buckets · repeats</span></div>
+      <table class="inv">
+        <thead><tr><th>field</th><th>type</th><th>note</th></tr></thead>
+        <tbody>
+          <tr><td class="fld">bucket</td><td class="ty">time</td><td class="carries">the minute (or coarser) this row covers</td></tr>
+          <tr><td class="fld">calls</td><td class="ty">int</td><td class="carries">turns in the bucket</td></tr>
+          <tr><td class="fld">input_tokens</td><td class="ty">int</td><td class="carries">tokens sent in the bucket</td></tr>
+          <tr><td class="fld">output_tokens</td><td class="ty">int</td><td class="carries">tokens generated in the bucket</td></tr>
+          <tr><td class="fld">cost_usd</td><td class="ty">number</td><td class="carries">spend in the bucket</td></tr>
+          <tr><td class="fld">context_tokens</td><td class="ty">int</td><td class="carries">context-window size at the bucket (the growth curve)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="ent ent-ctx">
+      <div class="ent-h">ContextWindow <span class="role">· the memory facet · one</span></div>
+      <table class="inv">
+        <thead><tr><th>field</th><th>type</th><th>note</th></tr></thead>
+        <tbody>
+          <tr><td class="fld">current_tokens</td><td class="ty">int</td><td class="carries">context-window size at the end of the run</td></tr>
+          <tr><td class="fld">peak_tokens</td><td class="ty">int</td><td class="carries">the largest it reached</td></tr>
+          <tr><td class="fld">adds</td><td class="ty">int</td><td class="carries">context-add operations over the run</td></tr>
+          <tr><td class="fld">evicts</td><td class="ty">int</td><td class="carries">context-evict operations (memory reclaimed)</td></tr>
+          <tr><td class="fld">system_prompt_tokens</td><td class="ty">int</td><td class="carries">tokens held by the system prompt</td></tr>
+          <tr><td class="fld">user_message_tokens</td><td class="ty">int</td><td class="carries">tokens held by user messages</td></tr>
+          <tr><td class="fld">assistant_message_tokens</td><td class="ty">int</td><td class="carries">tokens held by assistant messages</td></tr>
+          <tr><td class="fld">tool_call_tokens</td><td class="ty">int</td><td class="carries">tokens held by tool-use requests</td></tr>
+          <tr><td class="fld">tool_result_tokens</td><td class="ty">int</td><td class="carries">tokens held by tool results</td></tr>
+          <tr><td class="fld">by_model</td><td class="ty">object</td><td class="carries">the window-growth curve, per model</td></tr>
+        </tbody>
+      </table>
+    </div>
   </section>
 
   <!-- ============ LEVEL 2 · LLM interactions (source landing) ============ -->
@@ -2174,6 +2272,7 @@
       <li><strong>Reworked the Served &rarr; Runs detail page</strong>: dropped the <em>Runs · ideal read model</em> heading and opened with a short contextualization (the feature reconstructs a whole run &mdash; orchestrator + subagents + activity &mdash; into one nested data model). Replaced the one-line <code>Run › Agent › Turn › Call</code> glance with a <strong>box-based containment schema</strong> (nested, colour-coded boxes for Run &sup; Agent &sup; Turn &sup; Call, with the Call&rarr;Agent back-edge called out as tree = trace). The four per-entity field tables stay below as the detail.</li>
       <li><strong>Built the Served &rarr; Doctor ideal read model</strong> (same shape as Runs): contextualization &rarr; box-based containment schema &rarr; per-entity field tables. Grounded in the real diagnostics pipeline (<code>gather &rarr; detect &rarr; cluster &rarr; diagnose</code>), with fields from <code>diagnostics/incidents.py</code> · <code>detectors.py</code> · <code>diagnoser.py</code> · <code>scan.py</code>. Built <strong>around the Incident</strong> as the unit (not the scan): the <strong>Incident</strong> is the durable, rememberable noun (stable <code>incident_id</code>, a <code>status</code> lifecycle, aggregates, <code>runs[] &rarr; Runs</code>), clustering many <strong>Signals</strong> (individual occurrences) and carrying one <strong>Diagnosis</strong> (root cause / blast radius / remediation / confidence). The <strong>Scan</strong> is demoted to a thin query envelope (scope = window + optional run/scenario/host filter, totals) shown last. A Signal's <code>session</code>+<code>ts</code> link back into the Runs model (an incident opens into the runs that produced it). Served-Data Doctor card flipped from <em>pending</em> to <em>ideal model</em>.</li>
       <li><strong>Built the Served &rarr; Infrastructure ideal read model</strong>: same page shape, but modelled honestly as a <strong>snapshot of the substrate</strong> (not one deep tree). A <strong>Cluster</strong> snapshot holds the repeating unit <strong>Node</strong> (the fleet heatmap: roles, status, error rate, latency, tokens, cost, agents, allocation) plus two singletons, <strong>Store</strong> (the ChronoLog deployment: visor / keepers / grapher / player placement + chronicle holdings) and <strong>Pipeline</strong> (ingest liveness: accepting, spool depth, drain lag, last write/drain). Grounded in <code>fleet/rollup.py</code> (<code>NodeHealth</code>/<code>Bucket</code>) · <code>fleet/store.py</code> · <code>api/chronolog_view.py</code>. Note records that node health comes from <code>metrics_rollup</code> while Store + allocation come from the cluster's own topology port. Served-Data Infrastructure card flipped from <em>pending</em> to <em>ideal model</em>.</li>
+      <li><strong>Built the Served &rarr; Usage ideal read model</strong> (closes the four read features): a <strong>Usage</strong> ledger over a scope (a run or a fleet window) holding three parts, the <strong>Slice</strong> (the primary lens: a breakdown by <em>agent</em> / <em>model</em> / <em>node</em>), the <strong>Series</strong> (time buckets of tokens &amp; cost), and the <strong>ContextWindow</strong> (the memory facet: window size + composition into system / user / assistant / tool-call / tool-result tokens, plus add/evict churn). Grounded in <code>analysis/context_graph.py</code> (<code>compute_analysis</code>, the per-turn decomposition) and the interaction metrics (<code>delta_input_tokens</code> / <code>delta_output_tokens</code> / <code>delta_cost_usd</code>). Framed as a <strong>re-aggregation</strong> (no new capture): every figure rolls up from per-turn samples on the <em>Turn</em> in the Runs model. Served-Data Usage card flipped from <em>pending</em> to <em>ideal model</em> &mdash; all four read features now have an ideal model.</li>
     </ul>
     <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do</div>
     <ul style="font-size:0.88rem">
