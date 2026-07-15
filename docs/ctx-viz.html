@@ -127,6 +127,19 @@
   .ent .inv { margin-top: 8px; }
   .ent .ref { color: #8fc0ff; }
   .ent .down { color: #8b94a7; }
+  /* nested-box containment schema (Run > Agent > Turn > Call) */
+  .schema { margin: 16px 0 18px; }
+  .sbox { border: 1px solid var(--border); border-left: 3px solid #5ea0ff; border-radius: 10px; padding: 11px 13px; }
+  .sbox .sbox { margin-top: 10px; }
+  .sbox-run   { border-left-color: #5ea0ff; background: rgba(94,160,255,0.06); }
+  .sbox-agent { border-left-color: #b98bff; background: rgba(185,139,255,0.06); }
+  .sbox-turn  { border-left-color: #41d1a7; background: rgba(65,209,167,0.06); }
+  .sbox-call  { border-left-color: #e3b341; background: rgba(227,179,65,0.06); }
+  .sbox-h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .sbox-h .sbox-n { font-weight: 700; color: #e7ecf3; font-size: 0.95rem; }
+  .sbox-h .rep { color: #8b94a7; font-weight: 700; font-size: 0.9rem; }
+  .sbox-h .sbox-s { font-weight: 400; color: var(--muted); font-size: 0.8rem; }
+  .schema-note { font-size: 0.8rem; color: var(--muted); margin: 10px 0 0; line-height: 1.5; }
   .crumb { font-size: 0.8rem; color: var(--muted); margin: 2px 0 16px; }
   .crumb a { color: #9fb0c7; text-decoration: none; }
   .crumb a:hover { color: #fff; text-decoration: underline; }
@@ -1279,8 +1292,30 @@
   <!-- Served-data feature detail pages -->
   <section class="tab-content" data-tab="data-read-runs" data-nav="data">
     <div class="crumb"><a href="#data">Served Data</a><span class="sep">›</span><span class="here">Runs</span></div>
-    <h2>Runs · ideal read model</h2>
-    <div class="glance">Run&nbsp; ›&nbsp; Agent<span class="rep">*</span>&nbsp; ›&nbsp; Turn<span class="rep">*</span>&nbsp; ›&nbsp; Call<span class="rep">*</span> &nbsp;&nbsp;<span class="rep">( * = repeats; a Call may point back to a child Agent: that edge is both the tree and the trace )</span></div>
+    <p style="max-width:74ch">
+      The Runs feature reconstructs an entire agent run: the orchestrator, every subagent it spawns,
+      and all the work they do, presented as one navigable structure. To do that, the scattered signals
+      of a run fold into a single <strong>nested data model</strong>: a containment hierarchy where a
+      <em>Run</em> holds Agents, each <em>Agent</em> holds Turns, and each <em>Turn</em> holds Calls.
+      The schema is below, with each level's fields in the tables that follow.
+    </p>
+
+    <div class="schema">
+      <div class="sbox sbox-run">
+        <div class="sbox-h"><span class="sbox-n">Run</span><span class="sbox-s">one top-level task</span></div>
+        <div class="sbox sbox-agent">
+          <div class="sbox-h"><span class="sbox-n">Agent</span><span class="rep">×&nbsp;many</span><span class="sbox-s">a node in the tree (orchestrator or subagent)</span></div>
+          <div class="sbox sbox-turn">
+            <div class="sbox-h"><span class="sbox-n">Turn</span><span class="rep">×&nbsp;many</span><span class="sbox-s">one think→act step (= one LLM interaction)</span></div>
+            <div class="sbox sbox-call">
+              <div class="sbox-h"><span class="sbox-n">Call</span><span class="rep">×&nbsp;many</span><span class="sbox-s">an act: a tool use or a delegation</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="schema-note">A Call's <code>target</code> may point back to a child <em>Agent</em>: that edge is
+        both the agent tree and the inter-agent trace, so the whole run is one graph from one source.</p>
+    </div>
 
     <div class="ent ent-run">
       <div class="ent-h">Run <span class="role">· one top-level task</span></div>
@@ -1931,6 +1966,7 @@
       <li><strong>Workspace demo seed</strong>: added <code>scripts/demos/demo_workspace.py</code> (wired into the offline <code>make demo</code> entrypoint) — the first demo that seeds a real <em>orchestrator + subagents</em> conversation. The existing demos only seed flat <code>role@scenario</code> sessions, so Workspace showed one block per agent; this seeds a nested session tree (<code>orchestrator@ws-demo</code> &rarr; <code>.1</code> researcher &rarr; <code>.1.1</code> web-fetch, and &rarr; <code>.2</code> coder), interleaved in time so the handoffs render as edges and one coder turn returns HTTP 500 to exercise the error-toast feature. Verified through the real backend: one conversation, 4 agents, 6 handoffs, 14 turns, and the tree + timeline render in the UI.</li>
       <li><strong>Target tab split &rarr; Overview · Architecture · Data</strong>: the single <em>Target</em> tab was broken into three top-nav tabs — <strong>Overview</strong> (what it is · features · layers), <strong>Architecture</strong> (architecture target · repo layout), <strong>Data</strong> (the data map). The <strong>Data</strong> tab opens with a pipeline overview — a three-block <em>Collect &rarr; Store &rarr; Serve</em> diagram — then three sections renamed to match: <strong>Collected Data</strong> (what agents produce — the drill-down source tree), <strong>Stored Data</strong> (ChronoLog chronicles), <strong>Served Data</strong> (one clickable card per read feature; the <em>Runs</em> card drills into the ideal <code>Run &rarr; Agent &rarr; Turn &rarr; Call</code> read model). Breadcrumb roots and cross-links updated to the new names; verified tabs + drill-down pages render and the nav highlights correctly.</li>
       <li><strong>Unified the three Data-tab sections onto one card format</strong>: <strong>Collected</strong>, <strong>Stored</strong> and <strong>Served Data</strong> now all read <em>title &rarr; short intro &rarr; grid of cards</em> (the <code>.treecard</code> component). <strong>Collected</strong>'s four verbose source panels became four cards with simplified descriptions (source&nbsp;1 clickable into the drill-down, sources&nbsp;2&ndash;4 <em>pending</em>); <strong>Stored</strong>'s chronicle table became one card per chronicle (name + <em>collected/derived/dormant/housekeeping</em> pill + what it holds, legend kept); <strong>Served</strong> was already card-based and stays. Cross-links now point at the section anchors (<code>#data-sources</code>/<code>#stored-data</code>) instead of the tab top. Verified all three render and the source-1 card navigates.</li>
+      <li><strong>Reworked the Served &rarr; Runs detail page</strong>: dropped the <em>Runs · ideal read model</em> heading and opened with a short contextualization (the feature reconstructs a whole run &mdash; orchestrator + subagents + activity &mdash; into one nested data model). Replaced the one-line <code>Run › Agent › Turn › Call</code> glance with a <strong>box-based containment schema</strong> (nested, colour-coded boxes for Run &sup; Agent &sup; Turn &sup; Call, with the Call&rarr;Agent back-edge called out as tree = trace). The four per-entity field tables stay below as the detail.</li>
     </ul>
     <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do</div>
     <ul style="font-size:0.88rem">
