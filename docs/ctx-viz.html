@@ -2231,19 +2231,22 @@
     <h2>Overview</h2>
     <p style="max-width:78ch">
       This tab is the plan: how the project moves from where it is today to the target architecture and
-      data model in the other tabs. The work is organized as a <strong>sequence of phases</strong>,
-      covering both the app and the ChronoLog side. The order is logical, not a schedule: <em>when and
-      how</em> each phase is worked (and what runs in parallel) is a separate conversation. Each phase
-      has its own section below.
+      data model in the other tabs. The work is organized as a <strong>sequence of eight phases</strong>
+      (0&ndash;7), plus one <strong>cross-cutting track</strong> (the ChronoLog read path) that runs
+      alongside them. The order is logical, not a schedule: <em>when and how</em> each phase is worked
+      (and what runs in parallel) is a separate conversation. Each phase has its own section below;
+      anything that does not sit inside a single phase is gathered in <em>Others / TBD</em>.
     </p>
     <div style="display:grid;gap:9px;margin-top:16px;font-size:0.9rem">
       <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">0</span><span><strong>Alignment</strong> <span style="color:var(--muted)">· agree direction &amp; settle decisions</span> <span style="color:#8b94a7;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">this&nbsp;meeting</span></span></div>
-      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">1</span><span><strong>Write path</strong> <span style="color:var(--muted)">· port + producer/collector split + clean data model</span> <span style="color:#5ea0ff;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">app</span></span></div>
-      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">2</span><span><strong>Restructure</strong> <span style="color:var(--muted)">· move the folders to the target shape</span> <span style="color:#5ea0ff;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">app</span></span></div>
-      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">3</span><span><strong>ChronoLog read path</strong> <span style="color:var(--muted)">· range query, tail reads, topology API</span> <span style="color:#e3b341;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">chronolog</span></span></div>
-      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">4</span><span><strong>Realize the read models</strong> <span style="color:var(--muted)">· compute produces the ideal models; retire scraping</span> <span style="color:#5ea0ff;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">app</span></span></div>
-      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">5</span><span><strong>chrono-agent</strong> <span style="color:var(--muted)">· producer graduates to an upstream plugin (#688)</span> <span style="color:#e3b341;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">chronolog</span></span></div>
-      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">6</span><span><strong>Complete</strong> <span style="color:var(--muted)">· semantic decision, frontend 8&rarr;4, optional 2nd adapter</span> <span style="color:#5ea0ff;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">app</span></span></div>
+      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">1</span><span><strong>Data model</strong> <span style="color:var(--muted)">· design the canonical event contract; land it in the Data tab</span> <span style="color:#5ea0ff;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">app</span></span></div>
+      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">2</span><span><strong>Write path</strong> <span style="color:var(--muted)">· port + producer/collector split; emit the canonical records</span> <span style="color:#5ea0ff;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">app</span></span></div>
+      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">3</span><span><strong>Runs</strong> <span style="color:var(--muted)">· first read vertical: realize the model + restructure the code</span> <span style="color:#5ea0ff;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">app</span></span></div>
+      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">4</span><span><strong>Doctor</strong> <span style="color:var(--muted)">· reliability vertical, built around the durable Incident</span> <span style="color:#5ea0ff;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">app</span></span></div>
+      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">5</span><span><strong>Infrastructure</strong> <span style="color:var(--muted)">· operational vertical: the Cluster snapshot</span> <span style="color:#5ea0ff;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">app</span></span></div>
+      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">6</span><span><strong>Usage</strong> <span style="color:var(--muted)">· cost/memory vertical: the re-aggregation ledger</span> <span style="color:#5ea0ff;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">app</span></span></div>
+      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">7</span><span><strong>chrono-agent</strong> <span style="color:var(--muted)">· producer graduates to an upstream plugin (#688)</span> <span style="color:#e3b341;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">chronolog</span></span></div>
+      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#141821;color:#8b94a7;font-weight:700;font-size:0.78rem;border:1px dashed #2c3442">&#8942;</span><span><strong>ChronoLog read path</strong> <span style="color:var(--muted)">· range query, tail reads, topology API &mdash; cross-cutting, runs alongside 3&ndash;6</span> <span style="color:#e3b341;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">track</span></span></div>
     </div>
   </section>
 
@@ -2279,13 +2282,46 @@
   </section>
 
   <section class="tab-content" data-tab="roadmap">
-    <h2>Phase 1 &middot; Write path <span style="color:var(--muted);font-weight:400;font-size:0.9rem">(the keystone &middot; foundation for chrono-agent)</span></h2>
+    <h2>Phase 1 &middot; Data model <span style="color:var(--muted);font-weight:400;font-size:0.9rem">(design the contract &middot; no code)</span></h2>
     <p style="max-width:78ch">
-      The write path, done right: the seam, the code structure, and the data model, built to be the
-      foundation for the <code>chrono-agent</code> plugin. This is the core of the project. Today writes
-      are scattered across four sites that call ChronoLog directly, the code mixes <em>producing</em>
-      with <em>storing</em>, and the records omit the identities the read side needs (so it scrapes and
-      re-derives). Phase 1 fixes all three.
+      Before touching the write code, design the <strong>canonical data model</strong>: the event schema
+      everything agrees on, landed in the <em>Data</em> tab. This is the write-side mirror of the ideal
+      read models: design it on paper, agree it, then implement it in Phase 2. It is the contract
+      <code>chrono-agent</code> will eventually freeze, so it has to be right before any code depends on
+      it. Output is documentation, not code.
+    </p>
+
+    <div style="font-weight:700;color:#41d1a7;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">1 &middot; The canonical records</div>
+    <ul style="font-size:0.9rem">
+      <li>Define the four emitted event records in <code>contract/events</code>: <code>llm_interaction</code>, <code>context_node</code>, <code>inter_agent_edge</code>, <code>recovery_event</code> &mdash; one record per signal, pure schema, zero deps.</li>
+    </ul>
+
+    <div style="font-weight:700;color:#b98bff;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">2 &middot; The identities</div>
+    <ul style="font-size:0.9rem">
+      <li>Each record carries the read-model identities <strong>at production time</strong>: <code>run_id</code>, <code>agent_id</code>, <code>turn_id</code>, <code>call_id</code>, <code>parent_agent_id</code>, <code>spawned_by</code> &mdash; replacing today's implicit encoding (dotted session suffixes <code>a.1.1</code>, a bare <code>correlation_id</code>).</li>
+    </ul>
+
+    <div style="font-weight:700;color:#e3b341;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">3 &middot; Prove it projects</div>
+    <ul style="font-size:0.9rem">
+      <li>Show each of the four ideal read models (<em>Runs · Doctor · Infrastructure · Usage</em>) is a clean <strong>projection</strong> of these records &mdash; no scraping, no re-derivation.</li>
+      <li>Where a read model needs a field, the record must emit it: this is the check that closes the loop between the write data model and the read data model.</li>
+    </ul>
+
+    <div style="font-weight:700;color:#9fd356;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Done when</div>
+    <ul style="font-size:0.9rem">
+      <li>The canonical event schema is documented in the <em>Data</em> tab (the write-side counterpart to the Served read models).</li>
+      <li>Each of the four read models maps to it field-by-field.</li>
+      <li>It is agreed as the contract to implement (Phase 2) and eventually freeze (Phase 7).</li>
+    </ul>
+  </section>
+
+  <section class="tab-content" data-tab="roadmap">
+    <h2>Phase 2 &middot; Write path <span style="color:var(--muted);font-weight:400;font-size:0.9rem">(the keystone &middot; foundation for chrono-agent)</span></h2>
+    <p style="max-width:78ch">
+      Implement the Phase 1 data model in a clean write path. Today writes are scattered across four sites
+      that call ChronoLog directly and the code mixes <em>producing</em> with <em>storing</em>. Phase 2
+      introduces the seam and the structure, and emits the canonical records. This is the core of the
+      project and the foundation for the <code>chrono-agent</code> plugin.
     </p>
 
     <div style="font-weight:700;color:#5ea0ff;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">1 &middot; The seam &mdash; <code style="text-transform:none">EventSink</code> port</div>
@@ -2303,78 +2339,150 @@
       <li>One-way deps: <code>producer &rarr; contract</code>, <code>collector &rarr; contract + ports</code>; nothing points back up (that is what lets the producer graduate to its own package).</li>
     </ul>
 
-    <div style="font-weight:700;color:#e3b341;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">3 &middot; The data model &mdash; carry the read-model identities <span style="color:#9fd356;font-size:0.72rem">(decided: full redesign)</span></div>
+    <div style="font-weight:700;color:#e3b341;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">3 &middot; Emit the canonical records</div>
     <ul style="font-size:0.9rem">
-      <li>Define the canonical event records in <code>contract/events</code>: <code>llm_interaction</code>, <code>context_node</code>, <code>inter_agent_edge</code>, <code>recovery_event</code>.</li>
-      <li>Make them carry the identities the read models need <strong>at production time</strong>: <code>run_id</code>, <code>agent_id</code>, <code>turn_id</code>, <code>call_id</code>, <code>parent_agent_id</code>, <code>spawned_by</code> &mdash; replacing today's implicit encoding (dotted session suffixes <code>a.1.1</code>, a bare <code>correlation_id</code>).</li>
-      <li>Target: the emitted records assemble almost directly into <em>Run &rarr; Agent &rarr; Turn &rarr; Call</em>, so read <code>compute</code> (Phase 4) is a projection, not a scrape.</li>
-      <li>This is the contract <code>chrono-agent</code> will freeze, so it has to be right now.</li>
+      <li>The <code>producer/</code> emits the Phase 1 records carrying the identities; the <code>collector/</code> writes them through the sink.</li>
+      <li>The write data model now mirrors the read data model: emitted records assemble almost directly into <em>Run &rarr; Agent &rarr; Turn &rarr; Call</em>, so the read verticals (Phases 3&ndash;6) project rather than scrape.</li>
     </ul>
 
     <p style="color:var(--muted);font-size:0.88rem;max-width:78ch;margin-top:12px">
-      <strong style="color:#dbe2ec">Why it is the foundation:</strong> <code>producer/</code> plus this event
-      schema <em>is</em> the chrono-agent plugin: get the boundary and the records right here and Phase 5
-      is lift-and-ship. The elegant target is that the write data model mirrors the read data model.
+      <strong style="color:#dbe2ec">Why it is the foundation:</strong> <code>producer/</code> plus the Phase 1
+      event schema <em>is</em> the chrono-agent plugin: get the boundary and the records right here and
+      Phase 7 is lift-and-ship.
     </p>
 
     <div style="font-weight:700;color:#9fd356;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Done when</div>
     <ul style="font-size:0.9rem">
       <li>One write door: <code>py_chronolog_client</code> imported in exactly one adapter.</li>
       <li><code>producer/</code> and <code>collector/</code> are separated; <code>producer/</code> imports only <code>contract/</code>.</li>
-      <li>The canonical event schema lives in <code>contract/events</code> and carries the read-model identities.</li>
+      <li>The emitted records carry the read-model identities from Phase 1.</li>
       <li>The app still runs end-to-end (offline + online) and tests are green; pointing the sink at a local / JSONL adapter works.</li>
     </ul>
   </section>
 
   <section class="tab-content" data-tab="roadmap">
-    <h2>Roadmap</h2>
-    <p style="color:var(--muted);font-size:0.9rem;margin-top:-4px;max-width:78ch">
-      Where this tab organizes the plan, in three parts: what we need to <strong>agree on</strong>
-      first, the <strong>phased plan</strong> to move from today's code to the target in the
-      <em>Architecture</em> and <em>Data</em> tabs, and the detailed <strong>work log</strong> of what
-      has changed so far.
+    <h2>Phase 3 &middot; Runs <span style="color:var(--muted);font-weight:400;font-size:0.9rem">(first read vertical &middot; the tracer bullet)</span></h2>
+    <p style="max-width:78ch">
+      The first read vertical, and the template for the pattern: build one whole feature end-to-end on the
+      new write path, and restructure its code into an <code>insights/</code> slice as you go. <strong>Runs</strong>
+      absorbs the old <em>Workspace / Scenarios / Traces</em> tabs into a single model, <em>Run &rarr; Agent
+      &rarr; Turn &rarr; Call</em>.
     </p>
-
-    <h3 style="color:#5ea0ff">Alignment &middot; what to agree on first</h3>
-    <p style="color:var(--muted);font-size:0.86rem;max-width:78ch">
-      Before planning any work, let's confirm we share this picture and settle the open forks.
-    </p>
-
-    <div style="font-weight:700;color:#cfe0ff;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:14px 0 4px">The shared picture</div>
+    <div style="font-weight:700;color:#41d1a7;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Realize the model</div>
     <ul style="font-size:0.9rem">
-      <li><strong>The goal</strong> is a functional, decoupled, modular architecture: depend on a <em>port</em>, not on ChronoLog, so every component has one purpose and the engine is swappable.</li>
-      <li><strong>The engine sits behind a port.</strong> ChronoLog becomes one adapter; a second store is a new adapter and nothing above it changes.</li>
-      <li><strong>The read side is 4 features, not 8</strong> (<em>Runs · Doctor · Infrastructure · Usage</em>), each with an ideal read model in the Data tab. The old 8 tabs fold into these.</li>
-      <li><strong>Write is one pipeline, read is many slices.</strong> The write path is a single producer &rarr; collector &rarr; sink; each read feature is its own vertical slice (<em>read &rarr; compute &rarr; view</em>).</li>
-      <li><strong>The ideal read models are the target data shapes</strong>, and today's storage does not match them yet (no stable <code>run_id</code>, session-partitioned, incidents re-derived each scan). Closing that gap is the read work.</li>
-      <li><strong>The biggest structural gap today is the write path:</strong> it calls ChronoLog directly from several places, while the read side already has a port.</li>
+      <li><code>compute</code> assembles the emitted records directly into <em>Run &rarr; Agent &rarr; Turn &rarr; Call</em> (the ideal model in the Data tab) &mdash; no CSV scraping, no dotted-suffix parsing.</li>
+    </ul>
+    <div style="font-weight:700;color:#b98bff;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Restructure as you go</div>
+    <ul style="font-size:0.9rem">
+      <li>Land the feature as <code>insights/runs</code> (<code>read.py</code> via EventSource · <code>compute.py</code> pure · <code>view.py</code>), with a thin blueprint in the <code>api/</code> serve layer; retire the old workspace / scenarios / traces code paths.</li>
+    </ul>
+    <div style="font-weight:700;color:#9fd356;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Done when</div>
+    <ul style="font-size:0.9rem">
+      <li>The Runs view renders from <code>compute</code> (a projection); the old scraping path for it is gone; <code>insights/runs</code> is the template the next verticals follow.</li>
+    </ul>
+  </section>
+
+  <section class="tab-content" data-tab="roadmap">
+    <h2>Phase 4 &middot; Doctor <span style="color:var(--muted);font-weight:400;font-size:0.9rem">(reliability vertical)</span></h2>
+    <p style="max-width:78ch">
+      The reliability vertical, built around the durable <strong>Incident</strong>. Absorbs the old
+      <em>Doctor + Interactions</em> tabs.
+    </p>
+    <div style="font-weight:700;color:#41d1a7;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Realize the model</div>
+    <ul style="font-size:0.9rem">
+      <li><code>gather &rarr; detect &rarr; cluster &rarr; diagnose</code> produces the Incident-centric model (stable <code>incident_id</code>, a <code>status</code> lifecycle, clustered <em>Signals</em>, one <em>Diagnosis</em>, <code>runs[] &rarr; Runs</code>); the <em>Scan</em> is a thin query envelope.</li>
+    </ul>
+    <div style="font-weight:700;color:#b98bff;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Restructure as you go</div>
+    <ul style="font-size:0.9rem">
+      <li>Land as <code>insights/doctor</code>; incidents link back into the Runs model (an incident opens into the runs that produced it).</li>
+    </ul>
+    <div style="font-weight:700;color:#9fd356;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Done when</div>
+    <ul style="font-size:0.9rem">
+      <li>Incidents persist across scans (a stable <code>signature</code>), open into the runs that caused them, and the <code>insights/doctor</code> slice is in place.</li>
+    </ul>
+  </section>
+
+  <section class="tab-content" data-tab="roadmap">
+    <h2>Phase 5 &middot; Infrastructure <span style="color:var(--muted);font-weight:400;font-size:0.9rem">(operational vertical)</span></h2>
+    <p style="max-width:78ch">
+      The operational vertical: a <strong>Cluster</strong> snapshot of the substrate. Absorbs the old
+      <em>Fleet + Cluster</em> tabs plus pipeline health.
+    </p>
+    <div style="font-weight:700;color:#41d1a7;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Realize the model</div>
+    <ul style="font-size:0.9rem">
+      <li>The <em>Cluster</em> snapshot of <em>Node</em>&times;many + <em>Store</em> + <em>Pipeline</em> (the Data-tab model): node health from <code>metrics_rollup</code>, and <em>Store</em> + allocation from the cluster's own topology port (not EventSource).</li>
+    </ul>
+    <div style="font-weight:700;color:#b98bff;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Restructure as you go</div>
+    <ul style="font-size:0.9rem">
+      <li>Land as <code>insights/infrastructure</code>; define the topology / health read as its own port (this is where the cross-cutting ChronoLog read-path track lands its topology API).</li>
+    </ul>
+    <div style="font-weight:700;color:#9fd356;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Done when</div>
+    <ul style="font-size:0.9rem">
+      <li>Fleet + cluster + pipeline render from one snapshot model; the topology port is defined; the <code>insights/infrastructure</code> slice is in place.</li>
+    </ul>
+  </section>
+
+  <section class="tab-content" data-tab="roadmap">
+    <h2>Phase 6 &middot; Usage <span style="color:var(--muted);font-weight:400;font-size:0.9rem">(cost / memory vertical &middot; closes the four features)</span></h2>
+    <p style="max-width:78ch">
+      The cost / memory vertical: a <strong>re-aggregation</strong>, no new capture. Absorbs the old
+      <em>Memory</em> tab plus the cost KPIs.
+    </p>
+    <div style="font-weight:700;color:#41d1a7;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Realize the model</div>
+    <ul style="font-size:0.9rem">
+      <li>A <em>Usage</em> ledger over a scope: the <em>Slice</em> (breakdown by agent / model / node) + the <em>Series</em> (time buckets of tokens &amp; cost) + the <em>ContextWindow</em> (window size + composition), all rolled up from the per-turn samples on the <em>Turn</em> in the Runs model.</li>
+    </ul>
+    <div style="font-weight:700;color:#b98bff;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Restructure as you go</div>
+    <ul style="font-size:0.9rem">
+      <li>Land as <code>insights/usage</code>.</li>
+    </ul>
+    <div style="font-weight:700;color:#9fd356;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Done when</div>
+    <ul style="font-size:0.9rem">
+      <li>Usage rolls up from the <em>Turn</em> samples (no separate capture); the <code>insights/usage</code> slice is in place &mdash; all four read features are now realized.</li>
+    </ul>
+  </section>
+
+  <section class="tab-content" data-tab="roadmap">
+    <h2>Phase 7 &middot; chrono-agent <span style="color:var(--muted);font-weight:400;font-size:0.9rem">(producer graduates upstream)</span></h2>
+    <p style="max-width:78ch">
+      Graduate <code>producer/</code> into an upstream ChronoLog plugin
+      (<a href="https://github.com/grc-iit/chronolog/issues/688">#688</a>): transparent Path-A capture that
+      formalizes the spool + drain the app hand-rolls today. Because Phase 2 got the producer boundary and
+      the Phase 1 event schema right, this is lift-and-ship.
+    </p>
+    <div style="font-weight:700;color:#9fd356;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Done when</div>
+    <ul style="font-size:0.9rem">
+      <li><code>producer/</code> ships as the <code>chrono-agent</code> plugin; the app consumes it instead of its own producer code; the frozen contract is the Phase 1 schema.</li>
+    </ul>
+  </section>
+
+  <section class="tab-content" data-tab="roadmap">
+    <h2>Others / TBD</h2>
+    <p style="max-width:78ch">
+      Work that does not sit inside a single phase: one cross-cutting track, the open product decisions
+      from Phase 0, and a bucket for anything not yet slotted.
+    </p>
+
+    <div style="font-weight:700;color:#e3b341;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Cross-cutting track &middot; ChronoLog read path</div>
+    <ul style="font-size:0.9rem">
+      <li><strong>Range-query performance, tail / recent reads, topology / health API</strong> &mdash; needed for the read verticals (Phases 3&ndash;6) to read live without CSV scraping or the in-process hot store. Runs in parallel with the app phases; the detailed to-do is in the Work log below.</li>
     </ul>
 
-    <div style="font-weight:700;color:#e9c66f;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Decisions we need to make</div>
+    <div style="font-weight:700;color:#e9c66f;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Open decisions (settled in Phase 0, then become work)</div>
     <ul style="font-size:0.9rem">
-      <li><strong>Multi-engine: real goal or hygiene?</strong> Is running on another store a near-term need, or is the port mainly for cleanliness and testability? It sets how much we invest in the adapter layer.</li>
-      <li><strong><code>chrono-agent</code> absorption (#688):</strong> is folding the agent-side <code>producer/</code> into an upstream ChronoLog plugin a committed direction? It shapes the producer boundary.</li>
-      <li><strong>The headless <code>semantic</code> + <code>checkpointing</code> feature:</strong> finish it (add a tab + wire checkpoint creation into the write path) or park it as experimental? It is dormant today.</li>
-      <li><strong>Frontend 8 &rarr; 4:</strong> do the 8 tabs consolidate into 4 pages, or do 8 routes call into the 4 slices?</li>
+      <li><strong>Multi-engine &mdash; second adapter:</strong> if running on another store is a real goal, add a second <code>adapters/&lt;engine&gt;</code> (sqlite / kafka / JSONL). If the port is only for hygiene, this stays parked.</li>
+      <li><strong>Headless <code>semantic</code> + <code>checkpointing</code>:</strong> finish it (add a tab + wire checkpoint creation into the write path) or park it as experimental. Dormant today.</li>
+      <li><strong>Frontend 8 &rarr; 4:</strong> consolidate the 8 tabs into 4 pages, or keep 8 routes calling into the 4 slices.</li>
     </ul>
 
-    <h3 style="color:#41d1a7">Proposed phases &middot; the sequence</h3>
-    <p style="color:var(--muted);font-size:0.86rem;max-width:78ch">
-      One sequenced set of phases from alignment to the target, covering <strong>both</strong> the app and
-      the ChronoLog work. The order is logical, not a schedule &mdash; <em>when and how</em> each is worked
-      (and what runs in parallel) is a separate conversation. Each phase becomes its own section below.
-    </p>
-    <ol style="font-size:0.9rem">
-      <li><strong>Phase 0 &middot; Alignment</strong> <span style="color:#8b94a7;font-weight:700">(this meeting)</span>: agree the shared picture, the target architecture and the 4-feature read model, and settle the open decisions. Output: agreed direction + owners + which phases are in scope.</li>
-      <li><strong>Phase 1 &middot; Decouple:</strong> introduce the write-side port (<code>EventSink</code>) and route every writer through it, so <code>py_chronolog_client</code> is imported in exactly one folder. The read port already exists, so this makes ports-and-adapters real on both sides. The keystone.</li>
-      <li><strong>Phase 2 &middot; Restructure:</strong> move the folders to the target shape &mdash; <code>producer/</code> + <code>collector/</code> (write), the 4 <code>insights/</code> slices (read), <code>adapters/</code>, <code>contract/</code>. Mostly mechanical once the ports exist; unlocks the offline/local adapter and real tests.</li>
-      <li><strong>Phase 3 &middot; ChronoLog read path:</strong> range-query performance, tail / recent reads, and a topology / health API, so the app can read live without CSV scraping or an in-process hot store.</li>
-      <li><strong>Phase 4 &middot; Realize the read models:</strong> make each slice's <em>compute</em> produce the ideal read model (a stable <code>run_id</code>, the incident lifecycle, the usage ledger) and retire CSV scraping + the hot store. Depends on Phase 3; this is where the Data-tab target becomes real.</li>
-      <li><strong>Phase 5 &middot; chrono-agent:</strong> graduate the <code>producer/</code> into an upstream ChronoLog plugin (<a href="https://github.com/grc-iit/chronolog/issues/688">#688</a>) that formalizes the spool + drain the app hand-rolls today.</li>
-      <li><strong>Phase 6 &middot; Complete:</strong> resolve the headless <code>semantic</code> / <code>checkpointing</code> feature, consolidate the frontend 8 &rarr; 4, and add a second engine adapter if multi-engine is a real goal.</li>
-    </ol>
+    <div style="font-weight:700;color:#8b94a7;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Not yet slotted</div>
+    <ul style="font-size:0.9rem">
+      <li style="color:var(--muted)">Anything that comes up and does not fit a phase lands here first, to be triaged into a phase later.</li>
+    </ul>
+  </section>
 
-    <h3 style="color:#8b94a7">Work log &middot; detailed status</h3>
+  <section class="tab-content" data-tab="roadmap">
+    <h2>Work log <span style="color:var(--muted);font-weight:400;font-size:0.9rem">(detailed status)</span></h2>
     <p style="color:var(--muted);font-size:0.9rem;max-width:78ch">
       What has changed so far, split by where the change lives: the dashboard app, the ChronoLog
       <em>read</em> path, and the ChronoLog <em>write</em> path. Legend:
@@ -2410,6 +2518,7 @@
       <li><strong>Added an Overview section to the Architecture tab</strong> (leads the tab, before <em>Architecture target</em> and <em>Backend repo layout</em>): a brief intro framing the goal as a <strong>functional, decoupled, modular</strong> architecture where every component has one purpose and talks to the rest only through defined interfaces (ports), so the write path / read path / storage engine each change independently and any single engine stays swappable.</li>
       <li><strong>Redrew the read column of the architecture diagram</strong>: collapsed the <em>Web client</em> and <em>API</em> into single blocks (uniform boundaries: presentation-only, and a thin HTTP/SSE serve layer that delegates down) instead of the old 8-per-feature tile grids. The structure now lives in the middle, <strong>Insights</strong>, drawn as <strong>one vertical slice per feature</strong> (<em>Runs · Doctor · Infrastructure · Usage</em>, the 4 consolidated read features, replacing the old 8 tabs), each doing <em>read &rarr; compute &rarr; view</em> and reading through the shared <code>Contract</code> (EventSource) port. Ties the Architecture tab to the Served-Data ideal read models: each slice's <em>compute</em> produces exactly one of those models.</li>
       <li><strong>Restructured the Roadmap tab into a communication artifact</strong>: leads with <em>Alignment</em> (the shared picture + the open decisions to settle) and <em>Proposed phases</em> (Phase 0 stabilize &rarr; Phase 5, plus a ChronoLog-upstream parallel track), with this detailed changelog demoted to a <em>Work log</em> below. Meant as the spine for aligning on direction and agreeing next steps rather than a flat to-do list.</li>
+      <li><strong>Rebuilt the Roadmap as one clean phase sequence (0&ndash;7) + Others/TBD</strong>: gave every phase its own section and reframed the plan around <em>vertical, per-feature</em> phases. Inserted <strong>Phase 1 &middot; Data model</strong> (design the canonical event contract and land it in the Data tab &mdash; the write-side mirror of the ideal read models) <em>before</em> <strong>Phase 2 &middot; Write path</strong> (which now just implements + emits it); then one phase per read feature (<strong>3 Runs</strong> the tracer bullet, <strong>4 Doctor</strong>, <strong>5 Infrastructure</strong>, <strong>6 Usage</strong>), each realizing its ideal read model <em>and</em> restructuring that code into an <code>insights/&lt;feature&gt;</code> slice as it goes, then <strong>7 chrono-agent</strong>. The ChronoLog read path became a <em>cross-cutting track</em> (runs alongside 3&ndash;6) and the leftover product decisions (multi-engine 2nd adapter, semantic/checkpointing, frontend 8&rarr;4) moved into a final <strong>Others / TBD</strong> section. Overview phase-map and the redundant Alignment/Proposed-phases blocks folded in; this Work log preserved as the record.</li>
     </ul>
     <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do</div>
     <ul style="font-size:0.88rem">
