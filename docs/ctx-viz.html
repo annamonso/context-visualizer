@@ -2228,18 +2228,67 @@
   </section>
 
   <section class="tab-content" data-tab="roadmap">
-    <h2>Status &amp; roadmap</h2>
-    <p style="color:var(--muted);font-size:0.9rem;margin-top:-4px">
-      Where things stand after the ChronoLog <code>ctx-viz-integration</code> bring-up, split by
-      where the change lives: the dashboard app, the ChronoLog <em>read</em> path, and the ChronoLog
-      <em>write</em> path. Legend:
+    <h2>Roadmap</h2>
+    <p style="color:var(--muted);font-size:0.9rem;margin-top:-4px;max-width:78ch">
+      Where this tab organizes the plan, in three parts: what we need to <strong>agree on</strong>
+      first, the <strong>phased plan</strong> to move from today's code to the target in the
+      <em>Architecture</em> and <em>Data</em> tabs, and the detailed <strong>work log</strong> of what
+      has changed so far.
+    </p>
+
+    <h3 style="color:#5ea0ff">Alignment &middot; what to agree on first</h3>
+    <p style="color:var(--muted);font-size:0.86rem;max-width:78ch">
+      Before planning any work, let's confirm we share this picture and settle the open forks.
+    </p>
+
+    <div style="font-weight:700;color:#cfe0ff;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:14px 0 4px">The shared picture</div>
+    <ul style="font-size:0.9rem">
+      <li><strong>The goal</strong> is a functional, decoupled, modular architecture: depend on a <em>port</em>, not on ChronoLog, so every component has one purpose and the engine is swappable.</li>
+      <li><strong>The engine sits behind a port.</strong> ChronoLog becomes one adapter; a second store is a new adapter and nothing above it changes.</li>
+      <li><strong>The read side is 4 features, not 8</strong> (<em>Runs · Doctor · Infrastructure · Usage</em>), each with an ideal read model in the Data tab. The old 8 tabs fold into these.</li>
+      <li><strong>Write is one pipeline, read is many slices.</strong> The write path is a single producer &rarr; collector &rarr; sink; each read feature is its own vertical slice (<em>read &rarr; compute &rarr; view</em>).</li>
+      <li><strong>The ideal read models are the target data shapes</strong>, and today's storage does not match them yet (no stable <code>run_id</code>, session-partitioned, incidents re-derived each scan). Closing that gap is the read work.</li>
+      <li><strong>The biggest structural gap today is the write path:</strong> it calls ChronoLog directly from several places, while the read side already has a port.</li>
+    </ul>
+
+    <div style="font-weight:700;color:#e9c66f;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Decisions we need to make</div>
+    <ul style="font-size:0.9rem">
+      <li><strong>Multi-engine: real goal or hygiene?</strong> Is running on another store a near-term need, or is the port mainly for cleanliness and testability? It sets how much we invest in the adapter layer.</li>
+      <li><strong><code>chrono-agent</code> absorption (#688):</strong> is folding the agent-side <code>producer/</code> into an upstream ChronoLog plugin a committed direction? It shapes the producer boundary.</li>
+      <li><strong>The headless <code>semantic</code> + <code>checkpointing</code> feature:</strong> finish it (add a tab + wire checkpoint creation into the write path) or park it as experimental? It is dormant today.</li>
+      <li><strong>Frontend 8 &rarr; 4:</strong> do the 8 tabs consolidate into 4 pages, or do 8 routes call into the 4 slices?</li>
+    </ul>
+
+    <h3 style="color:#41d1a7">Proposed phases &middot; today &rarr; target</h3>
+    <p style="color:var(--muted);font-size:0.86rem;max-width:78ch">
+      A path from where the code is to the architecture in the other tabs. Rough order; priority and
+      owners to be set together.
+    </p>
+    <ol style="font-size:0.9rem">
+      <li><strong>Phase 0 &middot; Stabilize</strong> <span style="color:#9fd356;font-weight:700">(done)</span>: client-crash fixes, dockerized stack, repo cleanup (<code>backend/</code> + <code>docs/</code>), demo seeds, and this documentation.</li>
+      <li><strong>Phase 1 &middot; Write-side port (the keystone):</strong> introduce <code>EventSink</code> in <code>contract/</code> and route every writer through it, so <code>py_chronolog_client</code> is imported in exactly one folder. Unlocks everything below.</li>
+      <li><strong>Phase 2 &middot; Name &amp; split the write pipeline:</strong> <code>capture/</code> becomes <code>collector/</code> (server intake) + <code>producer/</code> (agent-side lib), with one writer to the sink. Matches the OpenTelemetry shape.</li>
+      <li><strong>Phase 3 &middot; Consolidate the read side:</strong> collapse <code>analysis/</code> · <code>fleet/</code> · <code>diagnostics/</code> · <code>shape/</code> into <code>insights/&lt;feature&gt;</code>, the 4 slices, each <em>read &rarr; compute &rarr; view</em> through <code>EventSource</code>; kill the feature-to-feature imports.</li>
+      <li><strong>Phase 4 &middot; Close the read-model gap:</strong> make each slice's <em>compute</em> actually produce the ideal read model (a real <code>run_id</code>, the incident lifecycle, the usage ledger) instead of scraping and re-deriving. This is where the Data-tab target becomes real.</li>
+      <li><strong>Phase 5 &middot; Resolve the open features:</strong> act on the semantic / checkpointing decision and consolidate the frontend to the 4 pages.</li>
+    </ol>
+    <p style="color:var(--muted);font-size:0.88rem;max-width:78ch;margin-top:8px">
+      <strong style="color:#e3b341">Parallel track &middot; ChronoLog upstream:</strong> range-query performance,
+      tail / recent reads, a topology / health API, and <code>chrono-agent</code> (#688). These transfers
+      are what let the read path drop CSV scraping and the in-process hot store; several phases depend on them.
+    </p>
+
+    <h3 style="color:#8b94a7">Work log &middot; detailed status</h3>
+    <p style="color:var(--muted);font-size:0.9rem;max-width:78ch">
+      What has changed so far, split by where the change lives: the dashboard app, the ChronoLog
+      <em>read</em> path, and the ChronoLog <em>write</em> path. Legend:
       <span style="color:#9fd356;font-weight:700">&#10003; done</span> &middot;
       <span style="color:#e3b341;font-weight:700">&#9675; to&nbsp;do</span>.
-      Note: most of the ChronoLog bugs we hit were <em>read-path or client-lifecycle</em> — the
+      Note: most of the ChronoLog bugs we hit were <em>read-path or client-lifecycle</em>; the
       write API itself was solid.
     </p>
 
-    <h3 style="color:#5ea0ff">1 &middot; ctx-viz (dashboard app)</h3>
+    <h4 style="color:#5ea0ff">1 &middot; ctx-viz (dashboard app)</h4>
     <div style="color:#9fd356;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#10003; Done</div>
     <ul style="font-size:0.88rem">
       <li>Client-integration fixes in <code>client.py</code>: arg-drift shims (<code>CreateChronicle</code>/<code>AcquireStory</code>), <strong>writer-only</strong> client, double-checked-locking singleton, <strong>archive-first reads</strong>.</li>
@@ -2264,6 +2313,7 @@
       <li><strong>Built the Served &rarr; Usage ideal read model</strong> (closes the four read features): a <strong>Usage</strong> ledger over a scope (a run or a fleet window) holding three parts, the <strong>Slice</strong> (the primary lens: a breakdown by <em>agent</em> / <em>model</em> / <em>node</em>), the <strong>Series</strong> (time buckets of tokens &amp; cost), and the <strong>ContextWindow</strong> (the memory facet: window size + composition into system / user / assistant / tool-call / tool-result tokens, plus add/evict churn). Grounded in <code>analysis/context_graph.py</code> (<code>compute_analysis</code>, the per-turn decomposition) and the interaction metrics (<code>delta_input_tokens</code> / <code>delta_output_tokens</code> / <code>delta_cost_usd</code>). Framed as a <strong>re-aggregation</strong> (no new capture): every figure rolls up from per-turn samples on the <em>Turn</em> in the Runs model. Served-Data Usage card flipped from <em>pending</em> to <em>ideal model</em> &mdash; all four read features now have an ideal model.</li>
       <li><strong>Added an Overview section to the Architecture tab</strong> (leads the tab, before <em>Architecture target</em> and <em>Backend repo layout</em>): a brief intro framing the goal as a <strong>functional, decoupled, modular</strong> architecture where every component has one purpose and talks to the rest only through defined interfaces (ports), so the write path / read path / storage engine each change independently and any single engine stays swappable.</li>
       <li><strong>Redrew the read column of the architecture diagram</strong>: collapsed the <em>Web client</em> and <em>API</em> into single blocks (uniform boundaries: presentation-only, and a thin HTTP/SSE serve layer that delegates down) instead of the old 8-per-feature tile grids. The structure now lives in the middle, <strong>Insights</strong>, drawn as <strong>one vertical slice per feature</strong> (<em>Runs · Doctor · Infrastructure · Usage</em>, the 4 consolidated read features, replacing the old 8 tabs), each doing <em>read &rarr; compute &rarr; view</em> and reading through the shared <code>Contract</code> (EventSource) port. Ties the Architecture tab to the Served-Data ideal read models: each slice's <em>compute</em> produces exactly one of those models.</li>
+      <li><strong>Restructured the Roadmap tab into a communication artifact</strong>: leads with <em>Alignment</em> (the shared picture + the open decisions to settle) and <em>Proposed phases</em> (Phase 0 stabilize &rarr; Phase 5, plus a ChronoLog-upstream parallel track), with this detailed changelog demoted to a <em>Work log</em> below. Meant as the spine for aligning on direction and agreeing next steps rather than a flat to-do list.</li>
     </ul>
     <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do</div>
     <ul style="font-size:0.88rem">
@@ -2275,7 +2325,7 @@
       <li>Finish this document; optionally expose the <code>CHRONOLOG_REPLAY_LIVE</code> A/B switch cleanly.</li>
     </ul>
 
-    <h3 style="color:#e3b341">2 &middot; ChronoLog &mdash; read path</h3>
+    <h4 style="color:#e3b341">2 &middot; ChronoLog &mdash; read path</h4>
     <div style="color:#9fd356;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#10003; Done <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(fixed on <code>ctx-viz-integration</code>, verified)</span></div>
     <ul style="font-size:0.88rem">
       <li><a href="https://github.com/grc-iit/chronolog/issues/689">#689</a> &mdash; <code>AcquireStory</code> reports success only when a reader actually registers (was <code>-5</code>) &middot; <code>63121f3f</code>.</li>
@@ -2291,7 +2341,7 @@
       <li style="color:var(--muted)"><strong>Not needed</strong> &mdash; chronicle/story listing: <code>ShowChronicles</code> / <code>ShowStories</code> already exist and are fast (this makes the app's <code>__index__</code> trick redundant, above).</li>
     </ul>
 
-    <h3 style="color:#e3b341">3 &middot; ChronoLog &mdash; write path</h3>
+    <h4 style="color:#e3b341">3 &middot; ChronoLog &mdash; write path</h4>
     <div style="color:#9fd356;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#10003; Done</div>
     <ul style="font-size:0.88rem">
       <li><a href="https://github.com/grc-iit/chronolog/issues/692">#692</a> &mdash; <code>ChronologClientImpl</code> singleton reference-counted &rarr; no double-free in <code>~Client()</code>/<code>Disconnect()</code> (the intermittent SIGSEGV, root-caused from a core-dump backtrace) &middot; <code>9f3d1b0b</code>.</li>
