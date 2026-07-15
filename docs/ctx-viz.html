@@ -105,7 +105,20 @@
   .st-out { background: rgba(255,107,107,0.16); color: #ff9d9d; }
   .st-sep { background: rgba(139,148,167,0.14); color: #aab3c4; }
   .st-dv  { background: rgba(227,179,65,0.16);  color: #e9c66f; }
-  /* drill-down tree navigation */
+  /* ideal read-model entity cards */
+  .glance { font-family: "SF Mono", "JetBrains Mono", Menlo, monospace; font-size: 0.9rem; color: #c1c9d6; background: #12151c; border: 1px solid var(--border); border-radius: 8px; padding: 11px 15px; margin: 14px 0; }
+  .glance .rep { color: #8b94a7; }
+  .ent { border: 1px solid var(--border); border-left: 3px solid #5ea0ff; border-radius: 10px; padding: 12px 15px 14px; background: #12151c; }
+  .ent + .ent { margin-top: 10px; }
+  .ent-run   { border-left-color: #5ea0ff; }
+  .ent-agent { border-left-color: #b98bff; }
+  .ent-turn  { border-left-color: #41d1a7; }
+  .ent-call  { border-left-color: #e3b341; }
+  .ent .ent-h { font-weight: 700; color: #e7ecf3; font-size: 1rem; }
+  .ent .ent-h .role { font-weight: 400; color: var(--muted); font-size: 0.8rem; margin-left: 8px; }
+  .ent .inv { margin-top: 8px; }
+  .ent .ref { color: #8fc0ff; }
+  .ent .down { color: #8b94a7; }
   .crumb { font-size: 0.8rem; color: var(--muted); margin: 2px 0 16px; }
   .crumb a { color: #9fb0c7; text-decoration: none; }
   .crumb a:hover { color: #fff; text-decoration: underline; }
@@ -1277,6 +1290,90 @@
         <tr><td class="fld">payload_digest · payload_preview</td><td class="ty">ia_&lt;scenario&gt; · edges</td><td class="carries">what was passed across the call</td></tr>
       </tbody>
     </table>
+
+    <h4 style="margin:24px 0 4px;color:#dbe2ec;font-size:0.98rem">Ideal read model</h4>
+    <p style="color:var(--muted);font-size:0.86rem;max-width:74ch;margin-top:0">
+      Those fields live in two stores today (<code>llm_interactions</code> keyed by session +
+      <code>ia_&lt;scenario&gt;</code> edges) and are <strong>stitched together on every read</strong> —
+      dotted session-id strings parsed into a tree, correlation ids matched into a trace. But a run is
+      one thing. The shape that data <em>wants</em> to be — every relationship a real reference, not a
+      reconstruction:
+    </p>
+    <div class="glance">Run&nbsp; ›&nbsp; Agent<span class="rep">*</span>&nbsp; ›&nbsp; Turn<span class="rep">*</span>&nbsp; ›&nbsp; Call<span class="rep">*</span> &nbsp;&nbsp;<span class="rep">( * = repeats; a Call may point back to a child Agent — that edge is both the tree and the trace )</span></div>
+
+    <div class="ent ent-run">
+      <div class="ent-h">Run <span class="role">— one top-level task</span></div>
+      <table class="inv">
+        <thead><tr><th>field</th><th>type</th><th>note</th></tr></thead>
+        <tbody>
+          <tr><td class="fld">run_id</td><td class="ty">id</td><td class="carries">stable run identity (not a scenario string)</td></tr>
+          <tr><td class="fld">goal</td><td class="ty">string</td><td class="carries">the top-level task the run pursues</td></tr>
+          <tr><td class="fld">root_agent_id</td><td class="ty"><span class="ref">→ Agent</span></td><td class="carries">the orchestrator</td></tr>
+          <tr><td class="fld">started_at · ended_at</td><td class="ty">time</td><td class="carries">run span</td></tr>
+          <tr><td class="fld">status</td><td class="ty">running | ok | error</td><td class="carries">overall outcome</td></tr>
+          <tr><td class="fld">totals</td><td class="ty">object</td><td class="carries"><code>{ agents, turns, tokens, cost, errors }</code> — precomputed, so a run reads without fanning out over sessions</td></tr>
+          <tr><td class="fld">agents[]</td><td class="ty">[Agent] <span class="down">↓</span></td><td class="carries">every agent in the run; the tree is formed by <code>parent_agent_id</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="ent ent-agent">
+      <div class="ent-h">Agent <span class="role">— a node in the tree · repeats</span></div>
+      <table class="inv">
+        <thead><tr><th>field</th><th>type</th><th>note</th></tr></thead>
+        <tbody>
+          <tr><td class="fld">agent_id</td><td class="ty">id</td><td class="carries">stable (not a dotted session suffix)</td></tr>
+          <tr><td class="fld">parent_agent_id</td><td class="ty"><span class="ref">→ Agent</span> | null</td><td class="carries">tree parent; <code>null</code> for the orchestrator — replaces parsing <code>a.1.1</code></td></tr>
+          <tr><td class="fld">spawned_by</td><td class="ty">{ turn_id, call_id } | null</td><td class="carries">the exact parent <em>turn</em> and <em>call</em> that created this agent</td></tr>
+          <tr><td class="fld">role</td><td class="ty">string</td><td class="carries">orchestrator | researcher | coder | …</td></tr>
+          <tr><td class="fld">host</td><td class="ty">string</td><td class="carries">node it ran on</td></tr>
+          <tr><td class="fld">model</td><td class="ty">string</td><td class="carries">default model</td></tr>
+          <tr><td class="fld">started_at · ended_at · status</td><td class="ty">—</td><td class="carries">agent span &amp; outcome</td></tr>
+          <tr><td class="fld">totals</td><td class="ty">object</td><td class="carries"><code>{ turns, tokens, cost }</code></td></tr>
+          <tr><td class="fld">turns[]</td><td class="ty">[Turn] <span class="down">↓</span></td><td class="carries">this agent's turns, in order</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="ent ent-turn">
+      <div class="ent-h">Turn <span class="role">— one think→act step (= one LLM interaction) · repeats</span></div>
+      <table class="inv">
+        <thead><tr><th>field</th><th>type</th><th>note</th></tr></thead>
+        <tbody>
+          <tr><td class="fld">turn_id</td><td class="ty">id</td><td class="carries">&nbsp;</td></tr>
+          <tr><td class="fld">index</td><td class="ty">int</td><td class="carries">order within the agent</td></tr>
+          <tr><td class="fld">started_at · ended_at · latency_ms</td><td class="ty">—</td><td class="carries">turn timing (bar on the timeline)</td></tr>
+          <tr><td class="fld">model</td><td class="ty">string</td><td class="carries">model for this turn</td></tr>
+          <tr><td class="fld">status</td><td class="ty">ok | http status | error</td><td class="carries">per-turn outcome</td></tr>
+          <tr><td class="fld">input</td><td class="ty">object</td><td class="carries"><code>{ prompt_preview, tokens_in }</code> + a <span class="ref">ref → full LLM interaction</span> (the rich Source-1 body, for drill-in)</td></tr>
+          <tr><td class="fld">output</td><td class="ty">object</td><td class="carries"><code>{ text_preview, stop_reason, tokens_out, cost }</code></td></tr>
+          <tr><td class="fld">calls[]</td><td class="ty">[Call] <span class="down">↓</span></td><td class="carries">what this turn decided to do</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="ent ent-call">
+      <div class="ent-h">Call <span class="role">— an act: a tool use or a delegation · repeats</span></div>
+      <table class="inv">
+        <thead><tr><th>field</th><th>type</th><th>note</th></tr></thead>
+        <tbody>
+          <tr><td class="fld">call_id</td><td class="ty">id</td><td class="carries">one act (today's <code>correlation_id</code>, now first-class)</td></tr>
+          <tr><td class="fld">from_turn_id</td><td class="ty"><span class="ref">→ Turn</span></td><td class="carries">the turn that made it — precise causality</td></tr>
+          <tr><td class="fld">kind</td><td class="ty">tool | subagent | mcp</td><td class="carries">what kind of act</td></tr>
+          <tr><td class="fld">target</td><td class="ty">tool_name | <span class="ref">→ Agent</span></td><td class="carries">a tool, or the <strong>child agent it spawned</strong> — this is the tree/trace edge</td></tr>
+          <tr><td class="fld">started_at · ended_at · latency_ms · status</td><td class="ty">—</td><td class="carries">call span &amp; outcome</td></tr>
+          <tr><td class="fld">input_preview · output_preview</td><td class="ty">—</td><td class="carries">what crossed the call</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p style="color:#c1c9d6;font-size:0.85rem;max-width:74ch;margin-top:12px">
+      <strong>The tree and the trace are one graph.</strong> <code>parent_agent_id</code> /
+      <code>spawned_by</code> build the agent tree; <code>Call.from_turn_id → target (Agent)</code>
+      builds the trace — from a single source, so they can't disagree (today they come from separate
+      Path-A and Path-B stores and can). Everything Runs draws is a traversal of this: no dotted-string
+      parsing, no correlation stitching, no fan-out over sessions.
+    </p>
 
     <h3 class="invsec">2 · Doctor <span style="color:var(--muted);font-weight:400;font-size:0.82rem">— absorbs Doctor · Interactions</span></h3>
     <p style="color:var(--muted);font-size:0.86rem;margin-top:0">Field inventory — <em>pending</em>.</p>
