@@ -2228,6 +2228,57 @@
   </section>
 
   <section class="tab-content" data-tab="roadmap">
+    <h2>Overview</h2>
+    <p style="max-width:78ch">
+      This tab is the plan: how the project moves from where it is today to the target architecture and
+      data model in the other tabs. The work is organized as a <strong>sequence of phases</strong>,
+      covering both the app and the ChronoLog side. The order is logical, not a schedule: <em>when and
+      how</em> each phase is worked (and what runs in parallel) is a separate conversation. Each phase
+      has its own section below.
+    </p>
+    <div style="display:grid;gap:9px;margin-top:16px;font-size:0.9rem">
+      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">0</span><span><strong>Alignment</strong> <span style="color:var(--muted)">· agree direction &amp; settle decisions</span> <span style="color:#8b94a7;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">this&nbsp;meeting</span></span></div>
+      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">1</span><span><strong>Decouple</strong> <span style="color:var(--muted)">· write-side port; ChronoLog imported in one place</span> <span style="color:#5ea0ff;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">app</span></span></div>
+      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">2</span><span><strong>Restructure</strong> <span style="color:var(--muted)">· move the folders to the target shape</span> <span style="color:#5ea0ff;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">app</span></span></div>
+      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">3</span><span><strong>ChronoLog read path</strong> <span style="color:var(--muted)">· range query, tail reads, topology API</span> <span style="color:#e3b341;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">chronolog</span></span></div>
+      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">4</span><span><strong>Realize the read models</strong> <span style="color:var(--muted)">· compute produces the ideal models; retire scraping</span> <span style="color:#5ea0ff;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">app</span></span></div>
+      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">5</span><span><strong>chrono-agent</strong> <span style="color:var(--muted)">· producer graduates to an upstream plugin (#688)</span> <span style="color:#e3b341;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">chronolog</span></span></div>
+      <div style="display:flex;align-items:baseline;gap:10px"><span style="flex:none;display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:6px;background:#20262f;color:#aab3c4;font-weight:700;font-size:0.78rem">6</span><span><strong>Complete</strong> <span style="color:var(--muted)">· semantic decision, frontend 8&rarr;4, optional 2nd adapter</span> <span style="color:#5ea0ff;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em">app</span></span></div>
+    </div>
+  </section>
+
+  <section class="tab-content" data-tab="roadmap">
+    <h2>Phase 0 &middot; Alignment <span style="color:var(--muted);font-weight:400;font-size:0.9rem">(this meeting)</span></h2>
+    <p style="max-width:78ch">
+      Before any implementation, get everyone on the same page and agree the direction: the target
+      ports-and-adapters architecture, the 4-feature read model, and the open decisions. This phase is
+      not code; its output is a shared plan.
+    </p>
+
+    <div style="font-weight:700;color:#cfe0ff;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:14px 0 4px">In the meeting</div>
+    <ul style="font-size:0.9rem">
+      <li><strong>Understand</strong> the system as it is today (walk the <em>Today</em> / <em>Overview</em> / <em>Data</em> tabs) and correct anything that is off.</li>
+      <li><strong>Confirm the target</strong>: the ports-and-adapters architecture and the 4 ideal read models (Runs / Doctor / Infrastructure / Usage).</li>
+      <li><strong>Work the open decisions</strong> below.</li>
+    </ul>
+
+    <div style="font-weight:700;color:#e9c66f;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Decisions to settle</div>
+    <ul style="font-size:0.9rem">
+      <li><strong>Multi-engine: real goal or hygiene?</strong> Is running on another store a near-term need, or is the port mainly for cleanliness and testability? It sets how much we invest in the adapter layer.</li>
+      <li><strong><code>chrono-agent</code> absorption (<a href="https://github.com/grc-iit/chronolog/issues/688">#688</a>):</strong> is folding the agent-side <code>producer/</code> into an upstream ChronoLog plugin a committed direction? It shapes the producer boundary.</li>
+      <li><strong>The headless <code>semantic</code> + <code>checkpointing</code> feature:</strong> finish it (add a tab + wire checkpoint creation) or park it as experimental? It is dormant today.</li>
+      <li><strong>Frontend 8 &rarr; 4:</strong> do the 8 tabs consolidate into 4 pages, or do 8 routes call into the 4 slices?</li>
+    </ul>
+
+    <div style="font-weight:700;color:#9fd356;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;margin:16px 0 4px">Done when</div>
+    <ul style="font-size:0.9rem">
+      <li>The shared understanding is confirmed (and corrected where it was wrong).</li>
+      <li>Each open decision is resolved or has an owner.</li>
+      <li>The phase sequence is agreed, with scope and owners.</li>
+    </ul>
+  </section>
+
+  <section class="tab-content" data-tab="roadmap">
     <h2>Roadmap</h2>
     <p style="color:var(--muted);font-size:0.9rem;margin-top:-4px;max-width:78ch">
       Where this tab organizes the plan, in three parts: what we need to <strong>agree on</strong>
