@@ -104,6 +104,7 @@
   .st-in  { background: rgba(159,211,86,0.16);  color: #bfe27f; }
   .st-out { background: rgba(255,107,107,0.16); color: #ff9d9d; }
   .st-sep { background: rgba(139,148,167,0.14); color: #aab3c4; }
+  .st-dv  { background: rgba(227,179,65,0.16);  color: #e9c66f; }
   /* drill-down tree navigation */
   .crumb { font-size: 0.8rem; color: var(--muted); margin: 2px 0 16px; }
   .crumb a { color: #9fb0c7; text-decoration: none; }
@@ -1204,6 +1205,36 @@
 
   </section>
 
+  <!-- ============ Stored data ============ -->
+  <section class="tab-content" data-tab="target">
+    <h2>Stored data</h2>
+    <p style="max-width:74ch">
+      <a href="#target">Data sources</a> are what the agents <em>produce</em>. This is what we
+      actually <strong>persist</strong>. Everything is written to <strong>ChronoLog</strong> as
+      append-only records, grouped into named <em>chronicles</em>. Starting simple — the list of what
+      exists today; mapping each store back to the source it comes from (and spotting what we produce
+      but drop) comes later.
+    </p>
+    <table class="inv">
+      <thead><tr><th>chronicle</th><th>holds</th><th>kind</th></tr></thead>
+      <tbody>
+        <tr><td class="fld">llm_interactions</td><td class="carries">one record per LLM turn — the interaction captured from an agent's think step</td><td><span class="st st-in">collected</span></td></tr>
+        <tr><td class="fld">context_graphs</td><td class="carries">context-window <code>add</code> / <code>evict</code> nodes, per session</td><td><span class="st st-in">collected</span></td></tr>
+        <tr><td class="fld">recovery_events</td><td class="carries">backtrack / restore events, per session</td><td><span class="st st-in">collected</span></td></tr>
+        <tr><td class="fld">ia_&lt;scenario&gt; · edges</td><td class="carries">inter-agent call edges — one chronicle per scenario, one <code>edges</code> story</td><td><span class="st st-in">collected</span></td></tr>
+        <tr><td class="fld">metrics_rollup · minute</td><td class="carries">pre-aggregated per-(host, minute) fleet metrics — computed from the records above, not captured</td><td><span class="st st-dv">derived</span></td></tr>
+        <tr><td class="fld">checkpoints</td><td class="carries">conversation checkpoints — defined, but nothing writes them in the running system</td><td><span class="st st-sep">dormant</span></td></tr>
+        <tr><td class="fld">__index__ · scenarios / sessions / hosts</td><td class="carries">a one-off marker per scenario / session / host ever seen, so listing has something to read</td><td><span class="st st-sep">housekeeping</span></td></tr>
+      </tbody>
+    </table>
+    <p style="color:var(--muted);font-size:0.82rem;max-width:74ch;margin-top:8px">
+      <span class="st st-in">collected</span> written from a data source &middot;
+      <span class="st st-dv">derived</span> computed from other records &middot;
+      <span class="st st-sep">housekeeping</span> internal indexing &middot;
+      <span class="st st-sep">dormant</span> defined but unused.
+    </p>
+  </section>
+
   <!-- ============ LEVEL 2 · LLM interactions (source landing) ============ -->
   <section class="tab-content" data-tab="data-llm" data-nav="target">
     <div class="crumb"><a href="#target">Data sources</a><span class="sep">›</span><span class="here">LLM interactions</span></div>
@@ -1764,6 +1795,7 @@
       <li><strong>Docs restructure</strong>: renamed <code>docs/analysis.html</code> &rarr; <code>docs/ctx-viz.html</code> and split it into a tabbed page — <strong>Today</strong> (what it is · features · architecture · repo layout · data · data model), <strong>Target</strong> (layers · architecture target · target repo layout), <strong>Roadmap</strong> (this changelog) — with a sticky top-right nav. Same styling; verified all three tabs render + switch.</li>
       <li><strong>Architecture target diagram</strong> (<em>Target</em> tab): built up the ports-and-adapters SVG step by step — compacted write path (<code>Agents &rarr; Producer &rarr; Collector</code>) into a left column, added the read path as three stacked, left-aligned layers in a right column (<code>Dashboard</code> &rarr; <code>API</code> &rarr; <code>Insights</code>), each rendered as the same eight per-feature tiles (plus a ninth dashed tile for the headless <code>semantic</code> feature in <code>API</code>/<code>Insights</code> only, since it has no frontend tab) — both columns converging on the shared <code>Contract</code> boundary above <code>Adapters</code>/<code>Substrate</code>.</li>
       <li><strong>&ldquo;Data sources&rdquo; section + drill-down data map</strong> (<em>Target</em> tab): documented what an agent run actually produces &mdash; four <em>data-source</em> cards (LLM HTTP · MCP · instrumented events · platform signals). Source 1 is built as a <strong>nested drill-down tree</strong> (breadcrumb navigation, one focused page per level), not a flat inventory, so the layers of the data are explicit and adding a provider later is a localised edit. Path: <em>Data sources</em> &rarr; <strong>LLM interactions</strong> (the 4 generic message types &mdash; request / response&nbsp;Message / response event-stream / error, the same for any HTTP+SSE API) &rarr; a <strong>type</strong> (its generic <em>envelope</em>: endpoint + headers + body) &rarr; a <strong>provider</strong> (where the schema branches) &rarr; the <strong>field table</strong>. Only <strong>Anthropic</strong> leaves are populated (<code>MessageCreateParams</code>, <code>Message</code>, the SSE event set, the error taxonomy, + shared content-blocks &amp; headers); OpenAI / Gemini / Bedrock&middot;Vertex are visible <span style="color:#8b94a7">not-inventoried</span> branches. Mechanism: each node is a hash-routed pseudo-page (<code>data-llm-*</code>) that declares its nav tab via <code>data-nav</code>; the switcher shows one page at a time and leaves non-section hashes to native scroll. Sources 2&ndash;4 marked <em>pending</em>.</li>
+      <li><strong>&ldquo;Stored data&rdquo; section</strong> (<em>Target</em> tab, after Data sources): the counterpart to the sources &mdash; what we actually <em>persist</em> vs what agents produce. A simple table of every ChronoLog chronicle (grounded in <code>backend/chronolog/constants.py</code>): <code>llm_interactions</code> · <code>context_graphs</code> · <code>recovery_events</code> · <code>ia_&lt;scenario&gt;</code> edges (<em>collected</em>), <code>metrics_rollup</code> (<em>derived</em>), <code>checkpoints</code> (<em>dormant</em> &mdash; never written today), <code>__index__</code> (<em>housekeeping</em>). First pass; mapping each store back to its source comes next.</li>
       <li><strong>Workspace demo seed</strong>: added <code>scripts/demos/demo_workspace.py</code> (wired into the offline <code>make demo</code> entrypoint) — the first demo that seeds a real <em>orchestrator + subagents</em> conversation. The existing demos only seed flat <code>role@scenario</code> sessions, so Workspace showed one block per agent; this seeds a nested session tree (<code>orchestrator@ws-demo</code> &rarr; <code>.1</code> researcher &rarr; <code>.1.1</code> web-fetch, and &rarr; <code>.2</code> coder), interleaved in time so the handoffs render as edges and one coder turn returns HTTP 500 to exercise the error-toast feature. Verified through the real backend: one conversation, 4 agents, 6 handoffs, 14 turns, and the tree + timeline render in the UI.</li>
     </ul>
     <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do</div>
