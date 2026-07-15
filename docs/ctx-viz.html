@@ -837,7 +837,7 @@
     </p>
 
     <svg class="diagram" viewBox="0 0 1000 550" role="img"
-         aria-label="Target ports-and-adapters architecture. Left column (write path, compacted): agents feed the producer, which feeds the collector, which calls the contract boundary. Right column, same top row as agents: three stacked read-path layers, each a row of eight two-letter feature tiles (WO Workspace, SC Scenarios, IN Interactions, CL Cluster, FL Fleet, DO Doctor, TR Traces, ME Memory): Dashboard (the frontend, presentation only), API (one blueprint per feature), and Insights (the read logic per feature, plus a ninth dashed SM tile for the headless semantic/checkpointing feature in API and Insights only, no frontend tab), flowing down into the same contract boundary as the write path. Below the contract sit engine adapters: ChronoLog adapter (solid) and a Local or other adapter (dashed), each writing to a substrate (ChronoLog or another store).">
+         aria-label="Target ports-and-adapters architecture. Left column (write path): agents feed the producer, which feeds the collector, which calls the contract boundary. Right column (read path): a single Web client block (presentation only, one page per feature) feeds a single API block (a thin HTTP/SSE serve boundary that delegates down), which feeds Insights, the middle layer holding one vertical slice per feature (Runs, Doctor, Infrastructure, Usage), each doing read then compute then view. Insights reads through the same contract boundary (the EventSource port) as the write path. Below the contract sit engine adapters: a ChronoLog adapter (solid) and a Local or other adapter (dashed), each backed by a substrate (ChronoLog or another store).">
       <defs>
         <marker id="tTeal" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#41d1a7"/></marker>
         <marker id="tGold" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e3b341"/></marker>
@@ -874,52 +874,29 @@
         <text x="140" y="235" fill="#fff" font-size="13" font-weight="700">Collector <tspan fill="#8b94a7" font-weight="400" font-size="11">· buffers and writes those events</tspan></text>
         <line x1="290" y1="258" x2="290" y2="288" stroke="#b98bff" stroke-width="2.25" marker-end="url(#tPurple)"/>
 
-        <!-- dashboard (read column, same row as agents) -->
-        <rect x="480" y="24" width="400" height="66" rx="10" fill="#1b2030" stroke="#8b94a7" stroke-width="1.5" stroke-dasharray="4 3"/>
-        <text x="500" y="46" fill="#fff" font-size="13" font-weight="700">Dashboard <tspan fill="#8b94a7" font-weight="400" font-size="11">· presentation layer, no logic</tspan></text>
-        <g font-size="10" font-weight="700" fill="#cfe0ff" text-anchor="middle">
-          <g><title>Workspace</title><rect x="500" y="54" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="514" y="72">WO</text></g>
-          <g><title>Scenarios</title><rect x="534" y="54" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="548" y="72">SC</text></g>
-          <g><title>Interactions</title><rect x="568" y="54" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="582" y="72">IN</text></g>
-          <g><title>Cluster</title><rect x="602" y="54" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="616" y="72">CL</text></g>
-          <g><title>Fleet</title><rect x="636" y="54" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="650" y="72">FL</text></g>
-          <g><title>Doctor</title><rect x="670" y="54" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="684" y="72">DO</text></g>
-          <g><title>Traces</title><rect x="704" y="54" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="718" y="72">TR</text></g>
-          <g><title>Memory</title><rect x="738" y="54" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="752" y="72">ME</text></g>
-        </g>
-        <line x1="680" y1="90" x2="680" y2="106" stroke="#5ea0ff" stroke-width="2.25" marker-end="url(#tBlue)"/>
+        <!-- web client (read column, single block — presentation only) -->
+        <rect x="480" y="24" width="400" height="58" rx="10" fill="#1b2030" stroke="#8b94a7" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="680" y="48" fill="#fff" font-size="13.5" font-weight="700" text-anchor="middle">Web client</text>
+        <text x="680" y="66" fill="#8b94a7" font-size="11" text-anchor="middle">presentation only · one page per feature</text>
+        <line x1="680" y1="82" x2="680" y2="112" stroke="#5ea0ff" stroke-width="2.25" marker-end="url(#tBlue)"/>
 
-        <!-- api (one thin blueprint per feature, calls into insights/<feature>) -->
-        <rect x="480" y="106" width="400" height="66" rx="11" fill="#0e1a2e" stroke="#5ea0ff" stroke-width="1.5"/>
-        <text x="500" y="128" fill="#fff" font-size="13" font-weight="700">API <tspan fill="#8b94a7" font-weight="400" font-size="11">· one blueprint per feature</tspan></text>
-        <g font-size="10" font-weight="700" fill="#cfe0ff" text-anchor="middle">
-          <g><title>workspace.py</title><rect x="500" y="136" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="514" y="154">WO</text></g>
-          <g><title>scenarios.py</title><rect x="534" y="136" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="548" y="154">SC</text></g>
-          <g><title>interactions.py</title><rect x="568" y="136" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="582" y="154">IN</text></g>
-          <g><title>cluster.py</title><rect x="602" y="136" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="616" y="154">CL</text></g>
-          <g><title>fleet.py</title><rect x="636" y="136" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="650" y="154">FL</text></g>
-          <g><title>doctor.py</title><rect x="670" y="136" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="684" y="154">DO</text></g>
-          <g><title>traces.py</title><rect x="704" y="136" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="718" y="154">TR</text></g>
-          <g><title>memory.py</title><rect x="738" y="136" width="28" height="28" rx="6" fill="#12202f" stroke="#3a5f8a" stroke-width="1.25"/><text x="752" y="154">ME</text></g>
-          <g><title>semantic.py · headless, no tab</title><rect x="772" y="136" width="28" height="28" rx="6" fill="#1c1c22" stroke="#6b7688" stroke-width="1.25" stroke-dasharray="3 2"/><text x="786" y="154" fill="#9aa4b8">SM</text></g>
-        </g>
-        <line x1="680" y1="172" x2="680" y2="188" stroke="#ff9e64" stroke-width="2.25" marker-end="url(#tOrange)"/>
+        <!-- api (read column, single block — thin serve boundary) -->
+        <rect x="480" y="112" width="400" height="58" rx="11" fill="#0e1a2e" stroke="#5ea0ff" stroke-width="1.5"/>
+        <text x="680" y="136" fill="#fff" font-size="13.5" font-weight="700" text-anchor="middle">API</text>
+        <text x="680" y="154" fill="#8b94a7" font-size="11" text-anchor="middle">thin HTTP/SSE boundary · delegates to insights</text>
+        <line x1="680" y1="170" x2="680" y2="200" stroke="#ff9e64" stroke-width="2.25" marker-end="url(#tOrange)"/>
 
-        <!-- insights (read.py via EventSource · compute.py · view.py, per feature) -->
-        <rect x="480" y="188" width="400" height="70" rx="11" fill="#24190f" stroke="#ff9e64" stroke-width="1.5"/>
-        <text x="500" y="210" fill="#fff" font-size="13" font-weight="700">Insights <tspan fill="#8b94a7" font-weight="400" font-size="11">· read logic behind each feature</tspan></text>
-        <g font-size="10" font-weight="700" fill="#ffe0c2" text-anchor="middle">
-          <g><title>workspace/</title><rect x="500" y="218" width="28" height="28" rx="6" fill="#2e2013" stroke="#8a5f3a" stroke-width="1.25"/><text x="514" y="236">WO</text></g>
-          <g><title>scenarios/</title><rect x="534" y="218" width="28" height="28" rx="6" fill="#2e2013" stroke="#8a5f3a" stroke-width="1.25"/><text x="548" y="236">SC</text></g>
-          <g><title>interactions/</title><rect x="568" y="218" width="28" height="28" rx="6" fill="#2e2013" stroke="#8a5f3a" stroke-width="1.25"/><text x="582" y="236">IN</text></g>
-          <g><title>cluster/ · own topology port, not EventSource</title><rect x="602" y="218" width="28" height="28" rx="6" fill="#2e2013" stroke="#8a5f3a" stroke-width="1.25"/><text x="616" y="236">CL</text></g>
-          <g><title>fleet/</title><rect x="636" y="218" width="28" height="28" rx="6" fill="#2e2013" stroke="#8a5f3a" stroke-width="1.25"/><text x="650" y="236">FL</text></g>
-          <g><title>doctor/</title><rect x="670" y="218" width="28" height="28" rx="6" fill="#2e2013" stroke="#8a5f3a" stroke-width="1.25"/><text x="684" y="236">DO</text></g>
-          <g><title>traces/</title><rect x="704" y="218" width="28" height="28" rx="6" fill="#2e2013" stroke="#8a5f3a" stroke-width="1.25"/><text x="718" y="236">TR</text></g>
-          <g><title>memory/</title><rect x="738" y="218" width="28" height="28" rx="6" fill="#2e2013" stroke="#8a5f3a" stroke-width="1.25"/><text x="752" y="236">ME</text></g>
-          <g><title>semantic/ + checkpointing/ · headless, no tab</title><rect x="772" y="218" width="28" height="28" rx="6" fill="#1c1c22" stroke="#6b7688" stroke-width="1.25" stroke-dasharray="3 2"/><text x="786" y="236" fill="#9aa4b8">SM</text></g>
+        <!-- insights (read column — the middle: one slice per feature, read → compute → view) -->
+        <rect x="480" y="200" width="400" height="72" rx="11" fill="#24190f" stroke="#ff9e64" stroke-width="1.5"/>
+        <text x="500" y="219" fill="#fff" font-size="13" font-weight="700">Insights <tspan fill="#8b94a7" font-weight="400" font-size="11">· one slice per feature</tspan></text>
+        <text x="500" y="233" fill="#c98f5f" font-size="10">each slice: read &#8594; compute &#8594; view</text>
+        <g font-size="10.5" font-weight="700" fill="#ffe0c2" text-anchor="middle">
+          <g><title>insights/runs: Run → Agent → Turn → Call</title><rect x="500" y="240" width="82" height="26" rx="6" fill="#2e2013" stroke="#8a5f3a" stroke-width="1.25"/><text x="541" y="257">Runs</text></g>
+          <g><title>insights/doctor: Incident</title><rect x="593" y="240" width="82" height="26" rx="6" fill="#2e2013" stroke="#8a5f3a" stroke-width="1.25"/><text x="634" y="257">Doctor</text></g>
+          <g><title>insights/infrastructure: Cluster snapshot (fleet via EventSource + a cluster topology port)</title><rect x="686" y="240" width="82" height="26" rx="6" fill="#2e2013" stroke="#8a5f3a" stroke-width="1.25"/><text x="727" y="257">Infra</text></g>
+          <g><title>insights/usage: Usage ledger</title><rect x="779" y="240" width="82" height="26" rx="6" fill="#2e2013" stroke="#8a5f3a" stroke-width="1.25"/><text x="820" y="257">Usage</text></g>
         </g>
-        <line x1="680" y1="258" x2="680" y2="288" stroke="#b98bff" stroke-width="2.25" marker-end="url(#tPurple)"/>
+        <line x1="680" y1="272" x2="680" y2="288" stroke="#b98bff" stroke-width="2.25" marker-end="url(#tPurple)"/>
 
         <!-- contract -->
         <rect x="120" y="288" width="760" height="58" rx="10" fill="#191428" stroke="#b98bff" stroke-width="2"/>
@@ -2286,6 +2263,7 @@
       <li><strong>Built the Served &rarr; Infrastructure ideal read model</strong>: same page shape, but modelled honestly as a <strong>snapshot of the substrate</strong> (not one deep tree). A <strong>Cluster</strong> snapshot holds the repeating unit <strong>Node</strong> (the fleet heatmap: roles, status, error rate, latency, tokens, cost, agents, allocation) plus two singletons, <strong>Store</strong> (the ChronoLog deployment: visor / keepers / grapher / player placement + chronicle holdings) and <strong>Pipeline</strong> (ingest liveness: accepting, spool depth, drain lag, last write/drain). Grounded in <code>fleet/rollup.py</code> (<code>NodeHealth</code>/<code>Bucket</code>) · <code>fleet/store.py</code> · <code>api/chronolog_view.py</code>. Note records that node health comes from <code>metrics_rollup</code> while Store + allocation come from the cluster's own topology port. Served-Data Infrastructure card flipped from <em>pending</em> to <em>ideal model</em>.</li>
       <li><strong>Built the Served &rarr; Usage ideal read model</strong> (closes the four read features): a <strong>Usage</strong> ledger over a scope (a run or a fleet window) holding three parts, the <strong>Slice</strong> (the primary lens: a breakdown by <em>agent</em> / <em>model</em> / <em>node</em>), the <strong>Series</strong> (time buckets of tokens &amp; cost), and the <strong>ContextWindow</strong> (the memory facet: window size + composition into system / user / assistant / tool-call / tool-result tokens, plus add/evict churn). Grounded in <code>analysis/context_graph.py</code> (<code>compute_analysis</code>, the per-turn decomposition) and the interaction metrics (<code>delta_input_tokens</code> / <code>delta_output_tokens</code> / <code>delta_cost_usd</code>). Framed as a <strong>re-aggregation</strong> (no new capture): every figure rolls up from per-turn samples on the <em>Turn</em> in the Runs model. Served-Data Usage card flipped from <em>pending</em> to <em>ideal model</em> &mdash; all four read features now have an ideal model.</li>
       <li><strong>Added an Overview section to the Architecture tab</strong> (leads the tab, before <em>Architecture target</em> and <em>Backend repo layout</em>): a brief intro framing the goal as a <strong>functional, decoupled, modular</strong> architecture where every component has one purpose and talks to the rest only through defined interfaces (ports), so the write path / read path / storage engine each change independently and any single engine stays swappable.</li>
+      <li><strong>Redrew the read column of the architecture diagram</strong>: collapsed the <em>Web client</em> and <em>API</em> into single blocks (uniform boundaries: presentation-only, and a thin HTTP/SSE serve layer that delegates down) instead of the old 8-per-feature tile grids. The structure now lives in the middle, <strong>Insights</strong>, drawn as <strong>one vertical slice per feature</strong> (<em>Runs · Doctor · Infrastructure · Usage</em>, the 4 consolidated read features, replacing the old 8 tabs), each doing <em>read &rarr; compute &rarr; view</em> and reading through the shared <code>Contract</code> (EventSource) port. Ties the Architecture tab to the Served-Data ideal read models: each slice's <em>compute</em> produces exactly one of those models.</li>
     </ul>
     <div style="color:#e3b341;font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.14em;margin:14px 0 4px">&#9675; To do</div>
     <ul style="font-size:0.88rem">
