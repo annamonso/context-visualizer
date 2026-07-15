@@ -2259,24 +2259,21 @@
       <li><strong>Frontend 8 &rarr; 4:</strong> do the 8 tabs consolidate into 4 pages, or do 8 routes call into the 4 slices?</li>
     </ul>
 
-    <h3 style="color:#41d1a7">Proposed phases &middot; today &rarr; target</h3>
+    <h3 style="color:#41d1a7">Proposed phases &middot; the sequence</h3>
     <p style="color:var(--muted);font-size:0.86rem;max-width:78ch">
-      A path from where the code is to the architecture in the other tabs. Rough order; priority and
-      owners to be set together.
+      One sequenced set of phases from alignment to the target, covering <strong>both</strong> the app and
+      the ChronoLog work. The order is logical, not a schedule &mdash; <em>when and how</em> each is worked
+      (and what runs in parallel) is a separate conversation. Each phase becomes its own section below.
     </p>
     <ol style="font-size:0.9rem">
-      <li><strong>Phase 0 &middot; Stabilize</strong> <span style="color:#9fd356;font-weight:700">(done)</span>: client-crash fixes, dockerized stack, repo cleanup (<code>backend/</code> + <code>docs/</code>), demo seeds, and this documentation.</li>
-      <li><strong>Phase 1 &middot; Write-side port (the keystone):</strong> introduce <code>EventSink</code> in <code>contract/</code> and route every writer through it, so <code>py_chronolog_client</code> is imported in exactly one folder. Unlocks everything below.</li>
-      <li><strong>Phase 2 &middot; Name &amp; split the write pipeline:</strong> <code>capture/</code> becomes <code>collector/</code> (server intake) + <code>producer/</code> (agent-side lib), with one writer to the sink. Matches the OpenTelemetry shape.</li>
-      <li><strong>Phase 3 &middot; Consolidate the read side:</strong> collapse <code>analysis/</code> · <code>fleet/</code> · <code>diagnostics/</code> · <code>shape/</code> into <code>insights/&lt;feature&gt;</code>, the 4 slices, each <em>read &rarr; compute &rarr; view</em> through <code>EventSource</code>; kill the feature-to-feature imports.</li>
-      <li><strong>Phase 4 &middot; Close the read-model gap:</strong> make each slice's <em>compute</em> actually produce the ideal read model (a real <code>run_id</code>, the incident lifecycle, the usage ledger) instead of scraping and re-deriving. This is where the Data-tab target becomes real.</li>
-      <li><strong>Phase 5 &middot; Resolve the open features:</strong> act on the semantic / checkpointing decision and consolidate the frontend to the 4 pages.</li>
+      <li><strong>Phase 0 &middot; Alignment</strong> <span style="color:#8b94a7;font-weight:700">(this meeting)</span>: agree the shared picture, the target architecture and the 4-feature read model, and settle the open decisions. Output: agreed direction + owners + which phases are in scope.</li>
+      <li><strong>Phase 1 &middot; Decouple:</strong> introduce the write-side port (<code>EventSink</code>) and route every writer through it, so <code>py_chronolog_client</code> is imported in exactly one folder. The read port already exists, so this makes ports-and-adapters real on both sides. The keystone.</li>
+      <li><strong>Phase 2 &middot; Restructure:</strong> move the folders to the target shape &mdash; <code>producer/</code> + <code>collector/</code> (write), the 4 <code>insights/</code> slices (read), <code>adapters/</code>, <code>contract/</code>. Mostly mechanical once the ports exist; unlocks the offline/local adapter and real tests.</li>
+      <li><strong>Phase 3 &middot; ChronoLog read path:</strong> range-query performance, tail / recent reads, and a topology / health API, so the app can read live without CSV scraping or an in-process hot store.</li>
+      <li><strong>Phase 4 &middot; Realize the read models:</strong> make each slice's <em>compute</em> produce the ideal read model (a stable <code>run_id</code>, the incident lifecycle, the usage ledger) and retire CSV scraping + the hot store. Depends on Phase 3; this is where the Data-tab target becomes real.</li>
+      <li><strong>Phase 5 &middot; chrono-agent:</strong> graduate the <code>producer/</code> into an upstream ChronoLog plugin (<a href="https://github.com/grc-iit/chronolog/issues/688">#688</a>) that formalizes the spool + drain the app hand-rolls today.</li>
+      <li><strong>Phase 6 &middot; Complete:</strong> resolve the headless <code>semantic</code> / <code>checkpointing</code> feature, consolidate the frontend 8 &rarr; 4, and add a second engine adapter if multi-engine is a real goal.</li>
     </ol>
-    <p style="color:var(--muted);font-size:0.88rem;max-width:78ch;margin-top:8px">
-      <strong style="color:#e3b341">Parallel track &middot; ChronoLog upstream:</strong> range-query performance,
-      tail / recent reads, a topology / health API, and <code>chrono-agent</code> (#688). These transfers
-      are what let the read path drop CSV scraping and the in-process hot store; several phases depend on them.
-    </p>
 
     <h3 style="color:#8b94a7">Work log &middot; detailed status</h3>
     <p style="color:var(--muted);font-size:0.9rem;max-width:78ch">
