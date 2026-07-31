@@ -1,0 +1,124 @@
+\chapter{Problem Statement and Requirements}
+\label{chap:problem}
+
+This chapter turns the gap established in Chapter~\ref{chap:background}
+into a concrete engineering problem: a target scenario
+(\S\ref{sec:problem-scenario}), a set of requirements that any solution
+must satisfy (\S\ref{sec:problem-requirements}), and the boundaries of
+what this thesis does not attempt (\S\ref{sec:problem-nongoals}). The
+requirements are numbered R1--R7 and are used as the evaluation rubric in
+Chapters~\ref{chap:evaluation} and~\ref{chap:conclusions}.
+
+\section{Target Scenario}
+\label{sec:problem-scenario}
+
+The setting is a multi-agent LLM workload on an HPC cluster. A user holds
+a SLURM allocation of $M$ compute nodes (in this thesis's experiments,
+$M \in \{4, 8\}$ on the ARES cluster, with analyses exercised up to
+several hundred simulated nodes). On each node run $K$ LLM agents:
+independent processes, each an agent loop over its own conversation
+context, each identified by a scenario-scoped session identifier of the
+form \texttt{role@scenario}. Agents cooperate: an agent may delegate a
+sub-task to a peer on another node by invoking a remote-agent MCP tool,
+producing nested chains of cross-host calls. A ChronoLog deployment
+shares the allocation: a keeper on every node, a visor coordinating, and
+a grapher draining sealed chunks to an archive on shared storage.
+
+The human in the loop is the \emph{operator}, the researcher or
+engineer running the fleet, who needs answers both while the system runs
+and after it finishes:
+
+\begin{enumerate}
+\item[Q1.] \emph{What is the swarm doing right now?} Which agents exist,
+  which are talking to which, and on which physical nodes?
+\item[Q2.] \emph{Is anything failing?} Not as a scroll of per-event
+  errors, but as a ranked, deduplicated set of problems with causes.
+\item[Q3.] \emph{Why is this scenario slow?} Which hop in a cross-host
+  delegation chain is the bottleneck?
+\item[Q4.] \emph{Which node is dragging the fleet down?} A
+  population-level comparison across all $M$ nodes, including silent
+  ones.
+\item[Q5.] \emph{Has this happened before?} Whether a failure is novel
+  or a recurring pattern across runs.
+\end{enumerate}
+
+Q1--Q3 are agent-semantic questions; Q4 is a fleet-topology question; Q5
+is a longitudinal question. Q2--Q4 in combination require pivoting
+between layers (from a fleet symptom to a single agent's
+conversation), the pivot neither tooling camp of
+\S\ref{sec:bg-sota} supports.
+
+\section{Requirements}
+\label{sec:problem-requirements}
+
+\paragraph{R1: Dual-plane causal capture.} The system must capture
+both observable planes of \S\ref{sec:bg-agent-signals}: LLM turns
+(prompt, response, model, tokens, cost, latency, working-memory deltas)
+and inter-agent calls (caller, callee, hosts, timing, outcome). The two
+planes must also be \emph{joinable}: an inter-agent edge must resolve
+to the conversations of its endpoint agents, and every event must be
+attributed to the physical node that produced it. Without the join, Q1
+and the Q2--Q4 pivot are unanswerable.
+
+\paragraph{R2: Real-time visibility.} Live views (Q1, and the live
+half of Q2/Q4) must reflect events within seconds of ingest. In
+particular, the system must not be limited by the substrate's drain
+latency (\S\ref{sec:bg-chronolog-design}), and no read may ever block
+the serving process on un-drained log state.
+
+\paragraph{R3: Durability and replayability.} Every captured event
+must survive process and node restarts and remain replayable after the
+run ends: post-hoc analysis, cost accounting, and the longitudinal
+question Q5 all read history. Transient failures of downstream
+components must not lose events (at-least-once capture), and retries
+must not duplicate them in the durable store (effectively exactly-once
+ingest, \S\ref{sec:bg-delivery}).
+
+\paragraph{R4: Fleet scale.} Population-level views (Q4) must remain
+responsive at 100+ nodes. Concretely, the cost of rendering the fleet
+overview must not grow with the number of captured events, only with the
+number of nodes and the length of the queried window. Silent
+nodes must also appear, since silence is itself a signal.
+
+\paragraph{R5: Minimal, non-blocking overhead.} Instrumentation must
+not perturb the workload it observes (the Dapper tenet,
+\S\ref{sec:bg-tracing-lineage}). The agent-side fast path must be a
+local, constant-time operation (an append to node-local state),
+with all network and log I/O off the agent's critical path. The
+capture machinery must degrade gracefully (buffer, fall back) and never
+back-pressure an agent.
+
+\paragraph{R6: Zero-marginal-cost diagnosis.} Failure detection and
+diagnosis (Q2, Q5) must not itself consume LLM tokens by default:
+a diagnosis pipeline that costs money per scan will be disabled in
+practice. LLM-assisted diagnosis may exist, but only as an opt-in on
+top of a deterministic baseline.
+
+\paragraph{R7: Drop-in deployment.} The system must attach to an
+existing ChronoLog deployment without modifying ChronoLog, the
+scheduler, or the agent framework: instrumentation via a thin client
+library or local HTTP endpoint, per-node components launchable on a
+plain SLURM allocation, and a read-only dashboard that can point at any
+visor.
+
+\section{Non-Goals}
+\label{sec:problem-nongoals}
+
+Four adjacent problems are explicitly out of scope. The system is not
+an \emph{agent framework}: it observes agents built with existing SDKs
+and protocols, and takes no part in orchestrating them. It is not a
+\emph{scheduler or resource manager}: placement, allocation, and job
+control remain SLURM's, and the system only queries it. And it is not a
+general \emph{metrics time-series database}: it captures the
+agent-semantic event planes of R1, not arbitrary node telemetry.
+Where classical infrastructure metrics are needed, the systems of
+\S\ref{sec:bg-sota-hpc} remain the right tool, and the two can run side
+by side. Finally, the thesis targets observation and diagnosis, not
+automated remediation: acting on a diagnosis (restarting agents, rolling
+back context) is surfaced as a recommendation to the operator, not
+executed autonomously.
+
+With the questions, requirements, and non-goals fixed, the problem is
+fully specified. Chapter~\ref{chap:design} presents a design that meets
+R1--R7 on the ChronoLog substrate; Chapter~\ref{chap:evaluation} then
+measures each requirement against it.

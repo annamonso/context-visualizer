@@ -1,0 +1,118 @@
+% =========================================================================
+% Distributed Observability for Multi-Agent LLM Systems:
+% A Shared-Log Approach on HPC Clusters
+%
+% Build: pdflatex main && bibtex main && pdflatex main && pdflatex main
+% (or just upload the thesis/ folder to Overleaf)
+% =========================================================================
+\documentclass[11pt,a4paper]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}           % \text{} in the complexity expressions
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, fit, decorations.pathreplacing}
+\usepackage{pgfplots}          % measured-data plots (e.g. fig-rollup-scaling)
+\pgfplotsset{compat=1.17}
+\usepackage{microtype}
+\usepackage{xspace}
+\usepackage[margin=2.6cm]{geometry}
+% Lets TeX stretch a problem line rather than overflow the margin; the
+% prose carries many unbreakable \texttt{} identifiers.
+\emergencystretch=3em
+% `hyphens' lets long URLs in the bibliography break across lines.
+\PassOptionsToPackage{hyphens}{url}
+\usepackage[hidelinks]{hyperref}
+
+\newcommand{\sys}{ChronoLog Observability\xspace}
+% Placeholder for numbers not yet measured — grep for \tbd before submission.
+\newcommand{\tbd}[1]{\textbf{[TBD: #1]}}
+
+\title{Distributed Observability for Multi-Agent LLM Systems:\\
+       A Shared-Log Approach on HPC Clusters}
+\author{Anna Mons\'o}
+\date{\today}
+
+\begin{document}
+
+% ------------------------------ Front matter -----------------------------
+\maketitle
+
+\begin{abstract}
+Applications built on large language models (LLMs) are becoming
+multi-agent and are moving onto clusters, yet to our knowledge no
+existing observability tool covers both facts at once: LLM-observability platforms capture rich
+agent semantics but have no notion of physical topology, while HPC and
+fleet monitoring knows node health at scale but nothing about agents. This
+thesis fills that gap, starting from one observation: a multi-agent
+execution is already a causally-ordered event log, so a distributed shared
+log is its natural storage substrate. Building on ChronoLog, a
+distributed, tiered log store that places a capture process on every
+cluster node, we design and implement a drop-in observability system
+for LLM-agent fleets. Two capture paths feed the log (LLM turns through a
+spooled capture worker; inter-agent calls through per-node collectors)
+with at-least-once capture and effectively exactly-once ingest, and a
+hot/cold read design works around the log's ingest-optimized acceptance
+window to serve real-time views from the same event stream. On this
+substrate we build fleet-scale analyses: failure detection with signature
+clustering and zero-cost diagnosis, per-node health rollups whose cost is
+independent of event volume, and cross-host critical-path tracing. We
+validate the system end-to-end with real Claude agents on live 4- and
+8-node ChronoLog clusters (28/28 automated checks, up to 32 concurrent
+agents) and measure it throughout: capture costs the agent 3.6\,ms per
+turn (statistically invisible against real LLM latency), events
+reach the operator's screen in 10.7\,ms against a 20--30\,s durable
+drain, fleet queries stay flat as event volume grows $50\times$, and a
+ground-truth fault study scores 580/580 detections with zero false
+positives. In a timed case study, a first-time operator produced a
+complete, verified cross-layer diagnosis through the system in 72
+seconds, a task they could not begin from raw logs.
+\end{abstract}
+
+\chapter*{Acknowledgements}
+% TODO
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+\chapter*{Acronyms}
+\begin{tabular}{@{}ll@{}}
+LLM  & Large Language Model \\
+MCP  & Model Context Protocol \\
+HPC  & High-Performance Computing \\
+SLURM& Simple Linux Utility for Resource Management \\
+SSE  & Server-Sent Events \\
+API  & Application Programming Interface \\
+SDK  & Software Development Kit \\
+GIL  & Global Interpreter Lock \\
+NFS  & Network File System \\
+RPC  & Remote Procedure Call \\
+JSONL& JSON Lines \\
+CSV  & Comma-Separated Values \\
+HDF5 & Hierarchical Data Format, version 5 \\
+p95  & 95th percentile \\
+RSS  & Resident Set Size \\
+APM  & Application Performance Monitoring \\
+eBPF & extended Berkeley Packet Filter \\
+DNS  & Domain Name System \\
+UI   & User Interface \\
+\end{tabular}
+
+% ------------------------------- Chapters --------------------------------
+\include{chapters/01-introduction}
+\include{chapters/02-background}
+\include{chapters/03-problem}
+\include{chapters/04-design}
+\include{chapters/05-analytics}
+\include{chapters/06-evaluation}
+\include{chapters/07-conclusions}
+
+% ----------------------------- Bibliography ------------------------------
+\bibliographystyle{plain}
+\bibliography{references}
+
+\end{document}

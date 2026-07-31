@@ -1,0 +1,32 @@
+% Trace waterfall: span tree, critical path (grey), self-time.
+\begin{tikzpicture}[font=\footnotesize, thick, >=Stealth]
+  % time axis
+  \draw[->, semithick] (0,-0.6) -- (12.6,-0.6);
+  \node[below] at (11.8,-0.65) {time (ms)};
+  \foreach \x/\t in {0/0, 3/300, 6/600, 9/900, 12/1200} {
+    \draw (\x,-0.52) -- (\x,-0.68);
+    \node[below] at (\x,-0.7) {\tiny \t};
+  }
+  % depth 0: root span A (critical)
+  \draw[very thick, fill=gray!25] (0,3.2) rectangle (12,3.85);
+  \node at (6,3.52) {A \; (orchestrator) \; 1200\,ms};
+  % depth 1: B (off-path), C (critical)
+  \draw[fill=white] (0.4,2.3) rectangle (4.4,2.95);
+  \node at (2.4,2.62) {B \; 400\,ms};
+  \draw[very thick, fill=gray!25] (4.6,2.3) rectangle (11.8,2.95);
+  \node at (8.2,2.62) {C \; 720\,ms};
+  % depth 2: C1 (off-path), C2 (critical)
+  \draw[fill=white] (5.0,1.4) rectangle (7.0,2.05);
+  \node at (6.0,1.72) {C$_1$ \; 200\,ms};
+  \draw[very thick, fill=gray!25] (7.5,1.4) rectangle (11.5,2.05);
+  \node at (9.5,1.72) {C$_2$ \; 400\,ms};
+  % self-time of C: its interval not covered by its slowest child C2
+  \draw[decorate, decoration={brace, mirror, raise=3pt}] (4.6,1.4) -- (7.5,1.4);
+  \node[below=9pt] at (6.05,1.4)
+    {self-time of C $= 720 - 400 = 320$\,ms};
+  % legend
+  \draw[very thick, fill=gray!25] (0.0,0.1) rectangle (0.5,0.4);
+  \node[right] at (0.55,0.25) {critical path};
+  \draw[fill=white] (3.2,0.1) rectangle (3.7,0.4);
+  \node[right] at (3.75,0.25) {off the critical path};
+\end{tikzpicture}

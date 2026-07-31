@@ -1,0 +1,537 @@
+\chapter{Background and State of the Art}
+\label{chap:background}
+
+This chapter develops the concepts the thesis is built from, as a
+progression: the distributed-systems fundamentals that define the
+problem's vocabulary (\S\ref{sec:bg-ds}); distributed tracing, the discipline
+that first made cross-machine causality observable
+(\S\ref{sec:bg-tracing}); the distributed shared log, the storage abstraction
+this thesis adopts as its substrate (\S\ref{sec:bg-log}); ChronoLog, the
+concrete log store used (\S\ref{sec:bg-chronolog}); LLM agents and
+multi-agent systems, the workload being observed (\S\ref{sec:bg-agents});
+and finally the state of the art, whose two disjoint camps define the gap
+this thesis targets (\S\ref{sec:bg-sota}). Most sections close by noting
+what the thesis takes from them.
+
+\section{Distributed Systems Fundamentals}
+\label{sec:bg-ds}
+
+\subsection{Time, Ordering, and Causality}
+\label{sec:bg-time}
+
+A distributed system is a set of processes on separate machines that
+communicate only by exchanging messages. Its defining difficulty is that
+there is no global ``now'': each machine has its own clock, clocks drift, and
+no observer sees the whole system at once. Any statement about what the
+system \emph{is doing} must therefore be reconstructed from locally
+recorded observations.
+
+Lamport's insight is that such reconstruction turns not on wall-clock
+simultaneity but on \emph{causality}, captured by the
+\emph{happened-before} relation~\cite{lamport1978time}: event $a$
+happened before event $b$ if they occur in that order in the same process, or
+if $a$ is the sending of a message that $b$ receives, or transitively through
+a chain of such steps (Figure~\ref{fig:hb}). Happened-before is a partial
+order (some event pairs are simply concurrent), and it is the order
+that determines whether one event could have influenced another: in
+Figure~\ref{fig:hb}, $a$ happened before $d$ through the chain
+$a \to c \to e \to d$, while $b$ and $e$ are concurrent: no causal path
+connects them, even though $b$ occurs later in wall-clock time.
+
+\begin{figure}[t]
+  \centering
+  \input{figures/fig-happened-before}
+  \caption{A space-time diagram of three processes exchanging messages
+  $m_1$--$m_3$. Causality flows along process lines and messages:
+  $a \rightarrow c \rightarrow e \rightarrow d$ is a causal chain, so $a$
+  \emph{happened before} $d$; $b$ and $e$ are \emph{concurrent} (neither
+  could have influenced the other), despite $b$ being later on the wall
+  clock.}
+  \label{fig:hb}
+\end{figure}
+
+Logical and vector
+clocks~\cite{lamport1978time,fidge1988timestamps,mattern1989virtual} make
+this order computable
+from local information; alternatively, when all events carry timestamps from
+reasonably synchronized physical clocks and land in one ordered store, causal
+chains follow from timestamps plus application-level correlation identifiers.
+
+The corollary this thesis leans on is that the
+\emph{event log}, an append-only sequence of timestamped, attributed
+events, is the canonical representation of distributed execution. A log
+captures exactly what each process observed and when; every richer structure
+(a request trace, a communication graph, a health summary) is a fold over it.
+
+\emph{Used in this thesis:} multi-agent executions are treated as partially
+ordered event logs; causal structure is recovered from physical-time ordering
+plus explicit correlation identifiers carried by the instrumentation
+(Chapters~\ref{chap:design} and~\ref{chap:analytics}).
+
+\subsection{Delivery Semantics}
+\label{sec:bg-delivery}
+
+Any pipeline that moves events from producers to a store must define what
+happens when a component fails mid-transfer. Three contracts are
+standard~\cite{kleppmann2017ddia}.
+\emph{At-most-once} delivery never retries, so failures lose events,
+which is unacceptable for an audit trail. \emph{At-least-once} delivery retries until
+acknowledged, so failures duplicate events. \emph{Exactly-once} delivery is
+the ideal, unachievable in general between separately failing
+components; real systems approximate it as \emph{effectively exactly-once}:
+at-least-once transport paired with deduplication at the consumer, using
+idempotent writes or monotonic sequence numbers (``high-water marks'') so
+that redelivered events are recognized and dropped.
+
+A related design decision is where events wait when a downstream component is
+slow or dead. Buffering writes in a local, durable \emph{spool} decouples the
+producer from downstream availability: the producer's fast path is a local
+append, and a separate drain process moves data onward at its own pace,
+the same write-ahead pattern that underlies journaling file systems and
+message brokers.
+
+\emph{Used in this thesis:} capture is at-least-once from a durable local
+spool; ingest into the log is made effectively exactly-once by per-session
+high-water marks, with consumer state rebuilt from the log itself after a
+crash (\S\ref{sec:design-write}).
+
+\section{Distributed Tracing}
+\label{sec:bg-tracing}
+
+\subsection{Lineage: From Dapper to Pixie}
+\label{sec:bg-tracing-lineage}
+
+Distributed tracing is the discipline of reconstructing, from per-process
+records, the cross-machine causal story of a single request. Google's
+Dapper~\cite{sigelman2010dapper} established the modern vocabulary: a
+\emph{trace} is a tree of \emph{spans}, each span a timed operation carrying
+the trace's identifier, its parent's identifier, and annotations. Two Dapper
+design tenets recur throughout this thesis. First, instrumentation must be
+low-overhead and effectively invisible to application developers, or it will
+be turned off or bypassed; Dapper achieved this by instrumenting shared
+infrastructure (the RPC library) rather than applications. Second, complete
+capture at scale is considered infeasible, so Dapper samples aggressively
+(uniformly, in its default scheme).
+
+Subsequent systems relaxed different assumptions. The Mystery
+Machine~\cite{chow2014mystery} showed that when explicit propagation is
+unavailable, the causal model itself can be \emph{inferred}: from large
+numbers of logged executions, it hypothesizes happened-before relationships
+and prunes those contradicted by observed orderings. Pivot
+Tracing~\cite{mace2015pivot} made tracing \emph{dynamic}: operators install
+queries at runtime that propagate context along the execution's causal path
+(the ``baggage'' abstraction), answering questions that were never
+pre-instrumented. Canopy~\cite{kaldor2017canopy} scaled the pipeline
+end-to-end at Facebook, emphasizing that raw traces are not what engineers
+consume: traces are transformed into feature-indexed datasets that back
+purpose-built views. More recently, systems such as Pixie~\cite{pixie} pushed
+capture into the platform itself via eBPF, trading application-level
+semantics for zero-touch deployment.
+
+\subsection{Critical-Path Analysis and Self-Time}
+\label{sec:bg-critpath}
+
+A trace answers ``what happened''; the follow-up question is ``why was it
+slow.'' In a tree of overlapping timed operations, total latency is not the
+sum of span durations: children execute inside their parents, and siblings
+overlap. The \emph{critical path}, an idea imported into parallel-program
+performance analysis by Yang and Miller~\cite{yang1988critpath}, is the
+chain of operations from root to
+leaf whose durations determine end-to-end latency: shortening any
+operation off the critical path cannot speed up the request. Within the
+critical path, the correct measure of each hop's contribution is its
+\emph{self-time} (exclusive time): wall-clock time spent in the operation
+itself, excluding intervals covered by its children. Attributing latency by
+inclusive duration double-counts every level of the tree; self-time
+attribution names the hop actually responsible. Figure~\ref{fig:critpath}
+illustrates both ideas on a small trace: shortening $B$ or $C_1$ cannot
+speed up the request, and although $C$'s inclusive duration is 720\,ms,
+only 320\,ms of it is $C$'s own.
+The Mystery Machine used this analysis to find optimization
+opportunities at Facebook~\cite{chow2014mystery}.
+
+\begin{figure}[t]
+  \centering
+  \input{figures/fig-critical-path}
+  \caption{A trace rendered as a waterfall. Grey spans form the critical
+  path $A \rightarrow C \rightarrow C_2$, the chain that determines
+  end-to-end latency; white spans ($B$, $C_1$) overlap it and cannot
+  shorten the request. Each hop is charged its \emph{self-time}: $C$'s
+  720\,ms minus the 400\,ms covered by its slowest child leaves 320\,ms
+  of $C$'s own.}
+  \label{fig:critpath}
+\end{figure}
+
+\emph{Used in this thesis:} the tracing view of Chapter~\ref{chap:analytics}
+reconstructs cross-host call trees from inter-agent events (using explicit
+parent correlation when present and Mystery-Machine-style inference from
+session and time nesting when not), computes the critical path, and names
+the bottleneck hop by self-time.
+
+\subsection{Sampling and Its Limits at Fleet Scale}
+\label{sec:bg-sampling}
+
+Dapper's sampling assumption does not transfer cleanly to the LLM-agent
+setting. Head-based sampling (deciding at trace start) keeps coherent
+traces but misses rare failures by construction. Tail-based sampling
+(deciding at trace end) must buffer every trace until its fate is known.
+At fleet scale that reintroduces the data-volume problem sampling was
+meant to solve, and it requires reassembling spans scattered across many
+hosts before the keep/drop decision can be made.
+LLM-agent workloads change the calculus in two ways.
+First, event rates are modest: an agent turn takes seconds and costs real
+money, so a fleet of hundreds of agents emits orders of magnitude fewer
+events than a microservice fleet emits RPCs\footnote{The arithmetic: a
+100-agent fleet at one turn per agent every few seconds produces tens of
+events per second; RPC tracing operates against request rates many orders
+of magnitude higher, which is why Dapper samples at all.}; complete
+capture is affordable. Second, the value of completeness is higher: each event is
+semantically rich (a full LLM interaction), failures are the rare
+events sampling discards, and post-hoc analyses such as cost accounting
+require totals, not estimates.
+
+\emph{Used in this thesis:} the system captures completely and treats
+storage, not sampling, as the scaling lever, pushing the volume problem
+down to the log substrate and the read-side rollups
+(\S\ref{sec:bg-log},~Chapter~\ref{chap:analytics}).
+
+\section{The Distributed Shared Log Abstraction}
+\label{sec:bg-log}
+
+The systems of \S\ref{sec:bg-tracing} all separate capture from storage: spans
+are generated in-process, then shipped to a backend whose design is
+incidental to the tracing model. A complementary line of work treats the
+\emph{log itself} as the system's central abstraction. Kreps's
+formulation~\cite{kreps2013log} argues that an append-only, totally ordered
+log is the natural integration point for distributed data systems: producers
+append, consumers read at their own pace, and the log's order \emph{is} the
+system's notion of time (Figure~\ref{fig:sharedlog}).
+Kafka~\cite{kreps2011kafka} industrialized this as
+partitioned commit logs (replication followed in later versions); CORFU~\cite{balakrishnan2012corfu}
+showed that a shared log can be a first-class distributed primitive:
+clients append to a global address space striped over a cluster, and the
+shared log's total order becomes the foundation for replicated state
+machines and transactional systems built above it.
+
+\begin{figure}[t]
+  \centering
+  \input{figures/fig-shared-log}
+  \caption{The shared-log abstraction. Producers append at the tail;
+  an event's position in the log is its permanent place in history.
+  Readers consume independently at their own offsets, imposing no
+  back-pressure on producers or on each other.}
+  \label{fig:sharedlog}
+\end{figure}
+
+Three properties of this abstraction matter for observability. First,
+\emph{node-local appends}: producers write to a nearby log segment, keeping
+the fast path off the network's critical path. Second, \emph{decoupled
+readers}: consumers impose no back-pressure on producers; an expensive
+analysis reads the same log as a cheap dashboard without perturbing capture.
+Third, \emph{durability with order}: once appended, an event's position,
+its place in history, is permanent, the property an audit trail of
+agent behavior needs.
+
+The abstraction also has a characteristic trade-off: log stores are
+\emph{write-optimized}. Appends are fast because data lands in
+ingest-side buffers that are sealed, ordered, and moved to
+read-optimized storage asynchronously; a reader wanting the most recent
+events must either wait out this pipeline or read from a separate,
+freshness-oriented structure. Stream-processing architecture has long
+formalized the resulting design: the \emph{lambda architecture} pairs a
+durable, complete, high-latency batch path with a fast, approximate speed
+layer over the same event stream~\cite{marz2015big}. This trade-off, in
+ChronoLog's concrete form, drives a central design decision of this thesis
+(\S\ref{sec:bg-chronolog-design}, Chapter~\ref{chap:design}).
+
+\emph{Used in this thesis:} the shared log is the single substrate
+(capture appends to it, every view reads from it), and its
+write-optimized/read-lagging nature is handled by a lambda-style hot/cold
+split rather than by abandoning the abstraction.
+
+\section{ChronoLog}
+\label{sec:bg-chronolog}
+
+ChronoLog~\cite{kougkas2020chronolog} is a distributed, tiered shared-log
+store developed for HPC environments, and the concrete substrate of this
+thesis. The paper presents the design; the component names, tier formats,
+and configuration described below reflect the deployed version used in
+this work. It differs from the logs of \S\ref{sec:bg-log} in one decision that
+makes it particularly suited to this thesis's workload: events are ordered by
+\emph{physical time} at capture, rather than by a sequencer-assigned logical
+position, so the log's global order directly reflects when things happened
+across the cluster.
+
+\subsection{Architecture: Visor, Keepers, Grapher--Player}
+\label{sec:bg-chronolog-arch}
+
+A ChronoLog deployment (Figure~\ref{fig:chronoarch}) comprises a
+coordinating \emph{visor}, a recording group of \emph{keepers}, and an
+archival pipeline of \emph{grapher} and \emph{player} processes.
+
+\begin{figure}[t]
+  \centering
+  \input{figures/fig-chronolog-arch}
+  \caption{ChronoLog's architecture. A keeper on every compute node takes
+  node-local appends into memory (the ingest tier); the visor coordinates
+  clients; the grapher asynchronously drains, merges, and time-orders
+  sealed chunks into a read-optimized archive. The drain imposes an
+  acceptance window during which fresh events are not yet readable
+  (20--30\,s measured end-to-end here, with a 180\,s window configured
+  at the grapher). This is the property the read path of
+  Chapter~\ref{chap:design} is designed around.}
+  \label{fig:chronoarch}
+\end{figure}
+
+The visor is the control plane: clients connect to
+it to create and acquire logs and to discover the recording group. The
+keepers are the ingest plane: one keeper runs on every node of the
+deployment, and clients append events to a node-local keeper, which buffers
+recent history in memory. Asynchronously, the grapher drains sealed chunks
+from the keepers, merges them into time order, and writes them to a
+read-optimized archive (CSV/HDF5 tiers), which the player serves back to
+readers. The design mirrors the tiered storage hierarchies of HPC I/O
+systems: a fast, distributed, memory-resident ingest tier in front of a
+durable, ordered archival tier.
+
+Two consequences of this architecture are load-bearing for this thesis. The
+keeper-per-node layout means capture is \emph{physically co-located} with the
+workload: an agent's events are appended on the machine where the agent runs,
+and the mapping from events to nodes (the coupling of semantics to
+topology that Chapter~\ref{chap:intro} identified as the gap) is native to
+the substrate rather than reconstructed. And the drain pipeline means the
+archive is complete and ordered but \emph{late} (\S\ref{sec:bg-chronolog-design}).
+
+\subsection{Data Model: Chronicles, Stories, Events}
+\label{sec:bg-chronolog-model}
+
+ChronoLog organizes data hierarchically. A \emph{chronicle} is a named log
+namespace; within it, a \emph{story} is an independently written and read
+event sequence; an \emph{event} is a timestamped payload appended to a story.
+Clients acquire a story handle to append or replay, and stories provide the
+unit of isolation: writers to different stories do not contend, and a reader
+replays exactly one story's history in time order. The model maps naturally
+onto observability data: chronicles partition by data kind, stories by
+session or entity, and events carry the individual observations
+(\S\ref{sec:design-mapping} details this thesis's schema).
+
+\subsection{Design Point: Ingest-Optimized, Delayed Reads}
+\label{sec:bg-chronolog-design}
+
+ChronoLog's design point is high-throughput, low-latency \emph{ingest}:
+appends land in the node-local keeper's memory and return. The price is paid
+on the read side, in two forms that this thesis measures and designs around.
+First, the keeper$\to$grapher drain imposes an \emph{acceptance window}
+during which freshly appended events are held in ingest buffers and are
+not yet readable from the archive: in the deployments used here the
+keeper seals 10\,s chunks under a 15\,s acceptance window, for a
+measured end-to-end availability of 20--30\,s
+(\S\ref{sec:eval-freshness}); the grapher and player are configured
+with a longer, 180\,s window. Second, a live replay can be not merely
+stale but \emph{blocking}: a read that the player cannot answer holds
+the client (and, in a Python client holding the global interpreter
+lock, the entire calling process) for the full ${\sim}180$\,s query
+timeout. A reader architecture built naively on such a
+substrate freezes exactly when it is most interesting: while the system is
+live.
+
+This is not a defect but the standard write-optimized trade-off of
+\S\ref{sec:bg-log} in concrete form, and it dictates the read-side
+architecture of Chapter~\ref{chap:design}: ChronoLog serves as the durable,
+complete cold path, while real-time views are fed by a hot path populated at
+ingest. That is the lambda split, with the acceptance window as the boundary
+between the layers.
+
+\section{LLM Agents and Multi-Agent Systems}
+\label{sec:bg-agents}
+
+\subsection{The Agent Loop, Tool Use, and Delegation}
+\label{sec:bg-agent-loop}
+
+An LLM \emph{agent} is a program that couples a language model to an
+environment through a loop (Figure~\ref{fig:agentloop}a): the model is
+prompted with a goal and a transcript of prior steps; it emits either a
+final answer or an \emph{action}, a call to an external tool; the tool's
+result is appended to the transcript; and the loop repeats. The pattern was
+crystallized by ReAct~\cite{yao2023react}, which interleaves free-form
+reasoning with structured actions. The unit of execution is the
+\emph{turn}: one model invocation, with its prompt, response, latency, and
+token consumption.
+
+\begin{figure}[t]
+  \centering
+  \input{figures/fig-agent-loop}
+  \caption{(a) The agent loop: each cycle through the LLM is one
+  \emph{turn}, appending the tool's observation to the agent's context.
+  (b) Multi-agent delegation: once agents are tools, agent $A$ calls agent
+  $B$ (possibly on another node), which calls $C$ in turn, each call a
+  \texttt{start} with a matching \texttt{done} (dashed) carrying status and
+  latency. The result is a partially ordered event log with delegations as
+  its cross-process edges.}
+  \label{fig:agentloop}
+\end{figure}
+
+Tool interfaces are standardizing around protocols such as the Model Context
+Protocol~\cite{anthropic2024mcp}, in which tools are typed, discoverable
+endpoints. Once tools are first-class, \emph{agents themselves can be tools}:
+one agent's toolset includes a call-remote-agent operation that opens a
+sub-conversation with another agent, possibly on another machine. This is
+how multi-agent systems form~\cite{wu2023autogen}: a
+scenario is a set of agents, each a loop over its own context, connected by
+delegation edges. From a distributed-systems standpoint
+(\S\ref{sec:bg-time}), a scenario execution is a set of per-agent event
+sequences joined by inter-agent messages: precisely a partially ordered
+event log, with delegation calls as the cross-process edges.
+
+\subsection{Observable Signals}
+\label{sec:bg-agent-signals}
+
+The observable surface of an agent fleet has two planes. The
+\emph{intra-agent} plane is the sequence of LLM turns: prompt and response
+content, model identity, latency, token counts, and (unusual among
+workloads) direct monetary cost per event, since providers bill per token.
+It also includes the agent's \emph{working memory}: the context assembled for
+each turn, which grows as results accumulate and shrinks under eviction and
+summarization when the model's context window fills. Memory dynamics are an
+operational signal in their own right: an agent nearing its context limit
+degrades before it fails. The \emph{inter-agent} plane is the set of
+delegation calls: which agent called which, when the call started and
+finished, whether it succeeded, and how calls nest. This is the plane from
+which scenario structure, communication topology, and cross-host traces are
+reconstructed.
+
+\subsection{Failure Modes of LLM Agent Fleets}
+\label{sec:bg-agent-failures}
+
+Agent fleets fail in ways that combine both planes. Empirical taxonomies of
+multi-agent LLM failures~\cite{cemri2025mast} find the dominant categories
+to be specification gaps, inter-agent misalignment, and missing task
+verification, all of which surface to an operator as the concrete symptoms
+below. On the intra-agent plane:
+provider errors (HTTP 4xx/5xx, rate limits), latency outliers against a
+model's typical distribution, and \emph{retry storms}, in which an agent
+re-issues a failing prompt in a loop, a classic amplification pathology
+(the retry-driven feedback loops of metastable
+failure~\cite{bronson2021metastable}), here with a direct monetary cost
+attached to every retry. Agents may
+also \emph{backtrack}, restoring earlier context after an unproductive path;
+frequent recoveries signal a struggling agent. On the inter-agent plane:
+failed delegations, and, particularly damaging, \emph{hung} calls
+(termed \emph{orphan calls} from Chapter~\ref{chap:analytics} on), in
+which a delegation starts but never completes, silently stalling the
+delegating agent; in a per-edge view nothing is visibly wrong, since the
+signature is an absence. At fleet scale these interact with infrastructure
+pathology: a degraded, fail-slow node~\cite{gunawi2018failslow} drags down
+every agent scheduled on it, producing a symptom that is scattered across
+scenarios yet has a single physical cause. Localizing such failures is
+the cross-layer question neither tooling camp of
+\S\ref{sec:bg-sota} can answer alone.
+
+\section{State of the Art and the Gap}
+\label{sec:bg-sota}
+
+\subsection{LLM and Agent Observability}
+\label{sec:bg-sota-llm}
+
+The first camp instruments the application layer.
+LangSmith~\cite{langsmith} (from the LangChain ecosystem),
+Langfuse~\cite{langfuse}, and Arize Phoenix~\cite{phoenix} capture LLM calls
+and tool invocations as hierarchical runs or OpenTelemetry-style spans,
+adding LLM-specific value: token and cost accounting, prompt management,
+dataset curation, and LLM-as-judge evaluation. AgentOps~\cite{agentops}
+targets agent frameworks specifically, tracking sessions, tool usage, and
+multi-agent hand-offs. General application-performance-monitoring (APM)
+vendors have added LLM-observability products~\cite{datadogllm}, and the
+OpenTelemetry project is standardizing generative-AI semantic
+conventions~\cite{otelgenai}, signalling consolidation of this camp around
+the span model.
+
+The limitation is structural, not incidental. The span model these tools
+inherit was designed for request-scoped microservice tracing:
+``distributed'' means span correlation across services in one
+application's request path; ``multi-agent'' means multiple agent
+abstractions within one process or one orchestrator. Host identity, where
+it appears at all, is opaque metadata: a tag an operator can attach and
+read back, not a first-class dimension the tools can group by, compare
+across, or alert over. Population-level questions (compare nodes,
+find the sick one, correlate agent failures with machine placement)
+therefore cannot be phrased. The nearest exceptions prove the shape of the gap
+rather than filling it: an APM platform such as Datadog can correlate an
+LLM trace with the host metrics of \emph{that request's} infrastructure,
+but offers no fleet-of-agents semantics over an HPC allocation: no
+batch-scheduler awareness, no population view keyed by agent behavior.
+The OTel generative-AI conventions standardize \emph{turn} semantics,
+while the host resource attributes an SDK may attach come with no defined
+fleet-level analysis. In both cases the data model cannot express the join
+the operator questions of \S\ref{sec:intro-context} require: from a
+fleet-wide symptom to a specific agent's conversation on a named machine.
+
+\subsection{HPC and Fleet Monitoring}
+\label{sec:bg-sota-hpc}
+
+The second camp instruments the physical layer, and does so at scale.
+Prometheus~\cite{prometheus}, typically paired with Grafana dashboards, is
+a de facto standard for metrics-based monitoring, routinely deployed over
+SLURM clusters via node exporters and job accounting; HPC-native systems such as
+LDMS~\cite{agelastos2014ldms} are engineered for continuous, low-overhead
+collection of node metrics across very large machines. These systems answer
+per-node and per-job questions (utilization, saturation, hardware
+health, stragglers) well, and their visual idioms (heatmaps, per-node grids) are
+built for hundreds of nodes.
+
+Their blindness is the mirror image of the first camp's. The data model is
+metric time series named by host and counter; there is no application
+semantics at all. That a CPU-saturated node is running an LLM agent whose
+retry storm is the actual pathology (and that the same storm is visible as
+cost and latency in some scenario's transcript) is invisible: metrics
+cannot say \emph{which conversation} is responsible, and offer no path from
+a red node to the agent behavior causing it.
+
+\subsection{The Empty Intersection}
+\label{sec:bg-sota-gap}
+
+Figure~\ref{fig:quadrant} summarizes the landscape along its two axes:
+richness of agent semantics, and awareness of physical fleet topology. Camp
+1 occupies the semantics-rich, topology-blind quadrant; Camp 2 the
+topology-aware, semantics-blind one. The quadrant combining both (agent
+semantics coupled to cluster topology, at fleet scale) is, among the
+tools surveyed here, unoccupied. It
+is where the operator questions of \S\ref{sec:intro-context} live: they
+require pivoting \emph{between} layers, from a fleet-level symptom to a
+single agent's conversation and back.
+
+\begin{figure}[t]
+  \centering
+  \input{figures/fig-quadrant}
+  \caption{The observability landscape for multi-agent LLM systems on
+  clusters, along its two capability axes. Camp 1 and Camp 2 each occupy
+  one off-diagonal quadrant; their intersection (agent semantics coupled
+  to physical fleet topology) is unoccupied among the surveyed tools,
+  and is the quadrant this thesis targets.}
+  \label{fig:quadrant}
+\end{figure}
+
+Filling that quadrant is not a matter of running both camps side by side:
+two disjoint systems with disjoint data models provide no join between an
+agent event and a node, which is precisely the pivot the questions require.
+The evaluation returns this structural argument as a measurement
+(\S\ref{sec:eval-casestudy}): faced with an injected cross-layer fault on
+a live cluster, an operator given the raw captured files (all the
+signals both camps would collect, join included) could not produce a
+single localization answer. Through the joined views, that operator
+completed the full symptom-to-conversation pivot in 72 seconds.
+The same experiment also separates the gap's two halves: sufficiency is a
+property of the \emph{data model} (an expert reader extracted every
+answer from the log files alone, because host attribution and causal
+correlation are in the events themselves; \S\ref{sec:eval-casestudy}
+gives the details), while accessibility is a property of the
+\emph{interface} built on that model. The camps fail at the first half,
+which no interface can repair: a view over data that lacks the join
+cannot invent it.
+The gap therefore calls for a single substrate in which agent-semantic
+events are natively attributed to physical nodes: what the
+shared-log approach of \S\ref{sec:bg-log}, instantiated on ChronoLog's
+keeper-per-node architecture (\S\ref{sec:bg-chronolog}), provides by
+construction. Designing the capture, read, and analysis layers that turn
+that substrate into a working observability system is the subject of the
+remainder of this thesis.

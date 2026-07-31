@@ -17,6 +17,9 @@ src/chronolog_observability/static/workspace/
 *.log
 logs/
 *.csv
+# ...except thesis figure data: fig-rollup-scaling.tex reads this CSV at
+# compile time, so the document does not build without it.
+!thesis/figures/*.csv
 
 # Migration staging (regenerable via scripts/import_from_clio_core.sh)
 **/_imported/

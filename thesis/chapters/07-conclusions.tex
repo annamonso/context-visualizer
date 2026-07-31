@@ -1,0 +1,153 @@
+\chapter{Conclusions and Future Work}
+\label{chap:conclusions}
+
+This chapter closes the thesis: it checks the outcome against the
+requirements of Chapter~\ref{chap:problem}, states the design lessons
+the work argues for, and lays out the directions it opens.
+
+\section{Conclusions}
+\label{sec:conclusions}
+
+This thesis set out from a one-sentence gap: the tools we surveyed answer
+``what did my agent do?'' with a span tree of one run on one machine,
+and, to our knowledge, none answers ``what is my agent \emph{fleet}
+doing across the cluster, and which node is dragging it down?'' The claim defended across the preceding
+chapters is that the gap closes naturally once the data is stored in its
+native shape: a multi-agent execution is a causally-ordered event log, and
+a distributed shared log with a capture process on every node (ChronoLog)
+makes the coupling of agent semantics to physical topology a property
+of the substrate rather than an integration problem.
+
+Checking the outcome against the requirements of
+\S\ref{sec:problem-requirements}, each now with its measured answer from
+Chapter~\ref{chap:evaluation}: \textbf{R1} (dual-plane causal capture)
+is met by the two capture paths and the \texttt{role@scenario} identity
+contract, under which every event carries its host and the planes join by
+construction, verified end-to-end by the click-through check of the
+live harness. \textbf{R2} (real-time visibility) and \textbf{R3}
+(durability with exactly-once ingest) are met jointly by the hot/cold
+split: an event reaches the operator's screen 10.7\,ms after emission
+and the durable archive 20--30\,s after (the hot path three orders
+of magnitude inside the cold), with at-least-once spooled capture
+deduplicated by high-water marks rebuilt from the log itself.
+\textbf{R4} (fleet scale) required changing both computation and
+representation: per-(host, minute) rollups hold the fleet read at
+19--24\,ms across a $50\times$ growth in event volume where the raw
+fold grows to $457\times$ slower, and the heatmap answers at 250 nodes
+in 36\,ms where node-link rendering fails at a dozen.
+
+\textbf{R5}
+(minimal overhead) holds structurally and is confirmed empirically: the
+agent-side mechanism costs 3.6\,ms per turn-plus-delegation, under
+0.05\% of a mean turn, and the end-to-end A/B delta over real
+LLM turns is statistically indistinguishable from zero. \textbf{R6}
+(zero-cost diagnosis) rests on the deterministic
+detect--cluster--diagnose pipeline with its self-compacting cross-run
+memory, LLM assistance strictly opt-in; ground truth confirms the
+pipeline correct: 580/580 planted faults detected with zero false
+positives, a 500-signal storm compressed to one ranked card, and recurrence
+recognized across runs. \textbf{R7} (drop-in deployment) is
+demonstrated by the live harness, which attaches the full stack to a
+plain SLURM allocation without modifying ChronoLog, the scheduler, or
+the agent SDK: 28/28 automated checks on 4- and 8-node clusters,
+sustained at 32 concurrent real agents with flat per-node sidecar
+load.
+
+Beyond the artifact, the thesis argues two transferable design lessons.
+The first is architectural. Observability systems are conventionally
+assembled as instrumentation plus a bespoke backend; for workloads
+whose events are few, expensive, and causally structured (as
+LLM-agent fleets are), inverting the architecture around a general
+distributed shared log yields the cross-layer joins, the durability,
+and the replayability for free, at the price of engineering around the
+log's read behavior. That price is real but modest, and the evaluation
+quantified both of its parts: the planned part (the hot/cold split of
+Chapter~\ref{chap:design}) and the unplanned part
+(\S\ref{sec:eval-limitations}'s broken replay path, absorbed by
+generalizing archive-first reads at a bounded cost of half a minute of
+staleness). What it buys is the capability neither surveyed camp
+offers: the pivot from a fleet-wide symptom to a single agent's
+conversation on a named machine. The case study measured that pivot at
+72 seconds, questions to verified answers, for an operator who had
+never seen the task before.
+
+The second lesson comes from the same case study's baseline, and it
+reframes what an observability \emph{interface} is for. The raw
+captured log proved \emph{sufficient} for complete diagnosis (an
+LLM agent given only the data directories answered all three
+questions, orphaned delegation included, in under a minute), while
+the human operator, given the same files, could not begin. The
+dashboard's contribution is therefore not access to data but
+\emph{encoded expertise}: each view is a frozen form of the queries an
+expert would write. Systems built on a sufficient substrate can choose
+where that expertise lives (in views for humans, or in agents that
+query the log directly), and the shared-log architecture serves both
+consumers from the same store.
+
+\section{Future Work}
+\label{sec:future}
+
+\paragraph{Runtime causal queries.} The substrate stores the full causal
+event history, but the analyses of Chapter~\ref{chap:analytics} are
+pre-built views. The next step is the Pivot-Tracing
+move~\cite{mace2015pivot}: ad-hoc queries evaluated along causal edges
+(``the total token cost of everything that transitively touched agent
+$B$''), which the log's ordering and the correlation schema already
+make expressible.
+
+\paragraph{Replicated hot path.} Promoting the hot store and live bus
+from per-dashboard-process structures to a small replicated service
+would remove the single point of live observation and allow multiple
+dashboards over one fleet.
+
+\paragraph{Recovering live replay.} The archive-first mode of
+\S\ref{sec:eval-limitations} is the correct trade under the observed
+substrate, but it leaves ChronoLog's player unused and pins
+full-fidelity staleness to the drain window. Diagnosing the
+transport-level fault beneath it (playback responses that never
+reach one process's receiver while reaching another's on the same
+host) is upstream work on the ChronoLog client/player pair; fixing
+it would let the dashboard serve un-drained history live and shrink
+the only staleness the design still carries.
+
+\paragraph{Scale, sampling, and adaptivity.} Complete capture is the
+right default at today's event rates; at orders of magnitude more
+agents, selective capture of payload content (while always keeping the
+causal skeleton) would be the principled degradation. Live validation at
+hundreds of real nodes, closing the gap that
+\S\ref{sec:eval-limitations} concedes, is chiefly an allocation problem.
+
+\paragraph{Richer diagnosis.} The heuristic diagnoser's rule set could be
+learned rather than hand-built (mining the incident memory across runs
+for recurring signature--remediation pairs), and the opt-in LLM
+diagnoser could be grounded on retrieved evidence (traces, fleet state)
+rather than the incident summary alone.
+
+\paragraph{Agent-facing observability.} The case-study baseline, an
+LLM agent diagnosing the fleet from the raw log in under a minute,
+is less a curiosity than a signpost: the next consumer of
+observability data may itself be an agent. The captured log already
+has everything such a consumer needs (causal order, correlation ids,
+host attribution, JSONL it can read with four shell commands); the
+obvious extension is a first-class query surface, an MCP tool over
+the log and its analyses, so that a supervising agent can run the
+Doctor's gather-and-detect loop, or answer ad-hoc causal questions,
+as part of the fleet it watches. The zero-marginal-cost principle of
+R6 would then bound how much of that supervision runs on heuristics
+versus paid model calls.
+
+\paragraph{Interoperability.} Emitting and ingesting the OpenTelemetry
+generative-AI conventions~\cite{otelgenai} would let the system exchange
+data with the Camp-1 ecosystem, their span semantics mapped onto the
+log's event schema, so that adopting the fleet layer does not mean
+abandoning existing per-agent tooling.
+
+\medskip
+
+The direction of the field is not in doubt: agent systems are growing in
+both population and physical extent, and the questions operators ask are
+increasingly the questions distributed systems have always asked, now
+with a conversation attached. This thesis's contribution is to show that
+the sixty-year-old toolbox of that discipline, from happened-before to
+the shared log, is not merely applicable to the newest workload but is
+its natural home.

@@ -1,0 +1,272 @@
+% ---------------------------------------------------------------------------
+% Distributed systems foundations
+% ---------------------------------------------------------------------------
+@article{lamport1978time,
+  author  = {Leslie Lamport},
+  title   = {Time, Clocks, and the Ordering of Events in a Distributed System},
+  journal = {Communications of the ACM},
+  volume  = {21},
+  number  = {7},
+  pages   = {558--565},
+  year    = {1978}
+}
+
+@incollection{mattern1989virtual,
+  author    = {Friedemann Mattern},
+  title     = {Virtual Time and Global States of Distributed Systems},
+  booktitle = {Parallel and Distributed Algorithms},
+  publisher = {North-Holland},
+  pages     = {215--226},
+  year      = {1989}
+}
+
+@inproceedings{gunawi2018failslow,
+  author    = {Haryadi S. Gunawi and Riza O. Suminto and Russell Sears and Casey Golliher and Swaminathan Sundararaman and Xing Lin and Tim Emami and Weiguang Sheng and Nematollah Bidokhti and Caitie McCaffrey and others},
+  title     = {Fail-Slow at Scale: Evidence of Hardware Performance Faults in Large Production Systems},
+  booktitle = {16th USENIX Conference on File and Storage Technologies (FAST 18)},
+  pages     = {1--14},
+  year      = {2018}
+}
+
+% ---------------------------------------------------------------------------
+% Distributed tracing
+% ---------------------------------------------------------------------------
+@techreport{sigelman2010dapper,
+  author      = {Benjamin H. Sigelman and Luiz Andr{\'e} Barroso and Mike Burrows and Pat Stephenson and Manoj Plakal and Donald Beaver and Saul Jaspan and Chandan Shanbhag},
+  title       = {Dapper, a Large-Scale Distributed Systems Tracing Infrastructure},
+  institution = {Google, Inc.},
+  number      = {dapper-2010-1},
+  year        = {2010}
+}
+
+@inproceedings{chow2014mystery,
+  author    = {Michael Chow and David Meisner and Jason Flinn and Daniel Peek and Thomas F. Wenisch},
+  title     = {The Mystery Machine: End-to-end Performance Analysis of Large-scale Internet Services},
+  booktitle = {11th USENIX Symposium on Operating Systems Design and Implementation (OSDI 14)},
+  pages     = {217--231},
+  year      = {2014}
+}
+
+@inproceedings{mace2015pivot,
+  author    = {Jonathan Mace and Ryan Roelke and Rodrigo Fonseca},
+  title     = {Pivot Tracing: Dynamic Causal Monitoring for Distributed Systems},
+  booktitle = {Proceedings of the 25th Symposium on Operating Systems Principles (SOSP 15)},
+  pages     = {378--393},
+  year      = {2015}
+}
+
+@inproceedings{kaldor2017canopy,
+  author    = {Jonathan Kaldor and Jonathan Mace and Micha{\l} Bejda and Edison Gao and Wiktor Kuropatwa and Joe O'Neill and Kian Win Ong and Bill Schaller and Pingjia Shan and Brendan Viscomi and Vinod Venkataraman and Kaushik Veeraraghavan and Yee Jiun Song},
+  title     = {Canopy: An End-to-End Performance Tracing and Analysis System},
+  booktitle = {Proceedings of the 26th Symposium on Operating Systems Principles (SOSP 17)},
+  pages     = {34--50},
+  year      = {2017}
+}
+
+@misc{pixie,
+  author       = {{Pixie Authors}},
+  title        = {Pixie: Instant Kubernetes-Native Application Observability},
+  howpublished = {\url{https://px.dev}},
+  year         = {2026},
+  note         = {CNCF sandbox project; accessed July 2026}
+}
+
+% ---------------------------------------------------------------------------
+% Shared logs / streaming
+% ---------------------------------------------------------------------------
+@inproceedings{balakrishnan2012corfu,
+  author    = {Mahesh Balakrishnan and Dahlia Malkhi and Vijayan Prabhakaran and Ted Wobber and Michael Wei and John D. Davis},
+  title     = {{CORFU}: A Shared Log Design for Flash Clusters},
+  booktitle = {9th USENIX Symposium on Networked Systems Design and Implementation (NSDI 12)},
+  pages     = {1--14},
+  year      = {2012}
+}
+
+@inproceedings{kreps2011kafka,
+  author    = {Jay Kreps and Neha Narkhede and Jun Rao},
+  title     = {Kafka: A Distributed Messaging System for Log Processing},
+  booktitle = {Proceedings of the 6th International Workshop on Networking Meets Databases (NetDB)},
+  year      = {2011}
+}
+
+@misc{kreps2013log,
+  author       = {Jay Kreps},
+  title        = {The Log: What Every Software Engineer Should Know About Real-time Data's Unifying Abstraction},
+  howpublished = {LinkedIn Engineering Blog, \url{https://engineering.linkedin.com/distributed-systems/log-what-every-software-engineer-should-know-about-real-time-datas-unifying}},
+  year         = {2013}
+}
+
+@book{marz2015big,
+  author    = {Nathan Marz and James Warren},
+  title     = {Big Data: Principles and Best Practices of Scalable Realtime Data Systems},
+  publisher = {Manning Publications},
+  year      = {2015}
+}
+
+% ---------------------------------------------------------------------------
+% ChronoLog & HPC
+% ---------------------------------------------------------------------------
+@inproceedings{kougkas2020chronolog,
+  author    = {Anthony Kougkas and Hariharan Devarajan and Keith Bateman and Jaime Cernuda and Neeraj Rajesh and Xian-He Sun},
+  title     = {{ChronoLog}: A Distributed Shared Tiered Log Store with Time-based Data Ordering},
+  booktitle = {Proceedings of the 36th International Conference on Massive Storage Systems and Technology (MSST 20)},
+  year      = {2020}
+}
+
+@inproceedings{yoo2003slurm,
+  author    = {Andy B. Yoo and Morris A. Jette and Mark Grondona},
+  title     = {{SLURM}: Simple Linux Utility for Resource Management},
+  booktitle = {Job Scheduling Strategies for Parallel Processing (JSSPP)},
+  series    = {Lecture Notes in Computer Science},
+  volume    = {2862},
+  pages     = {44--60},
+  publisher = {Springer},
+  year      = {2003}
+}
+
+@inproceedings{agelastos2014ldms,
+  author    = {Anthony Agelastos and Benjamin Allan and Jim Brandt and Paul Cassella and Jeremy Enos and Joshi Fullop and Ann Gentile and Steve Monk and Nichamon Naksinehaboon and Jeff Ogden and Mahesh Rajan and Michael Showerman and Joel Stevenson and Narate Taerat and Tom Tucker},
+  title     = {The Lightweight Distributed Metric Service: A Scalable Infrastructure for Continuous Monitoring of Large Scale Computing Systems and Applications},
+  booktitle = {SC '14: Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis},
+  pages     = {154--165},
+  year      = {2014}
+}
+
+% ---------------------------------------------------------------------------
+% LLM agents & multi-agent systems
+% ---------------------------------------------------------------------------
+@inproceedings{yao2023react,
+  author    = {Shunyu Yao and Jeffrey Zhao and Dian Yu and Nan Du and Izhak Shafran and Karthik Narasimhan and Yuan Cao},
+  title     = {{ReAct}: Synergizing Reasoning and Acting in Language Models},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2023}
+}
+
+@inproceedings{wu2023autogen,
+  author    = {Qingyun Wu and Gagan Bansal and Jieyu Zhang and Yiran Wu and Beibin Li and Erkang Zhu and Li Jiang and Xiaoyun Zhang and Shaokun Zhang and Jiale Liu and Ahmed Hassan Awadallah and Ryen W. White and Doug Burger and Chi Wang},
+  title     = {{AutoGen}: Enabling Next-Gen {LLM} Applications via Multi-Agent Conversation},
+  booktitle = {First Conference on Language Modeling (COLM)},
+  year      = {2024}
+}
+
+@misc{anthropic2024mcp,
+  author       = {{Anthropic}},
+  title        = {Model Context Protocol},
+  howpublished = {\url{https://modelcontextprotocol.io}},
+  year         = {2024},
+  note         = {Specification; accessed July 2026}
+}
+
+% ---------------------------------------------------------------------------
+% State of the art: LLM observability (Camp 1)
+% ---------------------------------------------------------------------------
+@misc{langsmith,
+  author       = {{LangChain, Inc.}},
+  title        = {LangSmith: Observability and Evaluation for {LLM} Applications},
+  howpublished = {\url{https://smith.langchain.com}},
+  year         = {2026},
+  note         = {Accessed July 2026}
+}
+
+@misc{langfuse,
+  author       = {{Langfuse}},
+  title        = {Langfuse: Open-Source {LLM} Engineering Platform},
+  howpublished = {\url{https://langfuse.com}},
+  year         = {2026},
+  note         = {Accessed July 2026}
+}
+
+@misc{phoenix,
+  author       = {{Arize AI}},
+  title        = {Phoenix: Open-Source {AI} Observability and Evaluation},
+  howpublished = {\url{https://phoenix.arize.com}},
+  year         = {2026},
+  note         = {Accessed July 2026}
+}
+
+@misc{agentops,
+  author       = {{AgentOps}},
+  title        = {AgentOps: Observability for {AI} Agents},
+  howpublished = {\url{https://www.agentops.ai}},
+  year         = {2026},
+  note         = {Accessed July 2026}
+}
+
+@misc{datadogllm,
+  author       = {{Datadog}},
+  title        = {{LLM} Observability},
+  howpublished = {\url{https://www.datadoghq.com/product/llm-observability/}},
+  year         = {2026},
+  note         = {Accessed July 2026}
+}
+
+@misc{otelgenai,
+  author       = {{OpenTelemetry}},
+  title        = {Semantic Conventions for Generative {AI} Systems},
+  howpublished = {\url{https://opentelemetry.io/docs/specs/semconv/gen-ai/}},
+  year         = {2026},
+  note         = {Accessed July 2026}
+}
+
+% ---------------------------------------------------------------------------
+% State of the art: fleet monitoring (Camp 2)
+% ---------------------------------------------------------------------------
+@misc{prometheus,
+  author       = {{Prometheus Authors}},
+  title        = {Prometheus: Monitoring System and Time Series Database},
+  howpublished = {\url{https://prometheus.io}},
+  year         = {2026},
+  note         = {CNCF graduated project; accessed July 2026}
+}
+
+@misc{cemri2025mast,
+  author       = {Mert Cemri and Melissa Z. Pan and Shuyi Yang and Lakshya A. Agrawal and Bhavya Chopra and Rishabh Tiwari and Kurt Keutzer and Aditya Parameswaran and Dan Klein and Kannan Ramchandran and Matei Zaharia and Joseph E. Gonzalez and Ion Stoica},
+  title        = {Why Do Multi-Agent {LLM} Systems Fail?},
+  howpublished = {arXiv preprint arXiv:2503.13657},
+  year         = {2025}
+}
+
+@inproceedings{yang1988critpath,
+  author    = {Cui-Qing Yang and Barton P. Miller},
+  title     = {Critical Path Analysis for the Execution of Parallel and Distributed Programs},
+  booktitle = {Proceedings of the 8th International Conference on Distributed Computing Systems (ICDCS)},
+  pages     = {366--373},
+  year      = {1988}
+}
+
+@inproceedings{fidge1988timestamps,
+  author    = {Colin J. Fidge},
+  title     = {Timestamps in Message-Passing Systems That Preserve the Partial Ordering},
+  booktitle = {Proceedings of the 11th Australian Computer Science Conference (ACSC)},
+  pages     = {56--66},
+  year      = {1988}
+}
+
+@inproceedings{bronson2021metastable,
+  author    = {Nathan Bronson and Abutalib Aghayev and Aleksey Charapko and Timothy Zhu},
+  title     = {Metastable Failures in Distributed Systems},
+  booktitle = {Proceedings of the Workshop on Hot Topics in Operating Systems (HotOS)},
+  pages     = {221--227},
+  year      = {2021}
+}
+
+@book{kleppmann2017ddia,
+  author    = {Martin Kleppmann},
+  title     = {Designing Data-Intensive Applications: The Big Ideas Behind Reliable, Scalable, and Maintainable Systems},
+  publisher = {O'Reilly Media},
+  year      = {2017}
+}
+
+@misc{pham2026multiagenthpc,
+  author       = {Thang Duc Pham and Harikrishna Tummalapalli and Fakhrul Hasan Bhuiyan and {\'A}lvaro V{\'a}zquez Mayagoitia and Christine Simpson and Riccardo Balin and Venkatram Vishwanath and Murat Ke{\c{c}}eli},
+  title        = {Multi-Agent Orchestration for High-Throughput Materials Screening on a Leadership-Class System},
+  howpublished = {arXiv preprint arXiv:2604.07681},
+  year         = {2026}
+}
+
+@inproceedings{souza2025provenance,
+  author    = {Renan Souza and Timothy Poteet and Brian Etz and Daniel Rosendo and Amal Gueroudji and Woong Shin and Prasanna Balaprakash and Rafael Ferreira da Silva},
+  title     = {{LLM} Agents for Interactive Workflow Provenance: Reference Architecture and Evaluation Methodology},
+  booktitle = {SC '25 Workshops of the International Conference for High Performance Computing, Networking, Storage and Analysis (WORKS)},
+  year      = {2025}
+}

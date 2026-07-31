@@ -1,0 +1,26 @@
+% ChronoLog: visor / keeper-per-node / grapher drain / archive.
+\begin{tikzpicture}[font=\footnotesize, thick, >=Stealth,
+    comp/.style={draw, fill=white, minimum height=0.7cm, minimum width=1.7cm, align=center}]
+  % three cluster nodes, each with local agents appending to a local keeper
+  \foreach \i/\y in {1/4.4, 2/2.2, 3/0} {
+    \node[comp] (ag\i) at (0,\y)   {agents};
+    \node[comp] (kp\i) at (3.2,\y) {keeper \i};
+    \draw[->] (ag\i) -- node[above] {\tiny local append} (kp\i);
+    \node[draw, dashed, fit=(ag\i)(kp\i), inner sep=6pt] (nb\i) {};
+    \node[anchor=south west, inner sep=2pt] at (nb\i.north west) {\tiny compute node \i};
+  }
+  % visor: control plane
+  \node[comp] (visor) at (7.0,4.9) {visor};
+  \node[right=2pt of visor, align=left] {\tiny control plane:\\ \tiny connect, acquire,\\ \tiny discover keepers};
+  \foreach \i in {1,2,3} { \draw[dashed, semithick] (visor.west) -- (kp\i.north east); }
+  % grapher drain -> archive
+  \node[comp] (gr) at (7.0,2.2)  {grapher};
+  \node[comp, minimum width=2.2cm] (ar) at (10.6,2.2) {archive\\ (CSV/HDF5)};
+  \foreach \i in {1,2,3} { \draw[->] (kp\i.east) -- (gr.west); }
+  \draw[->] (gr) -- node[above] {\tiny merge, order} (ar);
+  \node[below=2pt, align=center] at (gr.south)
+    {\tiny asynchronous drain:\\ \tiny acceptance window $\approx$ 180\,s};
+  % readers
+  \node[comp] (rd) at (10.6,0) {readers\\ (replay)};
+  \draw[->] (ar) -- (rd);
+\end{tikzpicture}
