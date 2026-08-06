@@ -10,19 +10,19 @@
   \node[align=center] at (2.6,1.5) {---};
   % bottom-right: Camp 2
   \draw (5.5,0) rectangle (10.7,3.0);
-  \node[align=center] at (8.1,1.5)
+  \node[align=center, text width=4.8cm] at (8.1,1.5)
     {\textbf{Camp 2: fleet monitoring}\\[2pt]
      Prometheus/Grafana on SLURM\\ LDMS, HPC monitoring\\[3pt]
      \emph{node health at scale,}\\ \emph{no agent semantics}};
   % top-left: Camp 1
   \draw (0,3.3) rectangle (5.2,6.3);
-  \node[align=center] at (2.6,4.8)
+  \node[align=center, text width=4.8cm] at (2.6,4.8)
     {\textbf{Camp 1: LLM observability}\\[2pt]
-     LangSmith, Langfuse, Phoenix,\\ AgentOps, Datadog LLM, OTel GenAI\\[3pt]
+     LangSmith, Langfuse, Phoenix,\\ AgentOps, Datadog LLM,\\ OTel GenAI\\[3pt]
      \emph{rich agent semantics,}\\ \emph{no physical topology}};
   % top-right: the gap / this thesis
   \draw[very thick, fill=gray!20] (5.5,3.3) rectangle (10.7,6.3);
-  \node[align=center] at (8.1,4.8)
+  \node[align=center, text width=4.8cm] at (8.1,4.8)
     {\textbf{this thesis}\\[2pt]
      agent semantics coupled to\\ cluster topology, at fleet scale\\[3pt]
      \emph{previously unoccupied}};

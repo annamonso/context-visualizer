@@ -1,48 +1,60 @@
 \chapter{System Design}
 \label{chap:design}
 
-This chapter presents the design of \sys{}. Section~\ref{sec:design-overview}
-gives the architecture: two capture paths converging on one shared-log
-substrate. Section~\ref{sec:design-mapping} defines how agent semantics map
-onto the log's data model. Section~\ref{sec:design-write} specifies the write
-path and its delivery guarantees. Section~\ref{sec:design-read} addresses the
-substrate's read latency with a hot/cold split.
-Section~\ref{sec:design-isolation} covers process and failure isolation, and
+This chapter presents the design of \sys{}, written against the substrate
+contract of \S\ref{sec:problem-substrate} rather than against any one log
+store: \S\S\ref{sec:design-overview}--\ref{sec:design-adapters} assume only
+the required features S1--S5, and name at each point which of the convenient
+features S6--S9 the mechanism under discussion is compensating for.
+Section~\ref{sec:design-overview} gives the architecture,
+\S\ref{sec:design-gaps} the three substrate gaps that shape the rest,
+\S\ref{sec:design-mapping} the mapping of agent semantics onto the log's
+data model, \S\ref{sec:design-write} the write path and its delivery
+guarantees, \S\ref{sec:design-read} read visibility and the hot/cold split,
+\S\ref{sec:design-isolation} process and failure isolation, and
 \S\ref{sec:design-adapters} the extensibility seam.
+Section~\ref{sec:design-chronolog} then collects everything true of
+ChronoLog in particular: how the generic model maps onto its data model,
+what its deployed client binding did and did not provide, and what a port to
+another substrate would add or remove.
 
 \section{Overview: Two Paths, One Substrate}
 \label{sec:design-overview}
 
-% Figure: two-path data-flow (adapt docs/demo-dataflow.png)
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\linewidth]{figures/dataflow}
-  \caption{The two-path architecture. Path-A carries LLM turns through a
-  node-local spool drained by a capture worker; Path-B carries inter-agent
-  calls through a per-node collector. Both persist to ChronoLog through the
-  node-local keeper; the dashboard reads ChronoLog (cold, full fidelity)
-  and a local hot store (live).}
+  \resizebox{\linewidth}{!}{\input{figures/fig-dataflow}}
+  \caption[The two-path capture architecture]{The two-path architecture. Path-A carries LLM turns and
+  retained-context deltas through a node-local spool drained by a capture
+  worker; Path-B carries inter-agent calls through a per-node collector.
+  Both persist to the shared log through its node-local append endpoint,
+  drawn here as the ChronoLog keeper of the deployed instantiation
+  (\S\ref{sec:design-chronolog}). The dashboard
+  reads the log (cold, complete, late) and the hot store (live, written at
+  ingest), and renders five views over the one stream; the dashed edge is
+  the spool doubling as Path-A's hot store, read directly by the Health and
+  context panels.}
   \label{fig:dataflow}
 \end{figure}
 
 Every datum enters the system through one of two ingest paths
-(Figure~\ref{fig:dataflow}), both terminating in ChronoLog via the keeper on
-the producing node.
+(Figure~\ref{fig:dataflow}), both terminating in the shared log through the
+append endpoint on the producing node.
 
 \textbf{Path-A} carries the intra-agent plane: LLM interactions (one record
-per turn), context-graph deltas (one record per working-memory add or
-eviction), and recovery events. Producers call a small capture library that
-appends the record to a node-local, append-only \emph{spool}; a separate
-\emph{capture worker} process periodically drains the spool into ChronoLog
-stories.
+per turn), retained-context deltas (one record per addition or eviction from the
+agent's retained context), and recovery events. Producers call a small
+capture library that appends the record to a node-local, append-only
+\emph{spool}; a separate \emph{capture worker} process periodically drains
+the spool into the log.
 
 \textbf{Path-B} carries the inter-agent plane: agent-to-agent MCP calls. Each
 logical call is emitted as a \emph{pair} of events sharing a correlation
 identifier: a \texttt{start} when the delegation is issued and a
 \texttt{done} when it completes, the latter carrying status and latency. Agents
 POST these events to a \emph{collector} daemon on their own node
-(\texttt{localhost:5650}); the collector writes them to the node-local
-ChronoLog keeper and simultaneously forwards a thin copy to the dashboard,
+(\texttt{localhost:5650}); the collector appends them to the log through the
+node-local endpoint and simultaneously forwards a thin copy to the dashboard,
 which feeds the live views (\S\ref{sec:design-read}).
 
 The two paths differ deliberately. Path-A events are large (full prompts and
@@ -52,60 +64,164 @@ drain fits. Path-B events are small, structurally fixed, and latency-relevant (t
 scenario graph is drawn from them), and they define the cross-agent causal
 structure; a daemon that stamps, persists, and immediately fans
 them out is the better match. What the paths share is the destination and the discipline: node-local
-append on the producing machine (R5), durable persistence in the log (R3),
+append on the producing machine (R5, and S6 where the substrate offers it),
+durable persistence in the log (R3, via S3),
 and host attribution stamped at source (R1).
 
 The dashboard itself is a \emph{pure reader}: a Flask application serving a
-React single-page app that reconstructs every view from ChronoLog and the
+React single-page app that reconstructs every view from the log and the
 hot store, and captures nothing on its own
 (\S\ref{sec:design-isolation}).
+
+\section{Three Substrate Gaps and What They Cost}
+\label{sec:design-gaps}
+\label{sec:design-constraints}
+
+Adopting a shared log as the substrate is the thesis's central bet, and it
+pays in the coin Chapter~\ref{chap:background} promised: node-local appends,
+decoupled readers, durable order, and host attribution by construction. The
+bill arrives on the read side. The deployed substrate satisfies the required
+tier S1--S5 in full; what it does not provide is S7 (enumeration), S8
+(bounded, non-blocking read visibility), and S9 (positional reads). Three
+concrete symptoms of those absences shaped nearly every subsequent decision
+in this chapter, and because the same three recur across the design, the
+evaluation, and the future work, they are stated once here and referred to
+as C1--C3 thereafter.
+
+The distinction that matters for what follows is how deep each gap goes.
+C1 is a consequence of the write-optimized design point of
+\S\ref{sec:bg-log} and would appear in some form on \emph{any} log of this
+class; it is a property of the architecture, and the response to it belongs
+to the design. C2 and C3 are properties of the deployed client binding
+rather than of the published substrate design, and
+\S\ref{sec:design-chronolog} reports them as such; the responses to them are
+workarounds, and \S\ref{sec:future} records that both are being removed
+upstream.
+
+\paragraph{C1: reads trail writes by a visibility window (missing S8).}
+Appends land in the node-local ingest buffer and return immediately; the
+substrate drains sealed chunks to read-optimized storage asynchronously.
+Between those two moments an event is
+durable but not yet readable: measured end-to-end at 20--30\,s in the
+deployments used here (\S\ref{sec:eval-freshness}). ChronoLog names this
+interval the \emph{acceptance window}, and the rest of the thesis uses that
+term for the concrete quantity and \emph{visibility window} for the generic
+property. Every live view the
+operator asks for falls inside exactly that window, because live views show
+what \emph{just} happened. This is the standard write-optimized trade-off,
+not a defect, and it is answered by the hot/cold split of
+\S\ref{sec:design-read}: the log is the durable cold path, and a hot path
+populated at ingest serves the window.
+
+\paragraph{C2: a read into the window blocks, and blocks everything
+(missing S8, second face).} C1 would be a
+tolerable staleness problem on its own. What makes it an architectural
+constraint is the failure behavior of the read that hits the window. A
+read the substrate cannot answer does not return stale data or an error: it
+waits. In the deployed binding the wait is not merely long
+(${\sim}180$\,s to the client's query timeout) but takes the entire
+process with it, because the binding holds Python's global interpreter lock
+for the duration; \S\ref{sec:design-chronolog} gives the mechanism. The
+boundary case is worse than the common one: a read of a stream that has
+never been written blocks not for the timeout but indefinitely, since there
+is no data in flight that could ever arrive, which is precisely the state of
+a freshly deployed cluster. Two design rules
+follow, and both are load-bearing: no process that must always answer may
+share a failure domain with one that may legitimately block
+(\S\ref{sec:design-isolation}), and reads that risk touching un-drained
+state are served archive-first, where absence is detectable instantly
+(\S\ref{sec:design-read}). The evaluation later found that live replay does
+not reach the dashboard's receiver at all in these deployments,
+making \emph{every} dashboard replay hit this path
+(\S\ref{sec:eval-limitations}); the rules written for the boundary case
+turned out to cover the general one.
+
+\paragraph{C3: the log has no catalog (missing S7).} The client binding
+exposes no operation to enumerate what the store holds, and therefore no way
+to ask ``which scenarios exist?'' or ``which sessions were captured?''
+without already knowing their names. A stream can be read only if its
+name is known. This is not a
+performance property but a missing query, and it blocks the dashboard's most
+basic screen, the listing every view starts from. The response is to
+materialize the missing query as another log
+(\S\ref{sec:design-mapping}): an \texttt{\_\_index\_\_} namespace to which
+every component appends the name of each scenario or session it sees for the
+first time, so that listing becomes a replay of one well-known stream rather
+than an enumeration the substrate cannot perform.
+
+The three compound: C3 forces a read of the index stream, C1 means that
+stream may be un-drained, and C2 means the resulting block takes the
+dashboard down with it. Read together they explain why the read path of
+\S\ref{sec:design-read} looks more defensive than a log-backed dashboard
+would otherwise need to be. They are also the part of this design least
+likely to outlive it: \S\ref{sec:future} reports that the C2 and C3 gaps are
+being closed upstream, and \S\ref{sec:design-adapters} isolates all three
+behind an interface so that a substrate without them costs an adapter, not a
+redesign.
 
 \section{Mapping Agent Semantics onto the Log}
 \label{sec:design-mapping}
 
-ChronoLog organizes data as chronicle $\to$ story $\to$ event
-(\S\ref{sec:bg-chronolog-model}). The mapping adopted here
-(Table~\ref{tab:schema}) uses chronicles to partition by \emph{data kind}
-and stories by \emph{entity}, so that every read pattern of
-Chapter~\ref{chap:analytics} replays exactly one story:
+The substrate contract of \S\ref{sec:problem-substrate} supplies one
+structural primitive: caller-named streams of ordered records (S1, S2).
+Every shared log of the class layers a two-level namespace over it, under
+different names: ChronoLog calls the levels \emph{chronicle} and
+\emph{story} (\S\ref{sec:bg-chronolog-model}), Kafka calls them
+\emph{topic} and \emph{partition}~\cite{kreps2011kafka}, Pulsar
+\emph{namespace} and \emph{topic}~\cite{pulsar}. This section uses the
+neutral terms \emph{namespace} and \emph{stream}; the ChronoLog spelling is
+given in \S\ref{sec:design-chronolog}.
+
+The mapping adopted here
+(Table~\ref{tab:schema}) uses namespaces to partition by \emph{data kind}
+and streams by \emph{entity}, so that every read pattern of
+Chapter~\ref{chap:analytics} replays exactly one stream:
 
 \begin{table}[h]
 \centering
 \small
 \begin{tabular}{@{}llll@{}}
 \toprule
-\textbf{Chronicle} & \textbf{Story} & \textbf{Holds} & \textbf{Path} \\
+\textbf{Namespace} & \textbf{Stream} & \textbf{Holds} & \textbf{Path} \\
 \midrule
 \texttt{llm\_interactions} & \emph{session id} & LLM turns & A \\
-\texttt{context\_graphs}   & \emph{session id} & working-memory deltas & A \\
+\texttt{context\_graphs}   & \emph{session id} & retained-context deltas & A \\
 \texttt{recovery\_events}  & \emph{session id} & recovery/backtrack events & A \\
 \texttt{ia\_<scenario>}    & \texttt{edges}    & inter-agent \texttt{start}/\texttt{done} events & B \\
 \texttt{metrics\_rollup}   & \texttt{minute}   & per-(host, minute) fleet buckets & rollup \\
 \texttt{\_\_index\_\_}     & \texttt{scenarios} / \texttt{sessions} & listing index & both \\
 \bottomrule
 \end{tabular}
-\caption{The chronicle/story schema: chronicles partition by data kind,
-stories by entity. Session-scoped stories serve the conversation and
-memory reads; the per-scenario edge story serves graph and trace reads;
-the rollup and index stories are written by the capture side so that
-readers never scan.}
+\caption[The namespace/stream schema]{The namespace/stream schema:
+namespaces partition by data kind,
+streams by entity. Session-scoped streams serve the conversation and
+context reads; the per-scenario edge stream serves graph and trace reads;
+the rollup and index streams are written by the capture side so that
+readers never scan. In the ChronoLog instantiation the two levels are
+chronicles and stories respectively (\S\ref{sec:design-chronolog}).}
 \label{tab:schema}
 \end{table}
 
 \paragraph{Session identity.} The load-bearing convention is the session
 identifier \texttt{role@scenario} (e.g.\ \texttt{writer@scenario-x}). It is
-simultaneously the ChronoLog story name for all Path-A data of that agent,
+simultaneously the stream name for all Path-A data of that agent,
 the \texttt{from\_session}/\texttt{to\_session} endpoint on Path-B edges, and
 the join key the dashboard uses when a clicked node in the scenario graph
 opens that agent's conversation. Scoping the role by scenario keeps the
 identifier globally unique across concurrent scenarios while leaving it
 human-readable. Because the same string names the spool file, the
-ChronoLog story, and the graph node, the identity round-trips through every
+log stream, and the graph node, the identity round-trips through every
 tier with no lookup table. This is R1's ``joinable planes'' made concrete:
-the join is by construction, not by correlation heuristics.
+the join is by construction, not by correlation heuristics, and it is the
+one place where the design leans on S1 rather than merely benefiting from
+it. A substrate that assigned stream handles instead of accepting
+caller-chosen names would force a name-to-handle table on every writer and
+reader, and the join would become a lookup that can be stale.
 
 \paragraph{Causal structure.} Cross-agent causality is carried by two
-explicit fields on Path-B events. The \texttt{correlation\_id} stitches the
+explicit fields on Path-B events, not by the substrate: S2 guarantees order
+only \emph{within} a stream, so nothing in the design assumes a total order
+across streams. The \texttt{correlation\_id} stitches the
 \texttt{start}/\texttt{done} pair of one call into a single edge; the
 optional \texttt{parent\_correlation\_id} records the call being
 \emph{serviced} when a new call was issued, giving the tracer exact call
@@ -115,18 +231,22 @@ back to inference from session identity and time nesting
 spectrum of \S\ref{sec:bg-tracing-lineage}, with explicit propagation as the
 Dapper position when available. Within a session, Path-A records carry a
 monotonic per-stream \texttt{sequence\_id}, which orders turns without
-reference to wall clocks.
+reference to wall clocks and, as \S\ref{sec:design-write} shows, doubles as
+the reader-side substitute for the offsets a substrate with S9 would
+supply.
 
-\paragraph{Listing without enumeration.} One practical gap in the substrate
-is the absence of a chronicle-enumeration operation in the client binding:
-there is no way to ask ``which scenarios exist?'' without knowing their
-names. The design routes around it with an \texttt{\_\_index\_\_} chronicle:
-every component that first sees a new scenario or session appends a one-line
-event (\texttt{\{"v": <name>\}}) to a well-known index story, and listing
-becomes a replay of that story, deduplicated in first-seen order. The index
-is append-only and idempotent to re-add, so it needs no coordination among
-the writers. The pattern is a small instance of the log-as-substrate principle: when a
-query is missing, materialize it as another log.
+\paragraph{Listing without enumeration.} C3 (\S\ref{sec:design-gaps})
+leaves the system unable to ask which scenarios or sessions exist. The
+\texttt{\_\_index\_\_} namespace of the table is the answer: every component
+that first sees a new scenario or session appends a one-line event
+(\texttt{\{"v": <name>\}}) to a well-known index stream, and listing becomes a
+replay of that stream, deduplicated in first-seen order. The index is
+append-only and idempotent to re-add, so it needs no coordination among the
+writers, and it costs one event per entity rather than one per observation.
+The pattern is a small instance of the log-as-substrate
+principle~\cite{kreps2013log}: when a query is missing, materialize it as
+another log. On a substrate providing S7 the index is redundant for listing
+and survives, if at all, only as a cheap first-seen ordering.
 
 \section{Write Path and Delivery Semantics}
 \label{sec:design-write}
@@ -137,24 +257,32 @@ R3 (never lose, never duplicate).
 \paragraph{The spool as write-ahead buffer.} A Path-A producer's fast path is
 an append of one JSON line to a per-\((\text{session}, \text{kind})\) spool
 file, opened with \texttt{O\_APPEND} so that concurrent writers interleave
-atomically at line granularity. No network, no lock, no dependency on any
-downstream component being alive: if ChronoLog, the capture worker, or the
+atomically at line granularity~\cite{posix2018}.
+No network, no lock, no dependency on any
+downstream component being alive: if the log, the capture worker, or the
 dashboard is down, agents keep running and the spool absorbs the backlog.
+The arrangement is the write-ahead log of database recovery~\cite{mohan1992aries}
+reduced to its minimum: an append-only file that is cheap to write and
+replayable after a crash, in the tradition that treats sequential appends as
+the cheapest durable write a system can make~\cite{rosenblum1992lfs}.
 The capture library injects and guarantees exactly three fields:
 \texttt{session\_id}, a monotonic \texttt{sequence\_id} (seeded from the
 maximum found on disk, so monotonicity survives producer restarts), and a
 \texttt{timestamp}. It treats the rest of the record as an opaque
-producer contract.
+producer contract. Note that the spool is what makes S6 a preference rather
+than a requirement: it already decouples the producer from the append, so a
+substrate with no node-local endpoint costs the design only an explicit host
+stamp, not a new buffering tier.
 
 \paragraph{Effectively exactly-once ingest.} The capture worker drains the
-spool into ChronoLog on a polling interval. Transport is at-least-once by
+spool into the log on a polling interval. Transport is at-least-once by
 construction (after a crash the worker re-reads spool files it may have
 partially drained), so ingest must deduplicate. The worker keeps a
 \emph{high-water mark} per \((\text{session}, \text{kind})\) stream: the
-largest \texttt{sequence\_id} already written to ChronoLog. Only records
+largest \texttt{sequence\_id} already written to the log. Only records
 above the mark are appended. The critical property is where that state
-lives: on startup the worker \emph{rebuilds the marks from ChronoLog
-itself}, replaying each session's stories to find the highest sequence
+lives: on startup the worker \emph{rebuilds the marks from the log
+itself}, replaying each session's streams to find the highest sequence
 present. The log is thus the single source of truth for what has been
 ingested, and the worker carries no durable state of its own. No worker
 crash, restart, or migration to another node can cause loss (the spool
@@ -162,18 +290,46 @@ retains everything) or duplication (the rebuilt marks skip everything
 already present). Records without a natural sequence (recovery events) carry
 a unique blob identifier and are deduplicated by set membership, seeded the
 same way. The arrangement is the textbook recipe of \S\ref{sec:bg-delivery}
-(at-least-once transport plus idempotent, monotonic ingest), instantiated
-with the log as its own ledger.
+(at-least-once transport plus idempotent, monotonic
+ingest~\cite{kleppmann2017ddia}), instantiated with the log as its own
+ledger. It is also where the absence of S9 is paid for: a substrate with
+positional reads would let the worker persist and resume from an offset, as
+a Kafka consumer does with its committed position~\cite{narkhede2017kafka},
+instead of replaying a stream to rediscover where it left off. The
+rebuild-from-the-log variant is strictly more robust (there is no offset
+store to lose) and strictly more expensive (it is $O(\text{stream})$ per
+restart, not $O(1)$), and it was chosen because the substrate left no
+alternative.
+
+\begin{figure}[t]
+  \centering
+  \resizebox{\linewidth}{!}{\input{figures/fig-edge-sequence}}
+  \caption[One inter-agent call, end to end]{One inter-agent call, end to
+  end. The \texttt{start}/\texttt{done} pair shares a
+  \texttt{correlation\_id} ($\kappa$), so the two events stitch into a single
+  edge. Each
+  event travels to two places: the node-local keeper (durable) and the
+  dashboard (live). The collector sets \texttt{X-DTP-Forwarded} on the
+  forwarded copy \emph{only} when the durable write succeeded, and the
+  dashboard honours it by keeping a hot copy and skipping its own write,
+  which is what makes the delivery exactly-once \emph{per backend} rather
+  than duplicated across them. If the keeper write fails the header is
+  omitted, the dashboard persists the event through its own backend, and the
+  placement degrades without the event being lost
+  (\S\ref{sec:design-write}).}
+  \label{fig:edge-sequence}
+\end{figure}
 
 \paragraph{Path-B: persist once per backend.} The collector gives Path-B
-events the same guarantees with one extra subtlety. Every event travels to
-\emph{two} places: the node-local keeper (durable) and the dashboard (for
+events the same guarantees with one extra subtlety
+(Figure~\ref{fig:edge-sequence}). Every event travels to
+\emph{two} places: the log (durable) and the dashboard (for
 the live bus). Naively this double-writes. The design makes the forward
 explicit: when, and only when, the collector has successfully written an
-event to ChronoLog, it sets a header (\texttt{X-DTP-Forwarded: chronolog})
+event to the log, it sets a header (\texttt{X-DTP-Forwarded: chronolog})
 on the forwarded copy. The dashboard honors the header by preserving the
-collector-stamped identifiers verbatim and skipping its own ChronoLog write,
-storing only the hot copy. If the keeper write failed, the collector
+collector-stamped identifiers verbatim and skipping its own durable write,
+storing only the hot copy. If the durable write failed, the collector
 forwards \emph{without} the header and the dashboard persists the event
 through its own backend; the placement is degraded, but the event is
 not lost. The net
@@ -187,33 +343,34 @@ to POSTing directly to the dashboard's ingest endpoint if the collector is
 down. The fallback sends no forwarded header, so the dashboard persists
 normally. An agent therefore observes at most a failed local HTTP call
 before falling back: never a lost edge, and never back-pressure from the
-log (R5).
+log (R5). Each degradation step trades a property the operator can lose
+(placement, freshness) for one they cannot (the event itself), which is
+the standard stability-pattern discipline of keeping a failure in one
+component from propagating into its callers~\cite{nygard2018releaseit}.
 
 \section{The Read Problem: Hot and Cold Paths}
 \label{sec:design-read}
 
 Writing to an ingest-optimized log is easy; reading it live is the hard
-part. As established in \S\ref{sec:bg-chronolog-design}, freshly appended
-events sit inside the keeper$\to$grapher acceptance window
-(20--30\,s measured end-to-end in the deployments used here) before they
-are readable from the archive. Worse, a replay the player cannot
-answer does not return stale data but \emph{blocks} for the client's
-${\sim}180$\,s query timeout, in a Python client that holds the GIL
-throughout. A dashboard
-that naively replayed stories on request would freeze for minutes precisely
-while the fleet is live, a direct violation of R2.
+part. C1 and C2 together (\S\ref{sec:design-gaps}) rule out the
+obvious design: a dashboard that replayed streams on request would serve
+nothing for the first half-minute of a stream's life and would freeze
+outright, for minutes at a time, precisely while the fleet is live. That is
+a direct violation of R2. Everything in this section is the price of the
+missing S8; on a substrate that provides it, the cold path alone would
+serve every view.
 
-The design response is a lambda-style split (\S\ref{sec:bg-log}) with the
-acceptance window as the boundary:
+The design response is a lambda-style split (\S\ref{sec:bg-log})
+with the visibility window as the boundary~\cite{marz2015big}:
 
-\paragraph{The cold path} is ChronoLog itself: complete, durable, ordered,
+\paragraph{The cold path} is the log itself: complete, durable, ordered,
 and authoritative, but late. Full-fidelity views (a session's complete
-conversation, post-hoc analysis) read it, either by live replay once a story
-has drained or from the grapher's archive files. Reads that risk touching
+conversation, post-hoc analysis) read it, either by live replay once a stream
+has drained or from the archive. Reads that risk touching
 un-drained state are avoided structurally: the listing index of
 \S\ref{sec:design-mapping} is read \emph{archive-first}, because a live
-replay against a never-written index story blocks indefinitely
-(\S\ref{sec:design-isolation}). The evaluation later hardened this rule
+replay against a never-written index stream blocks indefinitely (C2).
+The evaluation later hardened this rule
 into a deployment mode: after live replay proved unreliable end-to-end
 on the cluster, archive-first reading was generalized from
 the listing index to \emph{every} replay the serving processes issue,
@@ -221,20 +378,34 @@ bounding staleness at the drain window
 (\S\ref{sec:eval-freshness}, \S\ref{sec:eval-limitations}).
 
 \paragraph{The hot path} serves R2 and is populated \emph{at the moment of
-ingest}, before ChronoLog acceptance. It has two elements. First, a
+ingest}, before the durable write is visible. It has two elements. First, a
 \emph{hot store}: the ingest endpoint appends every Path-B event to a local
 JSONL file per scenario, and all live read APIs (the scenario graph, the
 node-communication view, fleet aggregation, the tracer) read this store,
 an instant, append-only local read that can never block on the log. Second,
-a \emph{live bus}: an in-process publish/subscribe fan-out that pushes each
-newly ingested event to server-sent-event subscribers, so the browser
+a \emph{live bus}: an in-process publish/subscribe~\cite{eugster2003pubsub}
+fan-out that pushes each newly ingested event to server-sent-event
+subscribers~\cite{whatwg2026sse}, so the browser
 renders edges as they happen rather than polling. Path-A has the analogous
-arrangement: the Health view and the per-agent memory panels read the
+arrangement: the Health view and the per-agent context panels read the
 capture spool directly (the spool doubling as Path-A's hot store)
-while ChronoLog remains the durable copy.
+while the log remains the durable copy.
+
+\begin{figure}[t]
+  \centering
+  \resizebox{0.88\linewidth}{!}{\input{figures/fig-latejoin}}
+  \caption[The late-join protocol]{The late-join protocol. A client
+  connecting mid-run is subscribed to the live bus \emph{before} its backlog
+  is read, so any event ingested during the handoff is delivered on both
+  routes. The ordering is deliberate: it converts a possible gap, which the
+  client cannot detect or repair, into a possible duplicate, which it removes
+  by \texttt{event\_id}.}
+  \label{fig:latejoin}
+\end{figure}
 
 \paragraph{The late-join protocol.} A client that opens a live stream
-mid-run needs history plus continuity without gaps or duplicates. The bus
+mid-run needs history plus continuity without gaps or duplicates
+(Figure~\ref{fig:latejoin}). The bus
 protocol delivers the stored backlog first, then live frames, and the
 subscription is registered \emph{before} the backlog is read, so an
 event ingested during the handoff appears in both, and the client
@@ -249,7 +420,7 @@ reliability domain (R5).
 freshness classes: hot views are eventually consistent with the log but
 fresh to within the ingest latency (measured in
 Chapter~\ref{chap:evaluation}); cold views are complete and ordered but
-stale up to the acceptance window. Because both are projections of the same
+stale up to the visibility window. Because both are projections of the same
 event stream with identical identifiers
 (\S\ref{sec:design-write}), the classes converge: after the drain, a hot
 view's content is a prefix-complete subset of the cold view's, and the
@@ -261,28 +432,24 @@ record later'' without changing tools.
 
 The deployment decomposes into single-responsibility processes per node
 (agents, collector, capture worker), plus one dashboard for the
-allocation. Three isolation rules, each learned from a concrete failure on
+allocation. Two isolation rules, each learned from a concrete failure on
 live clusters, govern the decomposition.
 
-\paragraph{The dashboard is a pure reader.} An early configuration ran the
-capture worker as a thread inside the dashboard process. On startup the
-worker warms its high-water marks by replaying sessions
-(\S\ref{sec:design-write}); on a cluster where a story sat inside the
-acceptance window, that replay blocked while holding the GIL, and the Flask
-server never finished binding its port. The lesson generalizes: a process
-that must always answer (the dashboard) may never share an interpreter with
-a component that may legitimately block on remote state (the capture
-worker). They now run as separate processes, and the rule extends to reads:
-no request handler ever issues a replay that could touch un-drained state.
-
-\paragraph{Never block on state that may not exist.} A fresh cluster
-exhibits a boundary case. Replaying an index story that has \emph{never
-been written} blocks indefinitely: there is no data to drain, and none
-will ever arrive. Listing reads are therefore archive-first (the archive's
-absence is detectable instantly, while a live replay's futility is not),
-with live replay behind an explicit opt-in; and a brand-new deployment
-seeds the index with a one-shot append-only sync pass, sidestepping the
-blocking warm-up entirely.
+\paragraph{The dashboard is a pure reader.} This is C2 turned into a
+deployment rule. An early configuration ran the capture worker as a thread
+inside the dashboard process; on startup the worker warms its high-water
+marks by replaying sessions (\S\ref{sec:design-write}), and on a cluster
+where a stream sat inside the visibility window that replay blocked, taking
+the whole interpreter with it (\S\ref{sec:design-chronolog}), so the Flask
+server never finished binding its port. The two now
+run as separate processes, and the rule extends to reads: no request
+handler ever issues a replay that could touch un-drained state. Correspondingly,
+a brand-new deployment seeds the index with a one-shot append-only sync
+pass rather than a blocking warm-up, so the never-written boundary case of
+C2 is never reached. Stated substrate-independently: a component with a
+liveness obligation must not share a failure domain with a call whose
+worst case is unbounded. The rule is worth keeping even on a substrate that
+honours S8, because it costs one process and buys a category of outage.
 
 \paragraph{Normalize identity at the edge.} Host names arrive from multiple
 authorities (reverse DNS reports \texttt{ares-comp-3}, SLURM reports
@@ -297,7 +464,7 @@ Failure containment follows from the decomposition: an agent crash loses
 nothing already spooled or emitted; a collector crash falls agents back to
 direct dashboard ingest; a capture-worker crash pauses draining while the
 spool absorbs; a dashboard crash affects only observation (capture
-continues); and a ChronoLog outage degrades the system to hot-store-only
+continues); and a log outage degrades the system to hot-store-only
 operation, with the spool and collector queues replaying into the log when
 it returns.
 
@@ -314,8 +481,127 @@ frontend, which renders only those tabs. The seam exists for third parties:
 a deployment with a different substrate implements the adapter interface
 and gains the dashboard unchanged. The same seam is what
 makes the offline demo mode (local stores, no cluster) a configuration
-rather than a fork. This chapter's design is thereby separable: the capture
-paths, delivery semantics, and hot/cold split of
-\S\S\ref{sec:design-write}--\ref{sec:design-read} are ChronoLog-specific
-engineering; the analytics of Chapter~\ref{chap:analytics} depend only on
-the capability interface.
+rather than a fork, and the ``local JSONL files'' row of
+Table~\ref{tab:substrate-systems} is exactly that mode's substrate.
+
+The contract an adapter must honour is S1--S5, and nothing more. What
+S6--S9 an adapter can additionally offer determines how much of this
+chapter its deployment executes rather than what it must reimplement:
+
+\begin{itemize}
+\item An adapter over a substrate with S8 declares its reads bounded and
+  non-blocking; the hot store and live bus of \S\ref{sec:design-read} become
+  a latency optimization rather than a correctness requirement, and the
+  archive-first rule of \S\ref{sec:design-isolation} is dropped.
+\item An adapter over a substrate with S7 answers listings natively; the
+  \texttt{\_\_index\_\_} writes of \S\ref{sec:design-mapping} are disabled.
+\item An adapter over a substrate with S9 persists reader offsets; the
+  high-water-mark rebuild of \S\ref{sec:design-write} becomes an $O(1)$
+  resume.
+\item An adapter over a substrate without S6 stamps the producing host in
+  the capture library rather than inheriting it from the append endpoint.
+\end{itemize}
+
+This is why the chapter is separable. The capture paths, the identity
+contract, the delivery semantics, and the two-plane schema of
+\S\S\ref{sec:design-mapping}--\ref{sec:design-write} are the design, and
+they hold on any S1--S5 substrate. The hot/cold split, the index stream,
+and the reader-side high-water marks are the price of S7--S9 being absent
+here, and a different deployment pays a different price. The analytics of
+Chapter~\ref{chap:analytics} depend only on the capability interface and
+therefore on neither.
+
+\section{Instantiation on ChronoLog}
+\label{sec:design-chronolog}
+
+This section reports what the design above became when implemented on
+ChronoLog (\S\ref{sec:bg-chronolog}), which is the substrate every measured
+result in Chapter~\ref{chap:evaluation} was obtained on. Nothing here is
+required by the design; everything here is required to reproduce the
+deployment.
+
+\paragraph{Names.} ChronoLog's two-level namespace is
+\emph{chronicle} $\to$ \emph{story}, with \emph{event} as the record
+(\S\ref{sec:bg-chronolog-model}). The generic ``namespace'' column of
+Table~\ref{tab:schema} is a chronicle and the ``stream'' column is a story;
+\texttt{llm\_interactions} is a chronicle holding one story per session,
+\texttt{ia\_<scenario>} a chronicle holding a single \texttt{edges} story.
+Stories are the unit of isolation, so writers to different sessions do not
+contend, which is what makes the per-entity stream granularity of
+\S\ref{sec:design-mapping} free rather than a partitioning decision.
+
+\paragraph{Where the append endpoint is.} ChronoLog supplies S6 directly: a
+\emph{keeper} process runs on every node of the deployment, and a client
+appends to the keeper on its own machine
+(\S\ref{sec:bg-chronolog-arch}). This is the property that motivated the
+choice of substrate. Because the append lands on the producing node, the
+mapping from an event to the machine that generated it is a fact about
+where it was written rather than a field the instrumentation must be
+trusted to fill in correctly, and R1's host attribution is structural. The
+capture worker and the collector are therefore deployed one per node, each
+holding a client bound to the local keeper.
+
+\paragraph{C1 concretely.} The keeper buffers appends in memory and the
+\emph{grapher} asynchronously drains sealed chunks into a read-optimized
+archive (CSV/HDF5 tiers) that the \emph{player} serves back to readers. In
+the deployments used here the keeper seals 10\,s chunks under a 15\,s
+acceptance window, while the grapher and player run with a 180\,s window;
+\S\ref{sec:eval-freshness} measures the end-to-end consequence at 20--30\,s
+and corrects a folklore figure in the process.
+
+\paragraph{C2 concretely.} A replay the player cannot answer waits for the
+client's ${\sim}180$\,s query timeout, and the Python binding holds the
+global interpreter lock (GIL) for the duration. The GIL admits only one
+thread executing Python at a time; a well-behaved extension releases it
+before a slow wait, and this one does not. The consequence is that a single
+unlucky read freezes not a request but the \emph{entire interpreter}: every
+other thread in that process, including the web server's accept loop. This
+is a property of the binding, not of ChronoLog's design, and it is the
+reason \S\ref{sec:design-isolation}'s pure-reader rule is stated as a
+process split rather than a thread pool.
+
+\paragraph{C3 concretely.} The client binding exposes no
+\texttt{ShowChronicles} operation, so there is no call that enumerates the
+chronicles or stories a deployment holds. This is a missing method rather
+than a performance property, which is why \S\ref{sec:design-mapping}
+answers it with data (the \texttt{\_\_index\_\_} chronicle) rather than with
+caching.
+
+\begin{figure}[t]
+  \centering
+  \resizebox{0.88\linewidth}{!}{\input{figures/fig-deployment}}
+  \caption[The per-node deployment on a SLURM allocation]{What runs where.
+  Every node of the allocation carries the identical per-node set (agents,
+  collector, capture worker, ChronoLog keeper); only the singletons differ,
+  and their placement follows the deploy convention (visor on the first node,
+  grapher and player on the last, dashboard on the second). Drawn from the
+  four-node deployment used for the recorded walkthrough. The layout is the
+  point: because a keeper sits on every node, the agent's append never leaves
+  the machine that produced it, which is S6 and the reason host attribution
+  is structural rather than declared.}
+  \label{fig:deployment}
+\end{figure}
+
+\paragraph{Deployment.} A run consists of a ChronoLog deployment across the
+SLURM allocation (visor, one keeper per node, grapher and player draining to
+an archive on shared storage), plus one collector and one capture worker per
+node and one dashboard for the allocation
+(Figure~\ref{fig:deployment}). Nothing in ChronoLog, SLURM, or
+the agent SDK is modified, which is R7; \S\ref{sec:eval-functional} verifies
+this end-to-end.
+
+\paragraph{What a port would change.} Table~\ref{tab:substrate-systems}
+predicts the cost of moving to another substrate, and the prediction is
+concrete enough to state. Porting to Kafka would delete the hot store, the
+live bus's role as a correctness mechanism, the \texttt{\_\_index\_\_}
+chronicle, and the high-water-mark rebuild, since Kafka provides S7--S9;
+it would add an explicit host stamp in the capture library and a per-node
+producer buffer to preserve R5, since it does not provide S6, and it would
+add a retention policy to preserve S4's whole-stream replay. Porting to the
+local-JSONL adapter, which the offline demo mode already exercises, deletes
+all of the same machinery and adds nothing, at the cost of S3's cluster-wide
+durability. What survives every port is the two-path capture architecture,
+the \texttt{role@scenario} identity contract, the two-plane schema, and the
+delivery semantics, which is the claim \S\ref{sec:design-adapters} makes and
+the reason the design is stated against S1--S9 rather than against a
+product.

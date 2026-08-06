@@ -1,0 +1,45 @@
+% The late-join protocol: subscribe first, then read the backlog, so the
+% handoff overlaps rather than gaps. The overlap is resolved by the client,
+% which deduplicates on event identifier.
+\begin{tikzpicture}[
+    font=\footnotesize, >=Stealth,
+    ev/.style={draw, rounded corners=1.5pt, minimum width=0.82cm,
+               minimum height=0.6cm, inner sep=1pt, fill=white},
+    dup/.style={ev, fill=black!18},
+    lane/.style={font=\scriptsize\bfseries, anchor=east},
+    tick/.style={black!45},
+    note/.style={font=\scriptsize\itshape, text=black!60, align=left},
+  ]
+
+  % --------------------------------------------------------------- time axis
+  \draw[->, tick] (0,2.55) -- (12.6,2.55);
+  \node[note, anchor=west] at (12.7,2.55) {time};
+
+  % ------------------------------------------------------- the two key moments
+  \draw[tick, densely dashed] (4.15,-1.85) -- (4.15,2.55);
+  \draw[tick, densely dashed] (6.55,-1.85) -- (6.55,2.55);
+  \node[note, anchor=south, align=center] at (4.15,2.62) {\textbf{1.} subscription\\registered};
+  \node[note, anchor=south, align=center] at (6.55,2.62) {\textbf{2.} backlog\\read};
+
+  % --------------------------------------------------- lane 1: what was ingested
+  \node[lane] at (-0.15,1.55) {ingested};
+  \foreach \i/\x in {1/0.55, 2/1.75, 3/2.95, 4/5.35, 5/7.75, 6/8.95} {
+    \node[ev] at (\x,1.55) {$e_\i$};
+  }
+  \node[dup] at (5.35,1.55) {$e_4$};
+
+  % ------------------------------------------- lane 2: what the client receives
+  \node[lane] at (-0.15,0.15) {delivered};
+  \node[note, anchor=west] at (0.2,0.72) {backlog (stored, replayed on connect)};
+  \foreach \i/\x in {1/0.55, 2/1.75, 3/2.95} { \node[ev] at (\x,0.15) {$e_\i$}; }
+  \node[dup] at (5.35,0.15) {$e_4$};
+  \node[note, anchor=west] at (6.75,0.72) {live frames (pushed)};
+  \node[dup] at (7.05,0.15) {$e_4$};
+  \foreach \i/\x in {5/8.25, 6/9.45} { \node[ev] at (\x,0.15) {$e_\i$}; }
+
+  % ----------------------------------------------------------- the overlap call-out
+  \draw[->, black!60] (5.35,-0.2) .. controls (5.6,-0.95) and (6.7,-0.95) .. (7.05,-0.2);
+  \node[note, anchor=north, align=center] at (6.2,-1.05)
+    {$e_4$ arrives during the handoff, so it appears \emph{twice};\\
+     the client drops the second copy by \texttt{event\_id}};
+\end{tikzpicture}

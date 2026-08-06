@@ -4,32 +4,40 @@
 This chapter turns the gap established in Chapter~\ref{chap:background}
 into a concrete engineering problem: a target scenario
 (\S\ref{sec:problem-scenario}), a set of requirements that any solution
-must satisfy (\S\ref{sec:problem-requirements}), and the boundaries of
-what this thesis does not attempt (\S\ref{sec:problem-nongoals}). The
+must satisfy (\S\ref{sec:problem-requirements}), the contract the storage
+substrate must honour for such a solution to be implementable at all
+(\S\ref{sec:problem-substrate}), and the boundaries of what this thesis
+does not attempt (\S\ref{sec:problem-nongoals}). The
 requirements are numbered R1--R7 and are used as the evaluation rubric in
-Chapters~\ref{chap:evaluation} and~\ref{chap:conclusions}.
+Chapters~\ref{chap:evaluation} and~\ref{chap:conclusions}; the substrate
+features are numbered S1--S9 and are the interface against which
+Chapter~\ref{chap:design} is written.
 
 \section{Target Scenario}
 \label{sec:problem-scenario}
 
 The setting is a multi-agent LLM workload on an HPC cluster. A user holds
-a SLURM allocation of $M$ compute nodes (in this thesis's experiments,
+a SLURM~\cite{yoo2003slurm} allocation of $M$ compute nodes (in this thesis's experiments,
 $M \in \{4, 8\}$ on the ARES cluster, with analyses exercised up to
 several hundred simulated nodes). On each node run $K$ LLM agents:
 independent processes, each an agent loop over its own conversation
 context, each identified by a scenario-scoped session identifier of the
 form \texttt{role@scenario}. Agents cooperate: an agent may delegate a
-sub-task to a peer on another node by invoking a remote-agent MCP tool,
-producing nested chains of cross-host calls. A ChronoLog deployment
-shares the allocation: a keeper on every node, a visor coordinating, and
-a grapher draining sealed chunks to an archive on shared storage.
+sub-task to a peer on another node by invoking a remote-agent
+MCP~\cite{anthropic2024mcp} tool,
+producing nested chains of cross-host calls. A shared-log deployment
+(\S\ref{sec:bg-log}) shares the allocation with the workload; in this
+thesis's implementation that log is ChronoLog, contributing a keeper on
+every node, a visor coordinating, and a grapher draining sealed chunks to
+an archive on shared storage. Section~\ref{sec:problem-substrate} states
+which of those details the design actually depends on.
 
 The human in the loop is the \emph{operator}, the researcher or
 engineer running the fleet, who needs answers both while the system runs
 and after it finishes:
 
 \begin{enumerate}
-\item[Q1.] \emph{What is the swarm doing right now?} Which agents exist,
+\item[Q1.] \emph{What is the fleet doing right now?} Which agents exist,
   which are talking to which, and on which physical nodes?
 \item[Q2.] \emph{Is anything failing?} Not as a scroll of per-event
   errors, but as a ranked, deduplicated set of problems with causes.
@@ -43,7 +51,10 @@ and after it finishes:
 \end{enumerate}
 
 Q1--Q3 are agent-semantic questions; Q4 is a fleet-topology question; Q5
-is a longitudinal question. Q2--Q4 in combination require pivoting
+is a longitudinal question, and it is posed because the failure modes of
+multi-agent LLM systems are empirically systematic rather than
+incidental~\cite{cemri2025mast}: a failure worth diagnosing once is
+usually worth recognizing again. Q2--Q4 in combination require pivoting
 between layers (from a fleet symptom to a single agent's
 conversation), the pivot neither tooling camp of
 \S\ref{sec:bg-sota} supports.
@@ -51,74 +62,247 @@ conversation), the pivot neither tooling camp of
 \section{Requirements}
 \label{sec:problem-requirements}
 
-\paragraph{R1: Dual-plane causal capture.} The system must capture
-both observable planes of \S\ref{sec:bg-agent-signals}: LLM turns
-(prompt, response, model, tokens, cost, latency, working-memory deltas)
-and inter-agent calls (caller, callee, hosts, timing, outcome). The two
-planes must also be \emph{joinable}: an inter-agent edge must resolve
-to the conversations of its endpoint agents, and every event must be
-attributed to the physical node that produced it. Without the join, Q1
-and the Q2--Q4 pivot are unanswerable.
+Seven requirements follow from the questions above; they are the rubric
+Chapters~\ref{chap:evaluation} and~\ref{chap:conclusions} check the system
+against. Three of them (R1, R4, R5) are the load-bearing ones, in the sense
+that dropping any would collapse the thesis's claim rather than degrade it.
 
-\paragraph{R2: Real-time visibility.} Live views (Q1, and the live
-half of Q2/Q4) must reflect events within seconds of ingest. In
-particular, the system must not be limited by the substrate's drain
-latency (\S\ref{sec:bg-chronolog-design}), and no read may ever block
-the serving process on un-drained log state.
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}p{0.045\linewidth}p{0.24\linewidth}p{0.63\linewidth}@{}}
+\toprule
+& \textbf{Requirement} & \textbf{What it demands} \\
+\midrule
+R1 & Dual-plane causal capture &
+  Capture both planes of \S\ref{sec:bg-agent-signals}: LLM turns (prompt,
+  response, model, tokens, cost, latency, retained-context deltas) and
+  inter-agent calls (caller, callee, hosts, timing, outcome). The planes
+  must be \emph{joinable}: an edge resolves to its endpoints'
+  conversations, and every event is attributed to the node that produced
+  it. Without the join, Q1 and the Q2--Q4 pivot are unanswerable. \\
+R2 & Real-time visibility &
+  Live views reflect events within seconds of ingest, not limited by the
+  substrate's drain latency, and no read may block the serving process on
+  un-drained log state. \\
+R3 & Durability and replayability &
+  Every event survives process and node restarts and stays replayable after
+  the run: at-least-once capture, and retries that do not duplicate in the
+  durable store (effectively exactly-once
+  ingest~\cite{kleppmann2017ddia}, \S\ref{sec:bg-delivery}). \\
+R4 & Fleet scale &
+  Population views stay responsive at 100+ nodes: the cost of the fleet
+  overview must not grow with captured events, only with nodes and window
+  length. Silent nodes must appear, since silence is itself a signal: a
+  degraded node that has stopped producing is the fail-slow case that is
+  hardest to see and most damaging~\cite{gunawi2018failslow}. \\
+R5 & Minimal, non-blocking overhead &
+  Instrumentation must not perturb the workload (the Dapper
+  tenet~\cite{sigelman2010dapper},
+  \S\ref{sec:bg-tracing-lineage}): the agent-side fast path is a local,
+  constant-time append, all network and log I/O off the critical path, and
+  the machinery degrades gracefully rather than back-pressuring an agent. \\
+R6 & Zero-marginal-cost diagnosis &
+  Detection and diagnosis consume no LLM tokens by default; a pipeline that
+  costs money per scan gets disabled in practice. LLM assistance is opt-in
+  on top of a deterministic baseline. \\
+R7 & Drop-in deployment &
+  Attach to an existing deployment without modifying the log store, the
+  scheduler, or the agent framework: a thin client library or local HTTP
+  endpoint, per-node components launchable on a plain SLURM allocation, and
+  a read-only dashboard. \\
+\bottomrule
+\end{tabular}
+\caption[The seven requirements R1--R7]{The seven requirements, derived from the operator questions
+Q1--Q5 and used as the evaluation rubric.}
+\label{tab:requirements}
+\end{table}
 
-\paragraph{R3: Durability and replayability.} Every captured event
-must survive process and node restarts and remain replayable after the
-run ends: post-hoc analysis, cost accounting, and the longitudinal
-question Q5 all read history. Transient failures of downstream
-components must not lose events (at-least-once capture), and retries
-must not duplicate them in the durable store (effectively exactly-once
-ingest, \S\ref{sec:bg-delivery}).
+\section{What the Substrate Must Provide}
+\label{sec:problem-substrate}
 
-\paragraph{R4: Fleet scale.} Population-level views (Q4) must remain
-responsive at 100+ nodes. Concretely, the cost of rendering the fleet
-overview must not grow with the number of captured events, only with the
-number of nodes and the length of the queried window. Silent
-nodes must also appear, since silence is itself a signal.
+R1--R7 constrain the observability system. They say nothing about
+\emph{where} the events are stored, and keeping that question separate is
+what stops the design of Chapter~\ref{chap:design} from degenerating into
+the description of one product. The insight of
+\S\ref{sec:intro-insight} commits this thesis to a \emph{class} of
+store, the distributed shared log of \S\ref{sec:bg-log}, but not to a
+member of that class. This section states the contract between the two:
+the features S1--S5 that a store must offer for the design to be
+implementable on it at all, and a second tier S6--S9 of features whose
+absence costs a known, bounded piece of machinery rather than a redesign.
 
-\paragraph{R5: Minimal, non-blocking overhead.} Instrumentation must
-not perturb the workload it observes (the Dapper tenet,
-\S\ref{sec:bg-tracing-lineage}). The agent-side fast path must be a
-local, constant-time operation (an append to node-local state),
-with all network and log I/O off the agent's critical path. The
-capture machinery must degrade gracefully (buffer, fall back) and never
-back-pressure an agent.
+\paragraph{Required features.} Five properties are load-bearing, in the
+sense that a store lacking any one of them cannot host this design without
+changing what the design \emph{is}.
 
-\paragraph{R6: Zero-marginal-cost diagnosis.} Failure detection and
-diagnosis (Q2, Q5) must not itself consume LLM tokens by default:
-a diagnosis pipeline that costs money per scan will be disabled in
-practice. LLM-assisted diagnosis may exist, but only as an opt-in on
-top of a deterministic baseline.
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}p{0.045\linewidth}p{0.235\linewidth}p{0.63\linewidth}@{}}
+\toprule
+& \textbf{Feature} & \textbf{What it demands, and why} \\
+\midrule
+S1 & Caller-named streams &
+  A stream is created and opened by an arbitrary caller-chosen string, with
+  no administrative pre-registration and no store-assigned handle the
+  writer must first look up. The whole identity contract of
+  \S\ref{sec:design-mapping} rests on this: if the producer can name the
+  stream \texttt{writer@scenario-x}, the join between an inter-agent edge
+  and its endpoints' conversations is by construction rather than by a
+  correlation table (R1). \\
+S2 & Per-stream append order &
+  Records appended to one stream are read back in the order they were
+  appended. A total order \emph{across} streams is not needed; the design
+  never assumes one, and reconstructs cross-stream causality from explicit
+  correlation identifiers instead (\S\ref{sec:design-mapping}). This is the
+  weakest ordering guarantee that still supports R3. \\
+S3 & Producer-independent durability &
+  Once an append is acknowledged, the record survives the death of the
+  process that wrote it and remains obtainable by a later reader (R3). \\
+S4 & Whole-stream replay &
+  A reader can obtain a stream's full history, not merely a subscription to
+  its tail. Every post-hoc view of Chapter~\ref{chap:analytics}, and the
+  crash-recovery procedure of \S\ref{sec:design-write}, is a replay. \\
+S5 & Reader/writer decoupling &
+  Arbitrarily many independent readers, none of which slows or
+  back-pressures a writer. R5 forbids an expensive diagnostic scan from
+  perturbing the agents being diagnosed, and R4 makes such scans routine. \\
+\bottomrule
+\end{tabular}
+\caption[Required substrate features S1--S5]{The five substrate features
+required for the design of Chapter~\ref{chap:design} to be implementable.
+Together they describe an append-only, named-stream, replayable,
+multi-reader store: the shared-log class of \S\ref{sec:bg-log}, and
+nothing narrower.}
+\label{tab:substrate-required}
+\end{table}
 
-\paragraph{R7: Drop-in deployment.} The system must attach to an
-existing ChronoLog deployment without modifying ChronoLog, the
-scheduler, or the agent framework: instrumentation via a thin client
-library or local HTTP endpoint, per-node components launchable on a
-plain SLURM allocation, and a read-only dashboard that can point at any
-visor.
+\paragraph{Convenient features, and the price of their absence.} Four
+further properties are not required but are load-bearing for
+\emph{simplicity}. Each is a feature some members of the shared-log class
+provide and others do not; and for each, this thesis carries a specific,
+named mechanism that exists only to compensate for its absence in the
+deployed substrate. Stating them this way makes the boundary explicit:
+Table~\ref{tab:substrate-optional} is, read right to left, an inventory of
+which parts of the design are contributions of the architecture and which
+are workarounds that a better-provisioned substrate would delete.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}p{0.045\linewidth}p{0.235\linewidth}p{0.30\linewidth}p{0.30\linewidth}@{}}
+\toprule
+& \textbf{Feature} & \textbf{If absent, the cost} & \textbf{Mechanism that pays it} \\
+\midrule
+S6 & Node-local append endpoint: a write path reachable without leaving the
+  producing node &
+  Appends cross the network, so the producer's fast path must be buffered
+  locally to satisfy R5, and the producing host must be stamped by the
+  client rather than inferred from where the append landed &
+  The node-local spool, \S\ref{sec:design-write} (retained regardless, so
+  the marginal cost is only the explicit host stamp) \\
+S7 & Stream enumeration: ask the store which streams exist &
+  No listing screen can be built, since a stream can be read only if its
+  name is already known &
+  The \texttt{\_\_index\_\_} stream: materialize the missing query as
+  another log, \S\ref{sec:design-mapping} \\
+S8 & Bounded, non-blocking read visibility: a freshly appended record
+  becomes readable within a small bound, and a read that finds nothing
+  returns rather than waits &
+  Live views cannot be served from the store, and a read issued into the
+  gap can stall the process that issued it &
+  The hot/cold split and live bus, \S\ref{sec:design-read}; the process
+  isolation rules of \S\ref{sec:design-isolation} \\
+S9 & Positional reads: resume a stream from a recorded offset &
+  Every read is a full replay, so incremental readers must track their own
+  progress and re-scan &
+  Reader-side high-water marks, \S\ref{sec:design-write}; pre-aggregated
+  rollups so that fleet reads never scan raw history,
+  \S\ref{sec:analytics-fleet} \\
+\bottomrule
+\end{tabular}
+\caption[Convenient substrate features S6--S9 and their compensating
+mechanisms]{Substrate features whose absence is survivable, with the
+mechanism this thesis carries to compensate for each. The right-hand
+column is the portion of Chapter~\ref{chap:design} that a substrate
+providing S6--S9 would let a reimplementation delete.}
+\label{tab:substrate-optional}
+\end{table}
+
+\paragraph{Candidate substrates.} Table~\ref{tab:substrate-systems} scores
+representative members of the class against S1--S9. The point of the table
+is not to rank the systems, which were built for different purposes, but to
+show that the required tier S1--S5 is satisfied broadly, so the design is
+portable, while the convenient tier S6--S9 is where the systems differ, so
+the design's portability costs are predictable from the table rather than
+discovered during a port.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lccccc@{\hspace{1.6em}}cccc@{}}
+\toprule
+& \multicolumn{5}{c}{\textbf{Required}} & \multicolumn{4}{c}{\textbf{Convenient}} \\
+\cmidrule(r{1.3em}){2-6}\cmidrule{7-10}
+\textbf{Substrate} & S1 & S2 & S3 & S4 & S5 & S6 & S7 & S8 & S9 \\
+\midrule
+Kafka~\cite{kreps2011kafka}          & \fyes & \fyes & \fyes & \fpart & \fyes & \fno  & \fyes & \fyes & \fyes \\
+Pulsar~\cite{pulsar}                 & \fyes & \fyes & \fyes & \fyes  & \fyes & \fno  & \fyes & \fyes & \fyes \\
+Redis Streams~\cite{redisstreams}    & \fyes & \fyes & \fpart& \fyes  & \fyes & \fpart& \fyes & \fyes & \fyes \\
+CORFU/Delos~\cite{balakrishnan2012corfu,balakrishnan2020delos}
+                                     & \fpart& \fyes & \fyes & \fyes  & \fyes & \fno  & \fno  & \fyes & \fyes \\
+BookKeeper~\cite{junqueira2013bookkeeper}
+                                     & \fpart& \fyes & \fyes & \fyes  & \fyes & \fno  & \fyes & \fyes & \fyes \\
+ChronoLog~\cite{kougkas2020chronolog}& \fyes & \fyes & \fyes & \fyes  & \fyes & \fyes & \fno  & \fno  & \fno  \\
+Local JSONL files                    & \fyes & \fyes & \fpart& \fyes  & \fyes & \fyes & \fyes & \fyes & \fyes \\
+\bottomrule
+\end{tabular}
+\caption[Candidate substrates scored against S1--S9]{Representative
+shared-log substrates against the feature tiers. \fyes${}={}$provided,
+\fpart${}={}$provided with caveats, \fno${}={}$absent. Caveats: Kafka's
+whole-stream replay is bounded by the configured retention policy; Redis
+Streams and local files give durability weaker than S3's cluster-wide
+sense (process-local rather than node-independent); CORFU and BookKeeper
+expose a shared address space and ledgers respectively, on which named
+streams are a layer built above rather than a native primitive.
+The ChronoLog row is scored for the deployed version and client binding
+used in this work (\S\ref{sec:design-chronolog}), not for the design in
+the published paper. Two observations drive the rest of the thesis: every
+row satisfies the required tier, and ChronoLog is simultaneously the only
+substrate here that provides S6, the property that makes agent events
+natively host-attributed, and the only one missing S7--S9, which is
+exactly the machinery Chapter~\ref{chap:design} must supply.}
+\label{tab:substrate-systems}
+\end{table}
+
+The last observation is the reason ChronoLog is the substrate of this work
+rather than an incidental choice of one. S6 is the feature that couples
+agent semantics to physical topology for free, which is the gap of
+\S\ref{sec:bg-sota-gap}; no general-purpose commit log in the table offers
+it, because none was built to run inside an HPC allocation. The design
+takes S6 and pays for the absence of S7--S9, and
+Chapter~\ref{chap:design} is written so that the payment is separable
+from the design it is paying for.
 
 \section{Non-Goals}
 \label{sec:problem-nongoals}
 
-Four adjacent problems are explicitly out of scope. The system is not
-an \emph{agent framework}: it observes agents built with existing SDKs
-and protocols, and takes no part in orchestrating them. It is not a
-\emph{scheduler or resource manager}: placement, allocation, and job
-control remain SLURM's, and the system only queries it. And it is not a
-general \emph{metrics time-series database}: it captures the
-agent-semantic event planes of R1, not arbitrary node telemetry.
-Where classical infrastructure metrics are needed, the systems of
-\S\ref{sec:bg-sota-hpc} remain the right tool, and the two can run side
-by side. Finally, the thesis targets observation and diagnosis, not
-automated remediation: acting on a diagnosis (restarting agents, rolling
-back context) is surfaced as a recommendation to the operator, not
+Four adjacent problems are explicitly out of scope. The system is not an
+\emph{agent framework} (it observes agents built with existing SDKs and
+takes no part in orchestrating them), not a \emph{scheduler or resource
+manager} (placement and job control remain SLURM's; the system only queries
+it), and not a general \emph{metrics time-series database} (it captures the
+agent-semantic planes of R1, not arbitrary node telemetry, so where
+classical infrastructure metrics are needed the systems of
+\S\ref{sec:bg-sota-hpc} remain the right tool and the two run side by
+side). Finally, it targets observation and diagnosis, not automated
+remediation: acting on a diagnosis is surfaced as a recommendation, not
 executed autonomously.
 
-With the questions, requirements, and non-goals fixed, the problem is
-fully specified. Chapter~\ref{chap:design} presents a design that meets
-R1--R7 on the ChronoLog substrate; Chapter~\ref{chap:evaluation} then
-measures each requirement against it.
+With the questions, requirements, substrate contract, and non-goals
+fixed, the problem is fully specified. Chapter~\ref{chap:design} presents
+a design that meets R1--R7 on any store satisfying S1--S5, and reports
+separately, in \S\ref{sec:design-chronolog}, what implementing it on
+ChronoLog required; Chapter~\ref{chap:evaluation} then measures each
+requirement against that implementation.

@@ -8,7 +8,7 @@
 The evaluation asks six questions, mapped to the requirements of
 \S\ref{sec:problem-requirements}: what does capture cost the observed
 workload (R5, \S\ref{sec:eval-overhead}); how fresh are the live views
-(R2, \S\ref{sec:eval-freshness}); is ChronoDoctor's diagnosis
+(R2, \S\ref{sec:eval-freshness}); is PrismaDoctor's diagnosis
 \emph{correct}, not merely cheap (R6, \S\ref{sec:eval-doctor}); do the
 analyses scale as claimed (R4,
 \S\ref{sec:eval-scalability}); does the whole stack work end-to-end on a
@@ -49,7 +49,7 @@ Does it shorten diagnosis? &
   (\S\ref{sec:eval-casestudy}). \\
 \bottomrule
 \end{tabular}
-\caption{The evaluation at a glance. Every number is measured; the
+\caption[The evaluation at a glance]{The evaluation at a glance. Every number is measured; the
 sections referenced give conditions, distributions, and caveats.}
 \label{tab:eval-glance}
 \end{table}
@@ -89,7 +89,13 @@ the same agent workload; capture-side costs by sampling the sidecar
 processes' CPU and resident memory under load; storage by bytes per
 record in each tier; freshness by timestamping an event at emission and
 at receipt in a subscribed SSE client. Each is reported with distribution
-statistics over repeated runs.
+statistics over repeated runs rather than as a single number: the workload
+under test is a non-deterministic one running on shared cluster hardware,
+which is exactly the regime in which single-run comparisons are known to
+mislead, and in which a difference must be stated with a confidence
+interval or not stated at all~\cite{georges2007rigorous}. Percentiles
+rather than means are reported wherever an operator's experience is
+governed by the tail~\cite{dean2013tail}.
 
 \section{Capture Overhead}
 \label{sec:eval-overhead}
@@ -126,7 +132,7 @@ Edge event            & B & bytes per event (hot / archive)   & 612 / ${\approx}
 Live forward          & B & bytes per event on the wire       & 646\,B \\
 \bottomrule
 \end{tabular}
-\caption{Capture overhead, measured on a live 8-node deployment
+\caption[Capture overhead, measured]{Capture overhead, measured on a live 8-node deployment
 (compute nodes, NFS state directory; $n{=}10\,000$ per latency row).
 The headline row is the end-to-end A/B turn delta over real LLM turns:
 its 95\% confidence interval spans zero: capture is statistically
@@ -196,7 +202,7 @@ Doctor scan (bounded gather)     & wall time    & 1\,807\,ms \\
 Trace reconstruction             & per scenario & 282\,ms \\
 \bottomrule
 \end{tabular}
-\caption{Freshness and query latency on the live 8-node deployment
+\caption[Freshness and query latency, measured]{Freshness and query latency on the live 8-node deployment
 (dashboard node, $n{=}100$ per query row, $n{=}1\,000$ paced events at
 20\,ev/s with zero loss for the SSE rows; corpus ${\approx}22$\,k
 archived events). The hot path sits three orders of magnitude inside
@@ -209,7 +215,7 @@ ${\sim}1\,900\times$ sooner than it is readable from the archive
 \begin{figure}[t]
   \centering
   \input{figures/fig-query-latency}
-  \caption{The freshness and query-latency spread on one log axis (p50,
+  \caption[Freshness and query latency, measured]{The freshness and query-latency spread on one log axis (p50,
   live 8-node deployment). Live push takes single-digit milliseconds and
   scenario-scoped reads stay sub-second, while population-wide reads
   that fold the raw archive sit near $2$\,s on this corpus. That is the
@@ -251,10 +257,15 @@ clusters included.
 
 R6 demands that diagnosis be free of marginal token cost; this section
 asks whether the deterministic pipeline that satisfies it is also
-\emph{correct}. The experiment scores a full ChronoDoctor scan (gather,
-detect, cluster, diagnose, remember; \S\ref{sec:analytics-doctor})
+\emph{correct}. The experiment scores a full PrismaDoctor scan (gather,
+detect, cluster, diagnose, record; \S\ref{sec:analytics-doctor})
 against a ground-truth manifest of
-injected faults. A controlled corpus is seeded offline through the same
+injected faults. Deliberately injecting the failure and checking that the
+system reports it is the discipline of controlled fault
+injection~\cite{basiri2016chaos}, applied here offline rather than in
+production so that the manifest is exact and the false-positive rate is
+measurable against a known-clean background.
+A controlled corpus is seeded offline through the same
 spool and inter-agent-store write paths the capture layer uses: a clean
 background of healthy traffic (216 turns, 120 completed delegations),
 plus ten planted faults of each kind the detectors claim to cover, plus
@@ -263,7 +274,7 @@ hosts) to test the compression claim of
 \S\ref{sec:analytics-doctor}. Each planted fault is shaped to carry
 exactly one symptom (single-label ground truth), so every detection is
 unambiguously attributable. The same fault mix is then injected a second
-time and the corpus re-scanned, testing whether the incident memory
+time and the corpus re-scanned, testing whether the incident history
 recognizes the recurrence. Table~\ref{tab:doctor-quality} reports the
 result.
 
@@ -287,7 +298,7 @@ Storm: 500$\times$ identical timeouts & 500 & 500 & 0 & 1 & yes (0.70) & yes \\
 Clean background              & 0   & --- & 0 & 0 & ---            & ---    \\
 \bottomrule
 \end{tabular}
-\caption{ChronoDoctor detection quality against a ground-truth fault
+\caption[PrismaDoctor detection quality against ground truth]{PrismaDoctor detection quality against a ground-truth fault
 manifest (offline, seeded through the production write paths;
 \texttt{e6\_doctor\_\allowbreak quality.py} in \texttt{scripts/eval/},
 seed-deterministic;
@@ -351,7 +362,7 @@ from raw events would touch every record ever captured.
 \begin{figure}[t]
   \centering
   \input{figures/fig-rollup-scaling}
-  \caption{Fleet-health query latency vs.\ stored event count (16 nodes,
+  \caption[Fleet-query latency vs.\ stored event count]{Fleet-health query latency vs.\ stored event count (16 nodes,
   60-minute window, p50 over 20 requests). Pre-aggregated rollup reads
   are independent of event volume; the raw-fold fallback is linear in
   it. Measured offline via
@@ -421,32 +432,25 @@ The final question is whether the pieces compose into the cross-layer
 diagnosis the thesis promises. The scenario: on a live $M$-node
 deployment carrying steady background traffic, the synthetic generator
 injects a retry/timeout storm concentrated on one node, alongside a
-delegation leg that starts and never completes.
+delegation leg that starts and never completes. The fault is deliberately
+of the fail-slow rather than fail-stop kind~\cite{gunawi2018failslow}: the
+node stays up, keeps answering, and merely degrades, which is the case a
+liveness check cannot see and a population comparison can.
 
-The observed localization path:
-
-\begin{enumerate}
-\item \textbf{Detect and compress (Q2).} A Doctor scan returns not
-  hundreds of error rows but a short ranked incident list: one incident
-  aggregating the storm (count in the hundreds, blast radius naming the
-  affected hosts and sessions, rate-limit/timeout root cause and
-  remediation attached), and one \emph{critical} orphan-call incident for
-  the hung delegation, a failure invisible in any per-edge view,
-  since its signature is an absence (\S\ref{sec:analytics-doctor}).
-\item \textbf{Localize to the machine (Q4).} The fleet heatmap shows the
-  population: one cell red among ok nodes (the storm's node),
-  turning ``the fleet looks unhealthy'' into ``it is this machine.''
-\item \textbf{Attribute the latency (Q3).} The trace waterfall for the
-  affected scenario highlights the critical path; the bottleneck hop,
-  charged by self-time, lands on the same node.
-\item \textbf{Reach the culprit (Q1).} Clicking the offending agent in
-  the scenario graph opens its conversation (the actual turns, retries
-  and costs of the misbehaving agent), completing the pivot from fleet
-  symptom to a single conversation in two clicks.
-\item \textbf{Remember (Q5).} Re-running the same fault and re-scanning
-  badges the incident \texttt{recurring $\times N$}: the second
-  occurrence is recognized, not rediscovered.
-\end{enumerate}
+The observed localization path runs one view per operator question. A
+Doctor scan returns not hundreds of error rows but a short ranked list:
+one incident aggregating the storm (count in the hundreds, blast radius
+naming the affected hosts and sessions, root cause and remediation
+attached) and one \emph{critical} orphan-call incident for the hung
+delegation, invisible in any per-edge view because its signature is an
+absence (Q2). The fleet heatmap turns ``the fleet looks unhealthy'' into
+``it is this machine'': one red cell among ok nodes (Q4). The trace
+waterfall for the affected scenario charges the bottleneck hop by
+self-time, landing on that same node (Q3). Clicking the offending agent
+opens its conversation, the actual turns, retries and costs behind the
+symptom, completing the pivot in two clicks (Q1). Re-running the fault
+and re-scanning badges the incident \texttt{recurring $\times N$}: the
+second occurrence is recognized, not rediscovered (Q5).
 
 \paragraph{Timed comparison.} The path above was then measured as a
 controlled exercise on the live 8-node deployment. Faults were injected
@@ -478,7 +482,7 @@ Human                 & raw logs  & \multicolumn{3}{c}{abandoned at ${\sim}$5--1
 LLM agent (supplementary) & raw logs & \multicolumn{3}{c}{44\,s wall-clock, 4 commands} & 3/3 correct \\
 \bottomrule
 \end{tabular}
-\caption{Timed diagnosis of the injected fault, $n{=}1$ operator
+\caption[Timed diagnosis of the injected fault]{Timed diagnosis of the injected fault, $n{=}1$ operator
 (first-ever exposure to the task). Dashboard trials repeat the same
 questions, so passes 2--3 measure a practiced operator. The raw-log
 attempt ran \emph{after} the dashboard trials (answer leakage, if
@@ -520,7 +524,7 @@ class (amber, dashed, badged \emph{never completed}) across the
 scenario graph, the edge detail panel, and the trace waterfall, and
 hung flows outrank errors in edge selection; the pathology that cost
 the operator their one wrong pick is now the most visually distinct
-element on screen.
+element on screen (Figure~\ref{fig:ui-orphan}).
 
 \section{Discussion and Limitations}
 \label{sec:eval-limitations}

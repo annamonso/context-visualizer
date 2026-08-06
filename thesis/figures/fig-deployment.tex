@@ -1,0 +1,52 @@
+% What actually runs where on a SLURM allocation. Drawn from the four-node
+% deployment used for the recorded walkthrough (\S5): every node carries the
+% same per-node process set; the singleton components sit on named nodes.
+\begin{tikzpicture}[
+    font=\footnotesize, >=Stealth,
+    node distance=0pt,
+    nd/.style={draw, rounded corners=3pt, align=center, inner sep=5pt,
+               text width=3.15cm, fill=black!3},
+    proc/.style={draw, rounded corners=1.5pt, font=\scriptsize, inner sep=2pt,
+                 text width=2.75cm, align=center, fill=white},
+    single/.style={proc, fill=black!12},
+    store/.style={draw, rounded corners=2pt, align=center, inner sep=4pt,
+                  fill=black!8, text width=13.6cm},
+    ttl/.style={font=\scriptsize\bfseries},
+    note/.style={font=\scriptsize\itshape, text=black!60, align=center},
+  ]
+
+  % ------------------------------------------------------------ the allocation
+  \node[note] at (6.8,3.35) {one SLURM allocation of $M$ nodes ($M=4$ shown)};
+
+  \foreach \i/\x/\name/\extra in {%
+      0/0.0/$n_1$/visor,
+      1/3.5/$n_2$/dashboard,
+      2/7.0/$n_3$/{},
+      3/10.5/$n_4$/{grapher $+$ player}%
+  } {
+    \node[nd, anchor=north west, minimum height=3.45cm] (N\i) at (\x,2.9) {};
+    \node[ttl, anchor=north] at ([yshift=-3pt]N\i.north) {compute node \name};
+    \node[proc, anchor=north] (ag\i) at ([yshift=-19pt]N\i.north) {$K$ LLM agents};
+    \node[proc, anchor=north] (co\i) at ([yshift=-3pt]ag\i.south) {collector \texttt{:5650}};
+    \node[proc, anchor=north] (cw\i) at ([yshift=-3pt]co\i.south) {capture worker};
+    \node[proc, anchor=north] (ke\i) at ([yshift=-3pt]cw\i.south) {ChronoLog \textbf{keeper}};
+    \ifx\extra\empty\else
+      \node[single, anchor=north] at ([yshift=-3pt]ke\i.south) {\extra};
+    \fi
+    % agent -> collector -> keeper, the node-local write path
+    \draw[->, black!65] (ag\i.south) -- (co\i.north);
+    \draw[->, black!65] (co\i.south) -- ([xshift=-8pt]cw\i.north);
+    \draw[->, black!65] (cw\i.south) -- (ke\i.north);
+  }
+
+  % ------------------------------------------------------------ shared storage
+  \node[store, anchor=north] (arch) at (6.8,-1.05)
+    {shared storage --- the grapher's read-optimized archive (CSV/HDF5 tiers)};
+  % from the node box itself, so the arrow never crosses a singleton card
+  \foreach \i in {0,1,2,3} {
+    \draw[->, black!45, densely dashed] (N\i.south) -- (N\i.south |- arch.north);
+  }
+
+  \node[note, anchor=north] at (6.8,-1.95)
+    {every append is node-local (S6); nothing on an agent's fast path leaves its own machine (R5)};
+\end{tikzpicture}

@@ -1,0 +1,70 @@
+% The two-path capture architecture: one substrate, two read paths.
+% Replaces the earlier exported PNG; kept in TikZ so the tab set stays in
+% sync with the implementation (five views, memory as a per-agent panel).
+\begin{tikzpicture}[
+    font=\footnotesize, >=Stealth,
+    box/.style={draw, rounded corners=2pt, align=center, inner sep=3.5pt},
+    cold/.style={box, fill=black!5},
+    hot/.style={box, fill=black!14},
+    lbl/.style={font=\scriptsize\itshape, align=left},
+    ar/.style={->, thick, black!70},
+    arh/.style={->, thick, black!45, densely dashed},
+  ]
+
+  % ------------------------------------------------ producers
+  \node[box, minimum width=14.6cm] (agents) at (7.6,7.35)
+    {\textbf{compute node} (one of $M$): $K$ LLM agents \textbar{}
+     node-local ChronoLog keeper \textbar{} collector \textbar{} capture worker};
+
+  % ------------------------------------------------ path A (left)
+  \node[lbl] at (1.30,6.60) {Path-A: turns, memory deltas};
+  \node[box, text width=6.0cm] (spool) at (4.30,5.70)
+    {node-local \textbf{spool}\\
+     append-only JSONL, one file per (session, kind)};
+  \node[box, text width=6.0cm] (worker) at (4.30,4.20)
+    {\textbf{capture worker}\\
+     drains; dedup by high-water mark};
+
+  % ------------------------------------------------ path B (right)
+  \node[lbl] at (8.55,6.60) {Path-B: delegation \texttt{start}/\texttt{done}};
+  \node[box, text width=6.0cm] (coll) at (11.55,5.70)
+    {per-node \textbf{collector}\\
+     stamps, persists, fans out};
+  \node[hot, text width=6.0cm] (fwd) at (11.55,4.20)
+    {\textbf{live forward} at ingest\\
+     flagged, so it is never persisted twice};
+
+  % ------------------------------------------------ the two stores
+  \node[cold, text width=7.0cm] (cl) at (4.30,2.30)
+    {\textbf{ChronoLog} --- the \textsc{cold} path\\
+     keeper per node $\to$ grapher $\to$ archive\\
+     complete, ordered, durable; readable only\\
+     after the 20--30\,s drain (C1)};
+  \node[hot, text width=5.0cm] (hs) at (12.10,2.30)
+    {\textbf{hot store + SSE bus} --- the \textsc{hot} path\\
+     written at ingest, before acceptance;\\
+     in-process, instant, never blocks (C2)};
+
+  % ------------------------------------------------ dashboard
+  \node[box, minimum width=14.6cm] (dash) at (7.6,0.35)
+    {\textbf{dashboard} (pure reader) --- five views over one event stream:
+     \ Scenarios \textbar{} Health \textbar{} Cluster \textbar{} Fleet
+     \textbar{} Traces\\[1pt]
+     \scriptsize a clicked agent opens its conversation and its
+     working-memory panel, both Path-A};
+
+  % ------------------------------------------------ edges
+  \draw[ar] (agents.south -| spool) -- (spool.north);
+  \draw[ar] (agents.south -| coll) -- (coll.north);
+  \draw[ar] (spool) -- (worker);
+  \draw[ar] (coll) -- (fwd);
+  \draw[ar] (worker.south) -- (worker.south |- cl.north);
+  \draw[ar] (fwd.south) -- (fwd.south |- hs.north);
+  % the collector's durable write goes to the node-local keeper (cold)
+  \draw[ar] (coll.west) -- ++(-0.30,0) |- (cl.east);
+  % the spool doubles as Path-A's hot store: Health and memory panels read it
+  \draw[arh] (spool.west) -- ++(-0.55,0) |- (dash.west);
+  % stores to dashboard
+  \draw[ar] (cl.south) -- (cl.south |- dash.north);
+  \draw[ar] (hs.south) -- (hs.south |- dash.north);
+\end{tikzpicture}

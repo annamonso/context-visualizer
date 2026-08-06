@@ -28,38 +28,38 @@ recorded observations.
 
 Lamport's insight is that such reconstruction turns not on wall-clock
 simultaneity but on \emph{causality}, captured by the
-\emph{happened-before} relation~\cite{lamport1978time}: event $a$
-happened before event $b$ if they occur in that order in the same process, or
-if $a$ is the sending of a message that $b$ receives, or transitively through
-a chain of such steps (Figure~\ref{fig:hb}). Happened-before is a partial
-order (some event pairs are simply concurrent), and it is the order
-that determines whether one event could have influenced another: in
-Figure~\ref{fig:hb}, $a$ happened before $d$ through the chain
-$a \to c \to e \to d$, while $b$ and $e$ are concurrent: no causal path
-connects them, even though $b$ occurs later in wall-clock time.
-
-\begin{figure}[t]
-  \centering
-  \input{figures/fig-happened-before}
-  \caption{A space-time diagram of three processes exchanging messages
-  $m_1$--$m_3$. Causality flows along process lines and messages:
-  $a \rightarrow c \rightarrow e \rightarrow d$ is a causal chain, so $a$
-  \emph{happened before} $d$; $b$ and $e$ are \emph{concurrent} (neither
-  could have influenced the other), despite $b$ being later on the wall
-  clock.}
-  \label{fig:hb}
-\end{figure}
-
-Logical and vector
+\emph{happened-before} relation~\cite{lamport1978time}: $a$ precedes $b$ if
+they occur in that order in one process, if $a$ sends a message $b$ receives,
+or transitively through a chain of such steps
+(Figure~\ref{fig:happenedbefore}). It is a \emph{partial} order, and it is
+the order that determines whether one event could have influenced another: an
+event later on the wall clock may be causally unrelated to an earlier one,
+and no amount of clock accuracy will connect them. Logical and vector
 clocks~\cite{lamport1978time,fidge1988timestamps,mattern1989virtual} make
 this order computable
 from local information; alternatively, when all events carry timestamps from
 reasonably synchronized physical clocks and land in one ordered store, causal
 chains follow from timestamps plus application-level correlation identifiers.
 
+\begin{figure}[t]
+  \centering
+  \resizebox{0.78\linewidth}{!}{\input{figures/fig-happened-before}}
+  \caption[Happened-before as a partial order]{Happened-before as a partial
+  order. Within a process, time runs left to right; the arrows $m_1$--$m_3$
+  are messages. The chain $a \to c \to e \to d$ is causal, and so is
+  $a \to c \to e \to f$, because each step is either a step within one
+  process or the delivery of a message. Event $b$ is \emph{concurrent} with
+  $c$, $d$, $e$ and $f$: no chain reaches it and none leaves it, so no
+  ordering between them is defined, however their wall-clock times compare.
+  This is the structure a multi-agent execution already has, with
+  delegations as the messages (\S\ref{sec:bg-agent-loop}).}
+  \label{fig:happenedbefore}
+\end{figure}
+
 The corollary this thesis leans on is that the
 \emph{event log}, an append-only sequence of timestamped, attributed
-events, is the canonical representation of distributed execution. A log
+events, is the canonical representation of distributed execution
+(Figure~\ref{fig:happenedbefore}). A log
 captures exactly what each process observed and when; every richer structure
 (a request trace, a communication graph, a health summary) is a fold over it.
 
@@ -113,19 +113,17 @@ infrastructure (the RPC library) rather than applications. Second, complete
 capture at scale is considered infeasible, so Dapper samples aggressively
 (uniformly, in its default scheme).
 
-Subsequent systems relaxed different assumptions. The Mystery
-Machine~\cite{chow2014mystery} showed that when explicit propagation is
-unavailable, the causal model itself can be \emph{inferred}: from large
-numbers of logged executions, it hypothesizes happened-before relationships
-and prunes those contradicted by observed orderings. Pivot
-Tracing~\cite{mace2015pivot} made tracing \emph{dynamic}: operators install
-queries at runtime that propagate context along the execution's causal path
-(the ``baggage'' abstraction), answering questions that were never
-pre-instrumented. Canopy~\cite{kaldor2017canopy} scaled the pipeline
-end-to-end at Facebook, emphasizing that raw traces are not what engineers
-consume: traces are transformed into feature-indexed datasets that back
-purpose-built views. More recently, systems such as Pixie~\cite{pixie} pushed
-capture into the platform itself via eBPF, trading application-level
+Subsequent systems relaxed different assumptions, and four moves matter
+here. The Mystery Machine~\cite{chow2014mystery} showed that when explicit
+propagation is unavailable, the causal model itself can be \emph{inferred}
+from large numbers of logged executions, by hypothesizing happened-before
+relationships and pruning those contradicted by observed orderings. Pivot
+Tracing~\cite{mace2015pivot} made tracing \emph{dynamic}, with queries
+installed at runtime that propagate context along the causal path.
+Canopy~\cite{kaldor2017canopy} scaled the pipeline at Facebook, emphasizing
+that raw traces are not what engineers consume: they are transformed into
+feature-indexed datasets backing purpose-built views. Pixie~\cite{pixie}
+pushed capture into the platform via eBPF, trading application-level
 semantics for zero-touch deployment.
 
 \subsection{Critical-Path Analysis and Self-Time}
@@ -153,7 +151,7 @@ opportunities at Facebook~\cite{chow2014mystery}.
 \begin{figure}[t]
   \centering
   \input{figures/fig-critical-path}
-  \caption{A trace rendered as a waterfall. Grey spans form the critical
+  \caption[A trace waterfall: critical path and self-time]{A trace rendered as a waterfall. Grey spans form the critical
   path $A \rightarrow C \rightarrow C_2$, the chain that determines
   end-to-end latency; white spans ($B$, $C_1$) overlap it and cannot
   shorten the request. Each hop is charged its \emph{self-time}: $C$'s
@@ -172,23 +170,17 @@ the bottleneck hop by self-time.
 \label{sec:bg-sampling}
 
 Dapper's sampling assumption does not transfer cleanly to the LLM-agent
-setting. Head-based sampling (deciding at trace start) keeps coherent
-traces but misses rare failures by construction. Tail-based sampling
-(deciding at trace end) must buffer every trace until its fate is known.
-At fleet scale that reintroduces the data-volume problem sampling was
-meant to solve, and it requires reassembling spans scattered across many
-hosts before the keep/drop decision can be made.
-LLM-agent workloads change the calculus in two ways.
-First, event rates are modest: an agent turn takes seconds and costs real
-money, so a fleet of hundreds of agents emits orders of magnitude fewer
-events than a microservice fleet emits RPCs\footnote{The arithmetic: a
-100-agent fleet at one turn per agent every few seconds produces tens of
-events per second; RPC tracing operates against request rates many orders
-of magnitude higher, which is why Dapper samples at all.}; complete
-capture is affordable. Second, the value of completeness is higher: each event is
-semantically rich (a full LLM interaction), failures are the rare
-events sampling discards, and post-hoc analyses such as cost accounting
-require totals, not estimates.
+setting. Head-based sampling (deciding at trace start) misses rare failures
+by construction; tail-based sampling (deciding at trace end) must buffer
+every trace until its fate is known, which at fleet scale reintroduces the
+data-volume problem sampling was meant to solve. LLM-agent workloads change
+the calculus in two ways. First, event rates are modest: an agent turn takes
+seconds and costs real money, so a 100-agent fleet produces tens of events
+per second where RPC tracing faces rates many orders of magnitude higher,
+which is why Dapper samples at all; complete capture is affordable. Second,
+the value of completeness is higher: each event is semantically rich, the
+failures are exactly the rare events sampling discards, and cost accounting
+requires totals, not estimates.
 
 \emph{Used in this thesis:} the system captures completely and treats
 storage, not sampling, as the scaling lever, pushing the volume problem
@@ -205,7 +197,7 @@ incidental to the tracing model. A complementary line of work treats the
 formulation~\cite{kreps2013log} argues that an append-only, totally ordered
 log is the natural integration point for distributed data systems: producers
 append, consumers read at their own pace, and the log's order \emph{is} the
-system's notion of time (Figure~\ref{fig:sharedlog}).
+system's notion of time.
 Kafka~\cite{kreps2011kafka} industrialized this as
 partitioned commit logs (replication followed in later versions); CORFU~\cite{balakrishnan2012corfu}
 showed that a shared log can be a first-class distributed primitive:
@@ -215,33 +207,35 @@ machines and transactional systems built above it.
 
 \begin{figure}[t]
   \centering
-  \input{figures/fig-shared-log}
-  \caption{The shared-log abstraction. Producers append at the tail;
-  an event's position in the log is its permanent place in history.
-  Readers consume independently at their own offsets, imposing no
-  back-pressure on producers or on each other.}
+  \resizebox{0.84\linewidth}{!}{\input{figures/fig-shared-log}}
+  \caption[The shared-log abstraction]{The shared-log abstraction. Producers
+  append at the tail and readers consume at independently held offsets, so a
+  reader can be slow, restart, or replay from the beginning without any
+  producer noticing. Position in the log \emph{is} the order of history,
+  which is what lets every view in this thesis be a fold over one sequence
+  rather than a separately maintained store.}
   \label{fig:sharedlog}
 \end{figure}
 
-Three properties of this abstraction matter for observability. First,
-\emph{node-local appends}: producers write to a nearby log segment, keeping
-the fast path off the network's critical path. Second, \emph{decoupled
-readers}: consumers impose no back-pressure on producers; an expensive
-analysis reads the same log as a cheap dashboard without perturbing capture.
-Third, \emph{durability with order}: once appended, an event's position,
-its place in history, is permanent, the property an audit trail of
-agent behavior needs.
+Three properties matter for observability
+(Figure~\ref{fig:sharedlog}): \emph{node-local appends} keep the producer's
+fast path off the network; \emph{decoupled readers} impose no back-pressure,
+so an expensive analysis and a cheap dashboard read the same log without
+perturbing capture; and \emph{durability with order} makes an event's place
+in history permanent, which is what an audit trail of agent behavior needs.
+Section~\ref{sec:problem-substrate} restates them as the contract the design
+actually depends on.
 
 The abstraction also has a characteristic trade-off: log stores are
 \emph{write-optimized}. Appends are fast because data lands in
 ingest-side buffers that are sealed, ordered, and moved to
-read-optimized storage asynchronously; a reader wanting the most recent
-events must either wait out this pipeline or read from a separate,
-freshness-oriented structure. Stream-processing architecture has long
-formalized the resulting design: the \emph{lambda architecture} pairs a
-durable, complete, high-latency batch path with a fast, approximate speed
-layer over the same event stream~\cite{marz2015big}. This trade-off, in
-ChronoLog's concrete form, drives a central design decision of this thesis
+read-optimized storage asynchronously, so a reader wanting the most recent
+events must either wait out that pipeline or read a separate,
+freshness-oriented structure. Stream-processing architecture formalized the
+resulting design as the \emph{lambda architecture}: a durable, complete,
+high-latency batch path beside a fast, approximate speed layer over the same
+event stream~\cite{marz2015big}. This trade-off drives a central design
+decision of this thesis
 (\S\ref{sec:bg-chronolog-design}, Chapter~\ref{chap:design}).
 
 \emph{Used in this thesis:} the shared log is the single substrate
@@ -272,7 +266,7 @@ archival pipeline of \emph{grapher} and \emph{player} processes.
 \begin{figure}[t]
   \centering
   \input{figures/fig-chronolog-arch}
-  \caption{ChronoLog's architecture. A keeper on every compute node takes
+  \caption[ChronoLog's architecture: visor, keepers, grapher, player]{ChronoLog's architecture. A keeper on every compute node takes
   node-local appends into memory (the ingest tier); the visor coordinates
   clients; the grapher asynchronously drains, merges, and time-orders
   sealed chunks into a read-optimized archive. The drain imposes an
@@ -320,27 +314,23 @@ session or entity, and events carry the individual observations
 
 ChronoLog's design point is high-throughput, low-latency \emph{ingest}:
 appends land in the node-local keeper's memory and return. The price is paid
-on the read side, in two forms that this thesis measures and designs around.
-First, the keeper$\to$grapher drain imposes an \emph{acceptance window}
-during which freshly appended events are held in ingest buffers and are
-not yet readable from the archive: in the deployments used here the
-keeper seals 10\,s chunks under a 15\,s acceptance window, for a
-measured end-to-end availability of 20--30\,s
-(\S\ref{sec:eval-freshness}); the grapher and player are configured
-with a longer, 180\,s window. Second, a live replay can be not merely
-stale but \emph{blocking}: a read that the player cannot answer holds
-the client (and, in a Python client holding the global interpreter
-lock, the entire calling process) for the full ${\sim}180$\,s query
-timeout. A reader architecture built naively on such a
-substrate freezes exactly when it is most interesting: while the system is
-live.
+on the read side. The keeper$\to$grapher drain imposes an \emph{acceptance
+window} during which freshly appended events are held in ingest buffers and
+are not yet readable from the archive: in the deployments used here the
+keeper seals 10\,s chunks under a 15\,s acceptance window, for a measured
+end-to-end availability of 20--30\,s (\S\ref{sec:eval-freshness}), while the
+grapher and player run with a longer, 180\,s window.
 
 This is not a defect but the standard write-optimized trade-off of
 \S\ref{sec:bg-log} in concrete form, and it dictates the read-side
 architecture of Chapter~\ref{chap:design}: ChronoLog serves as the durable,
 complete cold path, while real-time views are fed by a hot path populated at
 ingest. That is the lambda split, with the acceptance window as the boundary
-between the layers.
+between the layers. Two further properties of the deployed system, the
+blocking behavior of a read that lands inside the window and the absence of
+a catalog operation, shape the design just as strongly;
+\S\ref{sec:design-constraints} states all three together, where the
+responses to them belong.
 
 \section{LLM Agents and Multi-Agent Systems}
 \label{sec:bg-agents}
@@ -348,20 +338,19 @@ between the layers.
 \subsection{The Agent Loop, Tool Use, and Delegation}
 \label{sec:bg-agent-loop}
 
-An LLM \emph{agent} is a program that couples a language model to an
+An LLM \emph{agent} couples a language model to an
 environment through a loop (Figure~\ref{fig:agentloop}a): the model is
 prompted with a goal and a transcript of prior steps; it emits either a
 final answer or an \emph{action}, a call to an external tool; the tool's
-result is appended to the transcript; and the loop repeats. The pattern was
-crystallized by ReAct~\cite{yao2023react}, which interleaves free-form
-reasoning with structured actions. The unit of execution is the
+result is appended to the transcript; and the loop repeats, a pattern
+crystallized by ReAct~\cite{yao2023react}. The unit of execution is the
 \emph{turn}: one model invocation, with its prompt, response, latency, and
-token consumption.
+token consumption. It is the unit this thesis captures.
 
 \begin{figure}[t]
   \centering
   \input{figures/fig-agent-loop}
-  \caption{(a) The agent loop: each cycle through the LLM is one
+  \caption[The agent loop and multi-agent delegation]{(a) The agent loop: each cycle through the LLM is one
   \emph{turn}, appending the tool's observation to the agent's context.
   (b) Multi-agent delegation: once agents are tools, agent $A$ calls agent
   $B$ (possibly on another node), which calls $C$ in turn, each call a
@@ -390,11 +379,21 @@ The observable surface of an agent fleet has two planes. The
 \emph{intra-agent} plane is the sequence of LLM turns: prompt and response
 content, model identity, latency, token counts, and (unusual among
 workloads) direct monetary cost per event, since providers bill per token.
-It also includes the agent's \emph{working memory}: the context assembled for
-each turn, which grows as results accumulate and shrinks under eviction and
-summarization when the model's context window fills. Memory dynamics are an
-operational signal in their own right: an agent nearing its context limit
-degrades before it fails. The \emph{inter-agent} plane is the set of
+It also includes the agent's \emph{retained context}: the set of messages,
+tool results, and retrieved material assembled into each turn's prompt,
+which grows as results accumulate and shrinks under eviction and
+summarization when the model's context window fills. A terminological note,
+since the alternative is common enough to cause confusion: the agent
+literature often calls this the agent's \emph{working memory}, by analogy
+with the cognitive-psychology construct. This thesis avoids that name and
+uses \emph{retained context} throughout, because the analogy imports
+connotations the mechanism does not have. Nothing is remembered; the
+retained context is simply the material the next prompt will be assembled
+from, and an entry leaves it when an eviction policy drops it, not when
+anything is forgotten. Its dynamics are nonetheless an operational signal in
+their own right: an agent nearing its context limit degrades before it
+fails, and the additions and evictions are therefore captured as events
+(\S\ref{sec:design-mapping}). The \emph{inter-agent} plane is the set of
 delegation calls: which agent called which, when the call started and
 finished, whether it succeeded, and how calls nest. This is the plane from
 which scenario structure, communication topology, and cross-host traces are
@@ -503,7 +502,7 @@ single agent's conversation and back.
 \begin{figure}[t]
   \centering
   \input{figures/fig-quadrant}
-  \caption{The observability landscape for multi-agent LLM systems on
+  \caption[The observability landscape and its empty quadrant]{The observability landscape for multi-agent LLM systems on
   clusters, along its two capability axes. Camp 1 and Camp 2 each occupy
   one off-diagonal quadrant; their intersection (agent semantics coupled
   to physical fleet topology) is unoccupied among the surveyed tools,
@@ -530,8 +529,7 @@ which no interface can repair: a view over data that lacks the join
 cannot invent it.
 The gap therefore calls for a single substrate in which agent-semantic
 events are natively attributed to physical nodes: what the
-shared-log approach of \S\ref{sec:bg-log}, instantiated on ChronoLog's
+shared-log approach of \S\ref{sec:bg-log}, on ChronoLog's
 keeper-per-node architecture (\S\ref{sec:bg-chronolog}), provides by
-construction. Designing the capture, read, and analysis layers that turn
-that substrate into a working observability system is the subject of the
-remainder of this thesis.
+construction. Turning that substrate into a working observability system
+is the subject of the rest of this thesis.
