@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
-import WorkspacePage from "./pages/WorkspacePage";
 import ScenarioPage from "./pages/ScenarioPage";
-import InteractionsPage from "./pages/InteractionsPage";
+import HealthPage from "./pages/HealthPage";
 import ClusterPage from "./pages/ClusterPage";
-import MemoryPage from "./pages/MemoryPage";
-import DoctorPage from "./pages/DoctorPage";
 import FleetPage from "./pages/FleetPage";
 import TracesPage from "./pages/TracesPage";
 import Toast, { type ToastState } from "./components/ui/Toast";
@@ -12,54 +9,47 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { getConfig, getClusterCapacity, type ClusterCapacity } from "./api";
 
 type Tab =
-  | "workspace"
   | "scenarios"
-  | "interactions"
+  | "health"
   | "cluster"
-  | "memory"
-  | "doctor"
   | "fleet"
   | "traces";
 
-// Each tab maps to the backend capability that powers it. A tab is only shown
-// when an active adapter provides its capability (see /api/config). On a bare
-// ChronoLog deployment all of them are present.
-const TAB_CAPABILITY: Record<Tab, string> = {
-  workspace: "conversations",
-  scenarios: "scenarios",
-  interactions: "interactions",
-  cluster: "cluster",
-  memory: "provenance",
-  doctor: "diagnostics",
-  fleet: "fleet",
-  traces: "tracing",
+// Each tab maps to the backend capabilities that power it. A tab is shown
+// when an active adapter provides ANY of its capabilities (see /api/config).
+// On a bare ChronoLog deployment all of them are present. Health is the
+// merged Interactions + Doctor view, so either capability lights it up.
+const TAB_CAPABILITY: Record<Tab, string[]> = {
+  scenarios: ["scenarios"],
+  health: ["interactions", "diagnostics"],
+  cluster: ["cluster"],
+  fleet: ["fleet"],
+  traces: ["tracing"],
 };
 
 const ALL_TABS: Tab[] = [
-  "workspace",
   "scenarios",
-  "interactions",
+  "health",
   "cluster",
   "fleet",
-  "doctor",
   "traces",
-  "memory",
 ];
 
 function getInitialTab(): Tab {
   const params = new URLSearchParams(window.location.search);
   const v = params.get("tab");
   if (v && (ALL_TABS as string[]).includes(v)) return v as Tab;
-  return "workspace";
+  // Legacy deep links from before the tab merges. Memory's per-agent view
+  // lives on inside the Scenarios node inspector (Context tab).
+  if (v === "interactions" || v === "doctor") return "health";
+  if (v === "memory" || v === "workspace") return "scenarios";
+  return "scenarios";
 }
 
 /**
- * Workspace shell. Intentionally trimmed vs. the upstream reference
- * (agent-interception's App.tsx): the raw-log modal, clear-interactions
- * button, and their dependencies (InteractionsTable, InteractionDrawer,
- * ClearModal) were not ported. This view is purely for multi-agent
- * conversation inspection; destructive interactions-log operations stay
- * out of the workspace UI.
+ * Dashboard shell. Scenarios is the home tab; per-node/per-agent traffic
+ * (the old Workspace page) now opens as a pop-up inspector from the
+ * scenario topology, so there is no separate Workspace tab.
  *
  * Theme: handled globally by the Flask base.html navbar. The SPA reads
  * the current palette from `data-theme` on <html>, which the base layout
@@ -96,7 +86,9 @@ export default function App() {
       .then((cfg) => {
         if (cancelled) return;
         const caps = cfg.capabilities ?? {};
-        const allowed = ALL_TABS.filter((t) => caps[TAB_CAPABILITY[t]]?.length);
+        const allowed = ALL_TABS.filter((t) =>
+          TAB_CAPABILITY[t].some((c) => caps[c]?.length),
+        );
         if (allowed.length) setEnabledTabs(allowed);
       })
       .catch(() => {
@@ -114,7 +106,7 @@ export default function App() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (tab === "workspace") params.delete("tab");
+    if (tab === "scenarios") params.delete("tab");
     else params.set("tab", tab);
     const qs = params.toString();
     const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
@@ -133,7 +125,7 @@ export default function App() {
             style={{ backgroundColor: "rgb(var(--accent))" }}
           />
           <span className="text-sm font-semibold tracking-tight whitespace-nowrap">
-            ChronoLog Observability
+            Prism Observability
           </span>
           <span className="hidden sm:inline text-[10px] uppercase tracking-widest text-fg-muted whitespace-nowrap">
             multi-agent context visualizer
@@ -141,14 +133,11 @@ export default function App() {
         </div>
         <CapacityBadge cap={capacity} />
         <nav className="flex items-stretch self-stretch text-xs">
-          {enabledTabs.includes("workspace") && (
-            <TabButton label="Workspace"    active={tab === "workspace"}    onClick={() => setTab("workspace")} />
-          )}
           {enabledTabs.includes("scenarios") && (
             <TabButton label="Scenarios"    active={tab === "scenarios"}    onClick={() => setTab("scenarios")} />
           )}
-          {enabledTabs.includes("interactions") && (
-            <TabButton label="Interactions" active={tab === "interactions"} onClick={() => setTab("interactions")} />
+          {enabledTabs.includes("health") && (
+            <TabButton label="Health"       active={tab === "health"}       onClick={() => setTab("health")} />
           )}
           {enabledTabs.includes("cluster") && (
             <TabButton label="Cluster"      active={tab === "cluster"}      onClick={() => setTab("cluster")} />
@@ -156,14 +145,8 @@ export default function App() {
           {enabledTabs.includes("fleet") && (
             <TabButton label="Fleet"        active={tab === "fleet"}        onClick={() => setTab("fleet")} />
           )}
-          {enabledTabs.includes("doctor") && (
-            <TabButton label="Doctor"       active={tab === "doctor"}       onClick={() => setTab("doctor")} />
-          )}
           {enabledTabs.includes("traces") && (
             <TabButton label="Traces"       active={tab === "traces"}       onClick={() => setTab("traces")} />
-          )}
-          {enabledTabs.includes("memory") && (
-            <TabButton label="Memory"       active={tab === "memory"}       onClick={() => setTab("memory")} />
           )}
         </nav>
       </header>
@@ -171,71 +154,27 @@ export default function App() {
       <main className="flex-1 min-h-0">
         <ErrorBoundary
           label={
-            tab === "scenarios"
-              ? "Scenarios"
-              : tab === "interactions"
-                ? "Interactions"
-                : tab === "cluster"
-                  ? "Cluster"
-                  : tab === "fleet"
-                    ? "Fleet"
-                    : tab === "doctor"
-                      ? "Doctor"
-                      : tab === "traces"
-                        ? "Traces"
-                        : tab === "memory"
-                          ? "Memory"
-                          : "Workspace"
+            tab === "health"
+              ? "Health"
+              : tab === "cluster"
+                ? "Cluster"
+                : tab === "fleet"
+                  ? "Fleet"
+                  : tab === "traces"
+                    ? "Traces"
+                    : "Scenarios"
           }
         >
-          {tab === "scenarios" ? (
-            <ScenarioPage
-              onOpenAgent={(agentId) => {
-                // Seed ?conv=<agentId> before flipping tabs so WorkspacePage
-                // reads the right conversation on mount.
-                const params = new URLSearchParams(window.location.search);
-                params.set("conv", agentId);
-                params.delete("host");
-                params.delete("hostScenario");
-                params.delete("tab");
-                params.delete("scenario");
-                const qs = params.toString();
-                const url = qs
-                  ? `${window.location.pathname}?${qs}`
-                  : window.location.pathname;
-                window.history.replaceState(null, "", url);
-                setTab("workspace");
-              }}
-              onOpenHost={(host, scenarioId) => {
-                // Host mode: WorkspacePage merges every agent on the node.
-                const params = new URLSearchParams(window.location.search);
-                params.set("host", host);
-                params.set("hostScenario", scenarioId);
-                params.delete("conv");
-                params.delete("tab");
-                params.delete("scenario");
-                const qs = params.toString();
-                const url = qs
-                  ? `${window.location.pathname}?${qs}`
-                  : window.location.pathname;
-                window.history.replaceState(null, "", url);
-                setTab("workspace");
-              }}
-            />
-          ) : tab === "interactions" ? (
-            <InteractionsPage />
+          {tab === "health" ? (
+            <HealthPage />
           ) : tab === "cluster" ? (
             <ClusterPage />
           ) : tab === "fleet" ? (
             <FleetPage />
-          ) : tab === "doctor" ? (
-            <DoctorPage />
           ) : tab === "traces" ? (
             <TracesPage />
-          ) : tab === "memory" ? (
-            <MemoryPage />
           ) : (
-            <WorkspacePage />
+            <ScenarioPage />
           )}
         </ErrorBoundary>
       </main>

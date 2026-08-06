@@ -6,26 +6,15 @@ import ScenarioList from "../components/workspace/ScenarioList";
 import ScenarioDetailPanel, {
   type DetailSelection,
 } from "../components/workspace/ScenarioDetailPanel";
+import NodeInspectorModal, {
+  type InspectTarget,
+} from "../components/workspace/NodeInspectorModal";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { getScenarioGraph } from "../api";
+import { formatTokens } from "../lib/format";
 import DemoBurstButton from "../components/DemoBurstButton";
 import { useLiveScenario } from "../hooks/useLiveScenario";
 import type { ScenarioGraph } from "../types";
-
-interface Props {
-  /**
-   * Called when the user clicks an agent node. Caller is responsible for
-   * navigating to the Workspace tab with ``conv`` set to ``agentId`` (i.e. the
-   * base session id). Keeping navigation in the parent means App.tsx owns
-   * the tab state.
-   */
-  onOpenAgent?: (agentId: string) => void;
-  /**
-   * Called when the user clicks a host node — navigates to the Workspace in
-   * host mode, showing every agent on that node (calls, tools, LLM turns).
-   */
-  onOpenHost?: (host: string, scenarioId: string) => void;
-}
 
 /** Wall-clock seconds a full scenario replay takes at 1× speed. */
 const REPLAY_SECONDS = 20;
@@ -63,7 +52,7 @@ function useScenario(scenarioId: string | null) {
   return { graph, loading, error };
 }
 
-export default function ScenarioPage({ onOpenAgent, onOpenHost }: Props) {
+export default function ScenarioPage() {
   const [scenarioId, setScenarioId] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("scenario");
@@ -105,8 +94,12 @@ export default function ScenarioPage({ onOpenAgent, onOpenHost }: Props) {
 
   // Detail-panel selection — reset when the loaded scenario changes.
   const [selection, setSelection] = useState<DetailSelection>(null);
+  // Node-inspector modal: clicking an agent or host in the topology opens
+  // the per-node traffic pop-up (the old Workspace view) in place.
+  const [inspect, setInspect] = useState<InspectTarget | null>(null);
   useEffect(() => {
     setSelection(null);
+    setInspect(null);
   }, [scenarioId]);
 
   // ── Replay: a playhead sweeping the scenario's time window ────────────
@@ -175,12 +168,11 @@ export default function ScenarioPage({ onOpenAgent, onOpenHost }: Props) {
   };
 
   const handleAgent = (agentId: string) => {
-    onOpenAgent?.(agentId);
+    setInspect({ kind: "agent", agentId });
   };
 
   const handleHost = (host: string) => {
-    if (onOpenHost && scenarioId) onOpenHost(host, scenarioId);
-    else setSelection({ kind: "host", host });
+    setInspect({ kind: "host", host });
   };
 
   const handleEdgeSelect = (correlationId: string) => {
@@ -191,9 +183,9 @@ export default function ScenarioPage({ onOpenAgent, onOpenHost }: Props) {
 
   const openAgentFromPanel = useMemo(
     () => (agentId: string) => {
-      onOpenAgent?.(agentId);
+      setInspect({ kind: "agent", agentId });
     },
-    [onOpenAgent],
+    [],
   );
 
   return (
@@ -393,15 +385,20 @@ export default function ScenarioPage({ onOpenAgent, onOpenHost }: Props) {
           onOpenAgent={openAgentFromPanel}
         />
       )}
+
+      {inspect && scenarioId && (
+        <NodeInspectorModal
+          target={inspect}
+          scenarioId={scenarioId}
+          scenarioGraph={graph}
+          onClose={() => setInspect(null)}
+        />
+      )}
     </div>
   );
 }
 
-function fmtK(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-  return String(n);
-}
+const fmtK = (n: number) => formatTokens(n);
 
 function Kpi({
   label,

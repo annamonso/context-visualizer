@@ -311,15 +311,35 @@ function EdgeRow({ e, direction }: { e: ScenarioEdge; direction: "out" | "in" })
 
 function EdgeDetail({ edge }: { edge: ScenarioEdge }) {
   const hasErr = (edge.status || "").startsWith("error");
-  const color = hasErr
-    ? "rgb(var(--role-error, 220 38 38))"
-    : "rgb(var(--role-subagent))";
+  // Never-completed classification (mirrors ScenarioFlowGraph): a start with
+  // no done-frame is open; open beyond 2 minutes it is hung — the orphan-call
+  // pathology, which must not read as either success or a completed error.
+  const startMs = edge.ts_start ? Date.parse(edge.ts_start) : NaN;
+  const isOpen = Boolean(edge.ts_start) && !edge.ts_done;
+  const isHung =
+    isOpen && Number.isFinite(startMs) && Date.now() - startMs > 120_000;
+  const color = isHung
+    ? "rgb(var(--role-orphan, 245 158 11))"
+    : hasErr
+      ? "rgb(var(--role-error, 220 38 38))"
+      : "rgb(var(--role-subagent))";
 
   return (
     <>
       <header className="px-4 py-3 border-b border-border-soft">
-        <div className="text-[10px] uppercase tracking-widest text-fg-muted">
+        <div className="text-[10px] uppercase tracking-widest text-fg-muted flex items-center gap-2">
           inter-agent call
+          {isHung && (
+            <span
+              className="normal-case tracking-normal font-semibold rounded px-1.5 py-0.5"
+              style={{
+                color: "rgb(var(--role-orphan, 245 158 11))",
+                border: "1px solid rgb(var(--role-orphan, 245 158 11))",
+              }}
+            >
+              ⚠ never completed
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 mt-1 flex-wrap">
           <span className="font-mono text-xs">{edge.from_session_id}</span>
@@ -335,8 +355,20 @@ function EdgeDetail({ edge }: { edge: ScenarioEdge }) {
 
       <section className="px-4 py-3 border-b border-border-soft grid grid-cols-2 gap-y-2 gap-x-4 text-xs tabular-nums">
         <Stat label="Tool" value={edge.tool_name || "—"} mono />
-        <Stat label="Status" value={edge.status || "—"} />
-        <Stat label="Latency" value={fmtLatency(edge.latency_ms)} />
+        <Stat
+          label="Status"
+          value={
+            isHung
+              ? "open — never completed"
+              : isOpen
+                ? "open — in flight"
+                : edge.status || "—"
+          }
+        />
+        <Stat
+          label="Latency"
+          value={isOpen ? "— (no completion frame)" : fmtLatency(edge.latency_ms)}
+        />
         <Stat label="Kind" value={edge.kind} />
       </section>
 
@@ -351,7 +383,8 @@ function EdgeDetail({ edge }: { edge: ScenarioEdge }) {
           </div>
           <div>
             <span className="text-fg-muted">done </span>{" "}
-            {edge.ts_done || "(not yet)"}
+            {edge.ts_done ||
+              (isHung ? "(never — no completion frame recorded)" : "(not yet)")}
           </div>
         </div>
       </section>

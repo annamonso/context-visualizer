@@ -58,6 +58,30 @@ const parseTs = (s: string | null): number => {
   return Number.isFinite(t) ? t : NaN;
 };
 
+/**
+ * Never-completed detection, shared by every edge-render path. An edge is
+ * open while it has a start and no completion frame; open beyond
+ * ORPHAN_AFTER_MS it is "hung" — the killed-delegation pathology
+ * PrismaDoctor reports as orphan_call — and must read as neither error-red
+ * (it did not fail; it vanished) nor success. `refMs` is the playhead
+ * during replay, wall-clock now otherwise.
+ */
+const ORPHAN_AFTER_MS = 120_000;
+type EdgeOpenState = "done" | "inflight" | "hung";
+const edgeOpenState = (
+  tsStart: string | null,
+  tsDone: string | null,
+  refMs: number,
+): EdgeOpenState => {
+  const done = parseTs(tsDone);
+  if (Number.isFinite(done)) return done <= refMs ? "done" : "inflight";
+  const start = parseTs(tsStart);
+  if (!Number.isFinite(start)) return "done";
+  return refMs - start > ORPHAN_AFTER_MS ? "hung" : "inflight";
+};
+const ORPHAN_COLOR = "rgb(var(--role-orphan, 245 158 11))";
+const ORPHAN_DASH = "2 4";
+
 const NODE_W = 200;
 const NODE_H = 110;
 const GROUP_PAD_X = 28;
@@ -75,23 +99,10 @@ const nodeTypes = {
   hostTile: HostTileNode,
 };
 
-/**
- * Evenly-spaced hue per host within a scenario. With N hosts we walk around
- * the color wheel in N equal steps, starting at a pleasant blue so the first
- * host isn't fire-engine red. Any two hosts in the same scenario are visibly
- * distinct regardless of how similar their hostnames look. (Only used in the
- * detailed view — at cluster scale color encodes health, not identity.)
- */
-function buildHostHueMap(hosts: Iterable<string>): Map<string, number> {
-  const unique = Array.from(new Set(hosts)).sort();
-  const step = 360 / Math.max(unique.length, 1);
-  const offset = 200; // start blue-ish
-  const map = new Map<string, number>();
-  unique.forEach((h, i) => {
-    map.set(h, Math.round((offset + i * step) % 360));
-  });
-  return map;
-}
+// Host colors come from the shared recipe so hosts look identical across the
+// topology, node inspector, and trace waterfall. (Only used in the detailed
+// view — at cluster scale color encodes health, not identity.)
+import { buildHostHueMap } from "../../lib/hostHue";
 
 function layoutDagreFlat(nodes: Node[], edges: Edge[]) {
   const g = new dagre.graphlib.Graph();
@@ -156,20 +167,21 @@ function buildHostView(graph: ScenarioGraph, playheadMs: number | null = null): 
     count: number;
     errCount: number;
     inFlight: number;
+    hung: number;
     correlationId: string;
   }
   const pairs = new Map<string, PairAgg>();
+  const refMs = playheadMs != null ? playheadMs : Date.now();
   for (const e of graph.edges) {
-    let inFlight = false;
     if (playheadMs != null) {
       const start = parseTs(e.ts_start);
       if (!Number.isFinite(start) || start > playheadMs) continue; // not happened yet
-      const done = parseTs(e.ts_done);
-      inFlight = !Number.isFinite(done) || done > playheadMs;
     }
+    const state = edgeOpenState(e.ts_start, e.ts_done, refMs);
+    const inFlight = state === "inflight";
     const fh = e.from_host || hostOf.get(e.from_session_id) || "unknown";
     const th = e.to_host || hostOf.get(e.to_session_id) || "unknown";
-    const isErr = (e.status || "").startsWith("error") && !inFlight;
+    const isErr = state === "done" && (e.status || "").startsWith("error");
     hostAgg(fh).msgsOut += 1;
     hostAgg(th).msgsIn += 1;
     if (isErr) {
@@ -180,12 +192,16 @@ function buildHostView(graph: ScenarioGraph, playheadMs: number | null = null): 
     const key = `${fh}__${th}`;
     let pair = pairs.get(key);
     if (!pair) {
-      pair = { from: fh, to: th, count: 0, errCount: 0, inFlight: 0, correlationId: e.correlation_id };
+      pair = { from: fh, to: th, count: 0, errCount: 0, inFlight: 0, hung: 0, correlationId: e.correlation_id };
       pairs.set(key, pair);
     }
     pair.count += 1;
     if (isErr) pair.errCount += 1;
     if (inFlight) pair.inFlight += 1;
+    if (state === "hung") {
+      pair.hung += 1;
+      pair.correlationId = e.correlation_id; // clicking a hung flow opens the orphan
+    }
   }
 
   // ── Grid layout: natural-sorted hosts on a near-square grid ──────────
@@ -221,8 +237,9 @@ function buildHostView(graph: ScenarioGraph, playheadMs: number | null = null): 
     };
   });
 
-  // ── Edges: failing flows first, then busiest, capped ─────────────────
+  // ── Edges: hung flows first, then failing, then busiest, capped ──────
   const ranked = Array.from(pairs.values()).sort((a, b) => {
+    if ((a.hung > 0) !== (b.hung > 0)) return (b.hung > 0 ? 1 : 0) - (a.hung > 0 ? 1 : 0);
     const aFailing = a.errCount >= 2 && a.errCount / a.count >= 0.25 ? 1 : 0;
     const bFailing = b.errCount >= 2 && b.errCount / b.count >= 0.25 ? 1 : 0;
     if (aFailing !== bFailing) return bFailing - aFailing;
@@ -230,19 +247,24 @@ function buildHostView(graph: ScenarioGraph, playheadMs: number | null = null): 
   });
   const drawn = ranked.slice(0, MAX_HOST_EDGES);
   // On a dense mesh, 150 "×N" labels are pure noise — keep labels only
-  // while the graph is sparse enough to read them, plus on failing flows.
+  // while the graph is sparse enough to read them, plus on failing/hung flows.
   const showLabels = drawn.length <= 60;
 
   const edges: Edge[] = drawn.map((p) => {
     // Red is reserved for flows that are *persistently* failing — a stray
-    // error among many calls shouldn't paint the whole cluster red.
+    // error among many calls shouldn't paint the whole cluster red. A hung
+    // flow (a call that started and never completed) outranks both: it is
+    // the orphan-call pathology, drawn in the dedicated orphan color.
     const failing = p.errCount >= 2 && p.errCount / p.count >= 0.25;
-    const live = p.inFlight > 0;
-    const color = live
-      ? "rgb(var(--accent))"
-      : failing
-        ? "rgb(var(--error))"
-        : "rgb(var(--fg-muted))";
+    const hung = p.hung > 0;
+    const live = !hung && p.inFlight > 0;
+    const color = hung
+      ? ORPHAN_COLOR
+      : live
+        ? "rgb(var(--accent))"
+        : failing
+          ? "rgb(var(--error))"
+          : "rgb(var(--fg-muted))";
     return {
       id: `hostedge__${p.from}__${p.to}`,
       source: `host__${p.from}`,
@@ -250,13 +272,21 @@ function buildHostView(graph: ScenarioGraph, playheadMs: number | null = null): 
       animated: live,
       style: {
         stroke: color,
-        strokeWidth: live ? 2.5 : Math.min(3, 1 + Math.log10(p.count)),
-        opacity: live ? 1 : failing ? 0.95 : 0.35,
+        strokeWidth: hung ? 2.5 : live ? 2.5 : Math.min(3, 1 + Math.log10(p.count)),
+        strokeDasharray: hung ? ORPHAN_DASH : undefined,
+        opacity: hung ? 1 : live ? 1 : failing ? 0.95 : 0.35,
         cursor: "pointer",
       },
-      label:
-        (showLabels || failing) && p.count > 1 ? `×${p.count}` : undefined,
-      labelStyle: { fill: "rgb(var(--fg-secondary))", fontSize: 10 },
+      label: hung
+        ? `⚠ ${p.hung} never completed`
+        : (showLabels || failing) && p.count > 1
+          ? `×${p.count}`
+          : undefined,
+      labelStyle: {
+        fill: hung ? ORPHAN_COLOR : "rgb(var(--fg-secondary))",
+        fontSize: 10,
+        fontWeight: hung ? 600 : undefined,
+      },
       labelBgStyle: { fill: "rgb(var(--bg-surface))" },
       markerEnd: { type: MarkerType.ArrowClosed, color, width: 14, height: 14 },
       data: { correlationId: p.correlationId },
@@ -352,14 +382,17 @@ export default function ScenarioFlowGraph({
         if (!e.from_session_id || !e.to_session_id) continue;
         const start = parseTs(e.ts_start);
         if (!Number.isFinite(start) || start > playheadMs) continue;
-        const done = parseTs(e.ts_done);
-        const inFlight = !Number.isFinite(done) || done > playheadMs;
-        const hasError = !inFlight && (e.status || "").startsWith("error");
-        const color = inFlight
-          ? "rgb(var(--accent))"
-          : hasError
-            ? "rgb(var(--role-error, 220 38 38))"
-            : "rgb(var(--role-subagent))";
+        const state = edgeOpenState(e.ts_start, e.ts_done, playheadMs);
+        const inFlight = state === "inflight";
+        const hung = state === "hung";
+        const hasError = state === "done" && (e.status || "").startsWith("error");
+        const color = hung
+          ? ORPHAN_COLOR
+          : inFlight
+            ? "rgb(var(--accent))"
+            : hasError
+              ? "rgb(var(--role-error, 220 38 38))"
+              : "rgb(var(--role-subagent))";
         edges.push({
           id: `ev__${e.event_id || e.correlation_id}`,
           source: e.from_session_id,
@@ -367,12 +400,12 @@ export default function ScenarioFlowGraph({
           animated: inFlight,
           style: {
             stroke: color,
-            strokeWidth: inFlight ? 2.5 : 1.5,
-            strokeDasharray: inFlight ? undefined : "6 4",
-            opacity: inFlight ? 1 : 0.3,
+            strokeWidth: inFlight || hung ? 2.5 : 1.5,
+            strokeDasharray: inFlight ? undefined : hung ? ORPHAN_DASH : "6 4",
+            opacity: inFlight || hung ? 1 : 0.3,
             cursor: "pointer",
           },
-          label: inFlight ? e.tool_name || "call" : undefined,
+          label: hung ? "⚠ never completed" : inFlight ? e.tool_name || "call" : undefined,
           labelStyle: { fill: "rgb(var(--fg-primary))", fontSize: 10 },
           labelBgStyle: { fill: "rgb(var(--bg-surface))" },
           markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
@@ -383,6 +416,11 @@ export default function ScenarioFlowGraph({
     }
 
     // ─── 2. Aggregate inter-agent edges (pair + direction) ───────────────
+    // Openness is classified against wall-clock now: an edge with a start
+    // and no completion frame is "open"; open past ORPHAN_AFTER_MS it is
+    // hung and rendered in the orphan class (previously it fell through to
+    // the success styling — the exact confusion the E4 case study hit).
+    const nowMs = Date.now();
     const edgeMap = new Map<
       string,
       {
@@ -391,6 +429,8 @@ export default function ScenarioFlowGraph({
         count: number;
         okCount: number;
         errCount: number;
+        hungCount: number;
+        hungCorrelationId: string;
         lastTs: string;
         tools: Set<string>;
       }
@@ -404,11 +444,17 @@ export default function ScenarioFlowGraph({
         count: 0,
         okCount: 0,
         errCount: 0,
+        hungCount: 0,
+        hungCorrelationId: "",
         lastTs: "",
         tools: new Set<string>(),
       };
       slot.count += 1;
-      if ((e.status || "").startsWith("error")) slot.errCount += 1;
+      const state = edgeOpenState(e.ts_start, e.ts_done, nowMs);
+      if (state === "hung") {
+        slot.hungCount += 1;
+        slot.hungCorrelationId = e.correlation_id;
+      } else if ((e.status || "").startsWith("error")) slot.errCount += 1;
       else slot.okCount += 1;
       if (e.tool_name) slot.tools.add(e.tool_name);
       const ts = e.ts_done || e.ts_start || "";
@@ -418,13 +464,17 @@ export default function ScenarioFlowGraph({
 
     const edges: Edge[] = [];
     for (const [key, e] of edgeMap) {
+      const hasHung = e.hungCount > 0;
       const hasError = e.errCount > 0;
-      const color = hasError
-        ? "rgb(var(--role-error, 220 38 38))"
-        : "rgb(var(--role-subagent))";
+      const color = hasHung
+        ? ORPHAN_COLOR
+        : hasError
+          ? "rgb(var(--role-error, 220 38 38))"
+          : "rgb(var(--role-subagent))";
       const tooltip = Array.from(e.tools).join(", ") || "inter-agent call";
       // Grab the first (earliest) raw edge in this pair so a click can open
-      // detail for something specific. A future enhancement could show all.
+      // detail for something specific — preferring the hung edge when there
+      // is one, so the orphan is one click away.
       const firstForPair = graph.edges.find(
         (re) => re.from_session_id === e.source && re.to_session_id === e.target,
       );
@@ -435,12 +485,21 @@ export default function ScenarioFlowGraph({
         animated: false,
         style: {
           stroke: color,
-          strokeWidth: 1.75,
-          strokeDasharray: "6 4",
+          strokeWidth: hasHung ? 2.5 : 1.75,
+          strokeDasharray: hasHung ? ORPHAN_DASH : "6 4",
+          opacity: hasHung ? 1 : undefined,
           cursor: "pointer",
         },
-        label: e.count > 1 ? `×${e.count}` : tooltip.slice(0, 24),
-        labelStyle: { fill: "rgb(var(--fg-secondary))", fontSize: 10 },
+        label: hasHung
+          ? `⚠ ${e.hungCount} never completed`
+          : e.count > 1
+            ? `×${e.count}`
+            : tooltip.slice(0, 24),
+        labelStyle: {
+          fill: hasHung ? ORPHAN_COLOR : "rgb(var(--fg-secondary))",
+          fontSize: 10,
+          fontWeight: hasHung ? 600 : undefined,
+        },
         labelBgStyle: { fill: "rgb(var(--bg-surface))" },
         markerEnd: {
           type: MarkerType.ArrowClosed,
@@ -448,7 +507,11 @@ export default function ScenarioFlowGraph({
           width: 16,
           height: 16,
         },
-        data: { correlationId: firstForPair?.correlation_id ?? "" },
+        data: {
+          correlationId: hasHung
+            ? e.hungCorrelationId
+            : firstForPair?.correlation_id ?? "",
+        },
       });
     }
 

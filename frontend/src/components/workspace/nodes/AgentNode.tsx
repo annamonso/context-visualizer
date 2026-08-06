@@ -19,14 +19,7 @@ export interface AgentNodeData {
   hostHueDeg?: number;
 }
 
-/** String-hash fallback for the Workspace view (no scenario-level context). */
-function stableHostHue(host: string): number {
-  let h = 0;
-  for (let i = 0; i < host.length; i++) h = (h * 31 + host.charCodeAt(i)) | 0;
-  // Multiply by Knuth's golden-ratio constant so strings that differ by
-  // one char (ares-comp-16 vs -17) don't collide in adjacent hues.
-  return Math.abs(Math.imul(h, 2654435761)) % 360;
-}
+import { hostColor, stableHostHue } from "../../../lib/hostHue";
 
 function roleVar(role: string): string {
   switch (role) {
@@ -92,14 +85,14 @@ export default function AgentNode({ data }: { data: AgentNodeData }) {
             <div
               className="inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.5 rounded border"
               style={{
-                borderColor: `hsl(${hue} 62% 48% / 0.55)`,
-                color: `hsl(${hue} 62% 36%)`,
-                backgroundColor: `hsl(${hue} 62% 48% / 0.1)`,
+                borderColor: hostColor(hue, 0.55),
+                color: hostColor(hue),
+                backgroundColor: hostColor(hue, 0.1),
               }}
               title={`host: ${data.host}`}
             >
               <span className="w-1.5 h-1.5 rounded-full"
-                    style={{ backgroundColor: `hsl(${hue} 62% 48%)` }} />
+                    style={{ backgroundColor: hostColor(hue) }} />
               {data.host}
             </div>
           );
