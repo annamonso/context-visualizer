@@ -1,264 +1,149 @@
 # ChronoLog Observability
 
-A drop-in observability dashboard and trace-capture layer for **ChronoLog**
-deployments. Point it at a running ChronoLog visor and get conversation /
-scenario / interaction / provenance views reconstructed from ChronoLog stories —
-no chimaera or clio-core required.
+[![CI](https://github.com/annamonso/context-visualizer/actions/workflows/ci.yml/badge.svg)](https://github.com/annamonso/context-visualizer/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 
-This is a repackaging of the former `clio-core/context-visualizer` into a
-standalone, pip-installable plugin. The key change: ChronoLog moved from an
-optional backend to the **required substrate**, and the old hard dependency on
-the chimaera C++ runtime was removed — every view is served from ChronoLog.
+**Observability for multi-agent LLM systems running across a cluster.** Existing
+tracing tools answer *"what did my agent do?"* — one run, one machine, a span
+tree. This answers *"what is my agent **fleet** doing across the cluster, and
+which node is dragging it down?"* by coupling agent semantics to physical
+cluster topology and per-node health.
+
+It stores nothing of its own: every view is reconstructed from
+[ChronoLog](https://github.com/grc-iit/ChronoLog) stories, using the shared log
+as a native causal substrate.
+
+![The Scenarios tab: a live inter-agent call graph laid out over the physical nodes running each agent](docs/assets/screenshot-scenarios.png)
+
+---
+
+## Try it in 60 seconds
+
+No cluster, no API keys, no cost:
+
+```bash
+git clone https://github.com/annamonso/context-visualizer.git
+cd context-visualizer
+
+pip install -e .
+make workspace                              # build the React SPA
+
+python3 scripts/demos/demo_doctor.py        # seed some data to look at
+CHRONOLOG_OFFLINE=1 chronolog-observe        # http://localhost:5000
+```
+
+Two more seeders worth running: `demo_fleet_scale.py` (100 nodes summarised in
+milliseconds) and `demo_tracing.py` (find the bottleneck hop in a 6-host mesh).
+
+For a real deployment, see **[docs/deployment.md](./docs/deployment.md)**.
+
+## What you get
+
+| Tab | Answers |
+|---|---|
+| **Scenarios** | Which agents are talking to which, on which physical nodes, right now |
+| **Health** | What is failing, why, and how often it has failed before |
+| **Cluster** | The ChronoLog deployment topology plus live node-to-node traffic |
+| **Fleet** | Which of my 100+ nodes are unhealthy, as a heatmap |
+| **Traces** | Why this cross-host scenario is slow, and which hop is the long pole |
+
+Three analyses do the heavy lifting:
+
+- **ChronoDoctor** — scans every story for failures (HTTP 4xx/5xx, latency
+  outliers, retry storms, failed *and hung* inter-agent calls), **clusters them
+  by signature** so a fleet-wide symptom is one ranked incident instead of 500
+  rows, and attaches a root cause, a remediation and a blast radius. Diagnosis is
+  a deterministic heuristic engine by default (zero cost); `CHRONOLOG_DOCTOR_LLM=1`
+  swaps in a Claude-backed diagnoser. A self-compacting incident memory makes
+  repeat offenders recognisable **across runs**.
+- **Fleet Health** — per-`(host, minute)` rollup buckets make the fleet overview
+  `O(nodes × buckets)` instead of `O(events)`, so the heatmap stays instant at
+  100+ nodes, where a node-link graph becomes unreadable past ~12.
+- **Critical-path tracing** — reconstructs cross-host call trees from inter-agent
+  edges and computes the critical path, naming the bottleneck hop by *self-time*
+  (exclusive wall-clock), which correctly ignores the parent/child overlap that
+  would otherwise double-count.
 
 ## How it works
 
-Data sources are **adapters** selected at runtime via the
-`chronolog_observability.adapters` entry-point group (plus a built-in default):
+Two capture paths feed ChronoLog; the dashboard reads back from it.
 
-- **`ChronoLogAdapter`** (default) — serves every view from ChronoLog stories.
-  Available on any ChronoLog host.
+```
+agents ──Path-A (LLM turns)──▶ spool ──capture worker──▶ ChronoLog stories ─┐
+       ──Path-B (agent calls)─▶ per-node collector ─────▶ ChronoLog keeper ─┤
+                                                                            ▼
+                                                          dashboard (reads ChronoLog
+                                                          + a local hot store for live)
+```
 
-Blueprints declare the `Capability` they need; `app.create_app()` discovers the
-active adapters and mounts only the blueprints some adapter can serve. The
-adapter interface is the seam for third parties to add their own data source
-without forking.
+**Why the hot store.** ChronoLog is the durable cold path, but it is unreadable
+in real time: the keeper→grapher drain lags ~180 s, and a `ReplayStory` against
+an un-drained story blocks the process for *minutes* while holding the GIL. So
+live views are served from a local hot store written at ingest, and ChronoLog
+stays the source of truth for everything already drained.
+
+**The adapter seam.** Data sources are discovered at runtime through the
+`chronolog_observability.adapters` entry-point group. Blueprints declare the
+`Capability` they need, and the app factory mounts only what some active adapter
+can serve — so a third party can add a data source without forking.
 
 ```
 src/chronolog_observability/
 ├── app.py            # Flask factory: discover adapters, mount blueprints, serve SPA
-├── config.py         # visor endpoint, offline mode, bind
-├── backend/          # ChronoLog substrate (client, constants, path_a_reader)
-├── adapters/
-│   ├── base.py       # SourceAdapter + Capability  <- the data-source seam
-│   ├── registry.py   # entry-point discovery + capability resolution
-│   ├── chronolog_source.py   # the ChronoLog adapter
-│   └── shape/        # story -> conversation/scenario graph shapers
-├── capture/          # Path-A capture spool + sync worker; Path-B inter-agent store/ingest + live bus; demo store
-├── collector/        # per-node collector daemon (agents → ChronoLog + live forward)
-├── api/              # Flask blueprints (one per capability)
-├── analysis/ semantic/ checkpointing/   # pure analysis + checks packages
-└── static/workspace/ # built React SPA lands here (gitignored build artifact)
+├── backend/          # ChronoLog substrate (client, constants, reader)
+├── adapters/         # the data-source seam + story→graph shapers
+├── capture/          # Path-A spool & sync worker; Path-B store & live bus
+├── collector/        # per-node collector daemon
+├── api/              # Flask blueprints, one per capability
+├── analysis/         # tracing, call graphs, context graphs
+├── diagnostics/      # ChronoDoctor
+└── fleet/            # rollups and health store
 ```
 
-The React dashboard lives in `frontend/` (Vite). Its tabs — Scenarios (with a
-per-node inspector pop-up), Health (live feed + PrismaDoctor), Cluster, Fleet,
-Traces, and Memory — are served from ChronoLog and, for the real-time views,
-from an in-process **hot store** (see *Live views*).
+The React dashboard lives in `frontend/` (Vite) and builds into the Python
+package, so a wheel ships with the UI.
 
-## Install & run
+## Documentation
 
-```bash
-make workspace                       # build the React SPA into static/workspace/
-pip install -e .                     # py_chronolog_client must be on PYTHONPATH
-export CHRONOLOG_VISOR_IP=10.x.x.x   # raw IP, NOT the -40g hostname
-chronolog-observe                    # serves the dashboard on :5000
-```
+| Document | What is in it |
+|---|---|
+| [docs/deployment.md](./docs/deployment.md) | Offline and live setup, capture wiring, operational notes, troubleshooting |
+| [docs/features.md](./docs/features.md) | Complete feature reference — every tab, every script |
+| [docs/data-schemas.md](./docs/data-schemas.md) | The ChronoLog story schemas every view is reconstructed from |
+| [docs/evaluation.md](./docs/evaluation.md) | Evaluation methodology and measured results |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | Development setup, checks, architecture constraints |
+| [CLAUDE.md](./CLAUDE.md) | Repo guide for AI coding agents |
 
-Demo / dev without a live deployment:
-
-```bash
-CHRONOLOG_OFFLINE=1 chronolog-observe  # replays from drained CSVs
-make workspace-dev                     # Vite dev server on :5173, proxies to :5000
-```
-
-### Live capture (Path-A → ChronoLog)
-
-The dashboard is a reader by default. To also *ingest* traces, instrument your
-agents to append events to the local capture spool, and run the Path-A sync
-worker to drain that spool into ChronoLog:
-
-```python
-from chronolog_observability.capture.spool import get_spool
-spool = get_spool()
-spool.record_interaction("my-session", {"prompt": "...", "response": "...", "model": "claude-opus-4-8"})
-spool.record_context_node("my-session", {"op": "add", "node": "..."})
-spool.record_recovery("my-session", {"reason": "checkpoint-restore"})
-```
-
-```bash
-chronolog-capture --interval 5         # standalone drain (spool -> ChronoLog)
-# …or auto-start it inside the dashboard process:
-CHRONOLOG_CAPTURE=1 chronolog-observe   # runs the worker as a daemon thread
-```
-
-The worker dedups against ChronoLog (high-water marks per session) and rebuilds
-its state from ChronoLog on restart, so capture is at-least-once and ingest is
-effectively exactly-once. It is a no-op in `CHRONOLOG_OFFLINE=1` mode.
-
-### Live view (Path-B → SSE)
-
-ChronoLog's chunk acceptance window (~180 s keeper→grapher drain) makes it
-unusable as a real-time read source, so inter-agent events are fanned out to
-SSE subscribers in-process at the moment of ingest while ChronoLog stays the
-durable cold path:
-
-- `POST /api/_inter-agent/ingest` — single event or batch; publishes to the
-  live bus after the durable write.
-- `GET /api/_inter-agent/stream?scenario=<sid>` — SSE: stored backlog first,
-  then live `event: message` frames as events arrive.
-- `GET /_interceptor/live` — SSE push feed of new LLM interactions (the
-  Health tab's feed upgrades from polling automatically).
-
-For multi-node deployments, run one **collector** per compute node; local
-agents POST to it on localhost, it writes to ChronoLog through the node-local
-keeper and forwards a thin copy to the dashboard for the live stream (with
-`X-DTP-Forwarded: chronolog`, so nothing is persisted twice):
-
-```bash
-scripts/ops/launch-collectors.sh <SLURM_JOBID> http://<dashboard-node>:5000   # all nodes
-# or by hand on one node:
-chronolog-collector --flask-url http://<dashboard-node>:5000 --port 5650
-```
-
-Agents emit via `chronolog_observability.collector.emit(event)` or plain
-`POST http://127.0.0.1:5650/ingest`; if the collector is down, `emit()` falls
-back to the dashboard's ingest endpoint directly.
-
-## Live views (real-time, instant reads)
-
-ChronoLog is the durable cold path but is unreadable in real time: the
-keeper→grapher drain lags ~180 s, and a `ReplayStory` on an un-drained story
-blocks the process for *minutes* holding the GIL. So the live views are served
-from a **local hot store** written at ingest, with ChronoLog as the cold path:
-
-- **Inter-agent hot store** — `capture/inter_agent/store.py` keeps a local JSONL
-  copy of every edge (live mode too, not just offline) and reads it first;
-  `read_stitched` / `list_scenarios` are instant and never block.
-- **Scenarios → Live mode** — subscribes to `/api/_inter-agent/stream` (the SSE
-  bus) plus the hot-store backlog and builds the agent-to-agent graph in real
-  time (`hooks/useLiveScenario.ts`). *Full* mode is the older `/graph` (per-agent
-  token metrics) for already-drained scenarios.
-- **Cluster → node communication** — `/api/chronolog/comms` aggregates
-  host-pair traffic from the hot store; the Cluster tab draws a live graph of
-  which nodes are active and which are exchanging messages.
-
-
-Two robustness fixes make a *fresh* cluster work out of the box:
-`backend.client.index_list` is CSV-archive-first (a `ReplayStory` on a
-never-written index blocks forever — this used to wedge the dashboard + capture
-worker on a pristine cluster), and `chronolog_view._short_host` canonicalises
-node-name digit padding (ARES reverse-DNS `ares-comp-3` vs SLURM `ares-comp-03`,
-which otherwise hid every single-digit node from the Cluster tab).
-
-Drive the live views with **no LLM cost** via `scripts/demos/synth_live_traffic.py`
-(synthetic inter-agent edges + Path-A context, over the real ingest path).
-
-## Live end-to-end test (real agents on a ChronoLog cluster)
-
-`scripts/` ships a harness that exercises the whole stack against a **live**
-ChronoLog cluster with **real Claude Agent SDK agents** — genuine LLM turns and
-a genuine `call_remote_agent` MCP tool call per agent, not synthetic data. It
-drives the plugin's current endpoints (the legacy `scripts/_imported/` demos
-target removed clio-core routes and no longer work).
-
-Prereqs: a ChronoLog cluster up on a SLURM allocation; `flask` importable by the
-same Python that has `py_chronolog_client`; and a conda env with
-`claude_agent_sdk` + an authenticated `claude` CLI for the agents.
-
-```bash
-# one real agent per node, feeding Path-A (spool) and Path-B (collector):
-scripts/ops/run-live-agents.sh <SLURM_JOBID> <scenario_id>
-#   healthcheck -> dashboard -> capture worker -> collectors -> N real agents
-#   (agents scale with the cluster: 4 nodes -> 3 agents, 8 nodes -> 6)
-
-# restart the dashboard, wait for the CSV drain, then assert every tab AND the
-# scenario -> workspace click-through (per-agent metrics + inter-agent edges):
-scripts/ops/verify-when-drained.sh <SLURM_JOBID> <FLASK_NODE> <scenario_id> <N_agents>
-```
-
-Reusable pieces: `real_agent_chronolog.py` (the agent), `launch-dashboard.sh`,
-`launch-capture.sh`, `launch-collectors.sh`, `verify_dashboard.py`.
-
-**Operational notes (load-bearing on a live cluster):**
-
-- **Run the dashboard as a pure reader.** Do *not* set `CHRONOLOG_CAPTURE=1` in
-  the dashboard process: the capture worker's startup `warm_up` does a blocking
-  `ReplayStory`, and `py_chronolog_client` holds the GIL through it, so Flask's
-  `app.run()` never finishes binding. Drain Path-A with a separate
-  `chronolog-capture` process (`launch-capture.sh`).
-- **Read the data-heavy tabs only after the ~180 s keeper→grapher drain.** A
-  `ReplayStory` on a story still inside the drain window blocks for minutes and
-  freezes the whole dashboard; after the drain it returns promptly. The Cluster
-  tab is CSV-backed and safe anytime.
-- **Session ids are `role@scenario`** so a scenario-graph node joins to its
-  conversation on click — the inter-agent edge `from/to_session` must carry the
-  same scoped id the LLM turns are spooled under.
-- On a *brand-new* cluster the capture worker's `warm_up` can hang on the
-  never-written session index; if Path-A never drains, kick a one-shot
-  `SpoolToChronoLogSync(get_backend()).sync_once()` (append-only, no
-  `ReplayStory`) to seed it.
-
-Verified **28/28** checks (all four tabs + the click-through) on live **4-node
-and 8-node** ChronoLog clusters.
-
-## Analytics features (PrismaDoctor · Fleet · Tracing)
-
-Three analytics views build on the same ChronoLog stories — each is served by
-the default adapter (advertised in `/api/config`) and appears as its own tab.
-
-- **Doctor — PrismaDoctor** (`diagnostics/`, `api/diagnostics.py`). Scans every
-  story for failures (LLM 4xx/5xx, latency outliers, retry storms, failed *and
-  hung/dropped* inter-agent calls, recovery/backtracks), **clusters** them by
-  signature so a fleet-wide symptom is one ranked incident, and attaches a
-  root-cause + remediation. Diagnosis is a deterministic heuristic engine by
-  default (zero cost); `CHRONOLOG_DOCTOR_LLM=1` swaps in a Claude-backed
-  diagnoser. A **self-compacting `incident_memory.md`** makes repeat offenders
-  recognisable across runs. Detection runs on demand (Health tab / `POST
-  /api/diagnostics/scan`); `CHRONOLOG_DOCTOR=1` starts a background scanner
-  (`chronolog-doctor`).
-- **Fleet — Fleet Health** (`fleet/`, `api/fleet.py`). Per-`(host, minute)`
-  **rollup buckets** (`metrics_rollup` chronicle) make the fleet overview
-  `O(nodes × buckets)` instead of `O(events)`, so a **heatmap** stays instant at
-  100+ nodes where the node-link graph can't. The emitter is opt-in
-  (`CHRONOLOG_FLEET_ROLLUP=1` / `chronolog-fleet-rollup`); the API falls back to
-  computing health from raw on demand, so the tab is never empty.
-- **Traces — Critical-Path Tracing** (`analysis/trace.py`, `api/tracing.py`).
-  Reconstructs cross-host call trees from inter-agent edges (explicit
-  `parent_correlation_id` when present, else inferred from session + time
-  nesting) and computes the **critical path** — the long-pole chain — naming the
-  bottleneck hop by *self-time*. Renders as a waterfall.
-
-**Demos (offline, no cluster, no API keys):** `scripts/demos/` ships one
-narrated demo per feature plus a [README](./scripts/demos/README.md):
-
-```bash
-python3 scripts/demos/demo_doctor.py        # error detection, diagnosis & memory
-python3 scripts/demos/demo_fleet_scale.py   # 100 nodes summarised in milliseconds
-python3 scripts/demos/demo_tracing.py       # find the bottleneck hop in a 6-host mesh
-python3 -m pytest tests/ -q                 # 16 unit tests over the pure logic
-```
-
-Each demo seeds the same stores the dashboard reads and prints the exact command
-to open its data live. On ARES, point the dashboard at the real visor and the
-same three tabs render over the live cluster — the analysis path is identical.
-
-### Cluster awareness, real nodes & live bring-up
-
-- **Cluster-capacity badge** — the header shows the underlying SLURM cluster
-  (total / idle / busy / down), live from `sinfo` (`/api/cluster/capacity`),
-  refreshed every 30 s.
-- **Real node names everywhere** — Generate Traffic spreads agents across the
-  live allocation / idle nodes (never invented names); the **Fleet** grid draws
-  every node, greying the unavailable by real SLURM state; the **Cluster** tab
-  shows the deployment **plus idle/available** nodes (green-dashed).
-- **`scripts/ops/chronolog-live.sh [N]`** — one command to bring **ChronoLog live**:
-  allocate N idle nodes → deploy ChronoLog (keeper on each) → start collectors +
-  capture worker + a dashboard connected to the live visor. No LLM. Drive it from
-  the Generate-Traffic button for real ChronoLog data at zero cost.
-- **`AGENTS_PER_NODE=K`** — the real-agent harness runs K genuine agents per node,
-  each captured through its node's collector + keeper.
-
-See **[`docs/features.md`](./docs/features.md)** for the complete feature reference (all
-tabs, the capture model, scripts, capacity, tests, and operational notes).
+Interactive explainers: [architecture](./docs/assets/architecture-diagram.html) ·
+[ChronoLog workarounds](./docs/assets/chronolog-workarounds.html) ·
+[data flow](./docs/assets/demo-dataflow.html)
 
 ## Status
 
-Functional, and validated end-to-end with real agents on live multi-node
-ChronoLog clusters (see the live-test harness above — 28/28 on 4 and 8 nodes).
-Real-time observation of inter-agent comms, node-to-node cluster traffic, and
-agent working-memory is served live from the hot store (see *Live views*),
-verified on a 4-node cluster with both synthetic and real Claude agents.
-Backend, shape adapters, all generic blueprints (conversations, interactions,
-provenance, semantic, scenarios, inter_agent), capture stores, the chimaera-free
-Path-A capture worker (spool → ChronoLog), and the React frontend are ported and
-serve from ChronoLog.
+A research prototype from a master's thesis, functional and validated
+end-to-end. Real agents on live 4-node and 8-node ChronoLog clusters pass 28/28
+checks across all tabs including the scenario→conversation click-through.
+Real-time observation of inter-agent comms, node-to-node traffic and agent
+working memory was verified with both synthetic and real Claude agents.
+
+The full thesis — design rationale, related work and the complete evaluation —
+is in [`thesis/main.pdf`](./thesis/main.pdf).
+
+## Citing
+
+```bibtex
+@mastersthesis{monso2026observability,
+  author   = {Monsó Rodriguez, Anna},
+  title    = {Distributed Observability for Multi-Agent {LLM} Systems:
+              A Shared-Log Approach on {HPC} Clusters},
+  school   = {Illinois Institute of Technology},
+  address  = {Chicago, Illinois},
+  year     = {2026},
+  note     = {https://github.com/annamonso/context-visualizer}
+}
+```
+
+## License
+
+MIT — see [LICENSE](./LICENSE).
