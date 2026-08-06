@@ -1,4 +1,4 @@
-"""Flask blueprint: ChronoDoctor — error detection & diagnosis API.
+"""Flask blueprint: PrismaDoctor — error detection & diagnosis API.
 
 Mounted under ``/api`` (see ``app._BLUEPRINTS``). Detection runs on demand: the
 first read scans if no report is cached, ``POST /diagnostics/scan`` forces a
@@ -53,7 +53,7 @@ def status():
 
 @bp.route("/diagnostics/watch", methods=["POST"])
 def watch():
-    """Activate / deactivate ChronoDoctor's live background scanner.
+    """Activate / deactivate PrismaDoctor's live background scanner.
 
     Body: {"enabled": true|false, "interval"?: seconds}. Activating runs an
     immediate scan so the tab fills at once, then keeps scanning on the timer.

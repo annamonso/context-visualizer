@@ -81,11 +81,29 @@ def _health(window_sec: int):
     health = _rollup.health_from_buckets(
         buckets, now_ns=time.time_ns(), window_sec=window_sec, allocation=alloc
     )
+    # ``_allocation()`` returns canonicalised (digit-unpadded) names
+    # (``ares-comp-8``) while bucket hosts keep whatever form the data used
+    # (usually SLURM-padded ``ares-comp-08``). Compare on the canonical form so
+    # a padded bucket node and its allocation entry are recognised as the SAME
+    # physical node — otherwise ``ares-comp-08`` (from data) and ``ares-comp-8``
+    # (from the allocation) both render as separate cards, and the deploy nodes
+    # are wrongly flagged out-of-allocation.
+    from .chronolog_view import _short_host
+
+    def canon(h: str) -> str:
+        return _short_host(h) or h
+
+    alloc_canon = {canon(a) for a in alloc}
+    present = set()
+    for h in health.values():
+        h.in_allocation = canon(h.host) in alloc_canon
+        present.add(canon(h.host))
     # Allocation nodes that produced no events still belong in the grid (idle/
     # silent nodes are themselves a signal at scale).
     for host in alloc:
-        if host not in health:
+        if canon(host) not in present:
             health[host] = _rollup.NodeHealth(host=host, in_allocation=True)
+            present.add(canon(host))
     return list(health.values()), alloc
 
 

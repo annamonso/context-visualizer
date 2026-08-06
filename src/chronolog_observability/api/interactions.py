@@ -56,8 +56,14 @@ def _interaction_summary(session_id: str, record: dict) -> dict | None:
     except (TypeError, ValueError):
         return None
 
-    req = record.get("request") or {}
-    resp = record.get("response") or {}
+    # Malformed spool records can carry a raw string here instead of the
+    # parsed dict — coerce so one bad record can't 500 the whole feed.
+    req = record.get("request")
+    req = req if isinstance(req, dict) else {}
+    resp = record.get("response")
+    resp = resp if isinstance(resp, dict) else {}
+    metrics = record.get("metrics")
+    metrics = metrics if isinstance(metrics, dict) else {}
 
     response_text = resp.get("text") if isinstance(resp.get("text"), str) else None
     preview = None
@@ -74,7 +80,7 @@ def _interaction_summary(session_id: str, record: dict) -> dict | None:
         "path": req.get("path", "/"),
         "status_code": resp.get("status_code"),
         "is_streaming": bool(resp.get("is_streaming", False)),
-        "total_latency_ms": (record.get("metrics") or {}).get("total_latency_ms"),
+        "total_latency_ms": metrics.get("total_latency_ms"),
         "response_text_preview": preview,
     }
 

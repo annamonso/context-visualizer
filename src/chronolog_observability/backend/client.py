@@ -327,7 +327,20 @@ class ChronoLogBackend:
         same Client (see ChronoLog's `client/python/examples/reader_client.py`).
         `_story_handle` already does that for writes, so the simplest correct
         path is to ensure the same handle exists before replaying.
+
+        ``CHRONOLOG_ARCHIVE_FIRST=1`` serves replays from the grapher's
+        drained CSVs *only* — the player is never asked, even when the archive
+        is empty. Same rationale as ``index_list``: a live ``ReplayStory``
+        whose response transfer never reaches this process's receiver service
+        burns the full query timeout (CL_ERR_QUERY_TIMED_OUT after ~180 s)
+        *per story, per request*, holding the client lock. An empty archive
+        means "nothing drained yet" — returning [] immediately is at worst
+        ~drain-window stale, and callers that rebuild dedup state from it
+        (sync-worker warm_up) are protected by read-side sequence_id dedup.
         """
+        if _env("CHRONOLOG_ARCHIVE_FIRST").lower() in ("1", "true", "yes"):
+            return _csv_archive_events(chronicle, story, start_ns, end_ns)
+
         if end_ns is None:
             end_ns = time.time_ns() + 60_000_000_000  # +60s of slack
 
