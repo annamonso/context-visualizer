@@ -27,6 +27,12 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 THESIS="${THESIS_DIR:-/mnt/common/$USER/chronolog-thesis}"
 export DTP_STATE_DIR="${DTP_STATE_DIR:-/mnt/common/$USER/observe-state}"
 
+# Login host used only for the SSH tunnel hint printed at the end. Override for
+# your own cluster: SSH_GATEWAY=login.mycluster.edu scripts/chronolog-live.sh
+SSH_GATEWAY="${SSH_GATEWAY:-<cluster-login-host>}"
+SSH_USER="${SSH_USER:-$USER}"
+SSH_KEY="${SSH_KEY:-$HOME/.ssh/id_ed25519}"
+
 echo "[live] idle nodes on '$PARTITION' now:"; sinfo -p "$PARTITION" -t idle -h -o '   %D idle: %N' || true
 
 # 1. allocate ---------------------------------------------------------------
@@ -94,8 +100,8 @@ echo "  ChronoLog is LIVE.  job=$JOB_ID   dashboard on $FLASK_NODE:5000"
 echo "  Drive it: open the dashboard, click 'Generate traffic' (real nodes,"
 echo "  no LLM cost) — edges are written through the live ChronoLog."
 echo
-echo "  Tunnel (run in the macOS Terminal app):"
-echo "    ssh -i ~/.ssh/annaKey -N -L 23456:${FLASK_NODE}:5000 amonsorodriguez@216.47.152.168"
+echo "  Tunnel (run on your workstation, in a real terminal):"
+echo "    ssh -i $SSH_KEY -N -L 23456:${FLASK_NODE}:5000 $SSH_USER@$SSH_GATEWAY"
 echo "    then open  http://localhost:23456"
 echo
 echo "  Free the nodes when done:  scancel $JOB_ID"
