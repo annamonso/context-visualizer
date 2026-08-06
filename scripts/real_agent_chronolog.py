@@ -80,6 +80,11 @@ def emit_edge(cfg: "Cfg", peer_host: str, peer_role: str, ask: str,
     servicing, if any — emitting it lets the critical-path tracer build exact
     call trees instead of inferring parents from session + time nesting.
     """
+    if os.environ.get("EVAL_NO_CAPTURE"):
+        # Eval A/B mode (E1c): capture disabled — no edge POST, but report
+        # success so the delegation flow behaves identically to the
+        # instrumented run.
+        return True
     corr = uuid.uuid4().hex
     # from_session/to_session MUST be the scenario-scoped session ids
     # (`role@scenario`) — the same ids the LLM turns are spooled under. The
@@ -149,6 +154,8 @@ def spool_turn(spool, cfg: Cfg, seq: int, kind: str, system: str, prompt: str,
     """Append one LLM turn to the capture spool in the exact shape the
     interactions feed and conversation shaper consume, plus a matching context
     node (so per-agent token budgets populate)."""
+    if os.environ.get("EVAL_NO_CAPTURE"):
+        return
     session = f"{cfg.my_role}@{cfg.scenario}"
     ts = _now_iso()
     record = {
@@ -241,6 +248,14 @@ async def run_turn(sdk, spool, cfg: Cfg, seq: int, kind: str, prompt: str,
 
     if latency_ms == 0.0:
         latency_ms = (time.monotonic() - t0) * 1000.0
+    # Wall-clock of the whole turn as this process saw it (SDK round-trip incl.
+    # capture work below on the previous turn) — what the E1c A/B compares.
+    wall_ms = (time.monotonic() - t0) * 1000.0
+    timing_file = os.environ.get("EVAL_TIMING_FILE")
+    if timing_file:
+        mode = "uninstrumented" if os.environ.get("EVAL_NO_CAPTURE") else "instrumented"
+        with open(timing_file, "a", encoding="utf-8") as tf:
+            tf.write(f"{mode},{cfg.my_role},{kind},{seq},{wall_ms:.1f},{latency_ms:.1f}\n")
     response_text = (result_text or "\n".join(p for p in text_parts if p)).strip()
 
     spool_turn(spool, cfg, seq, kind, system, prompt, model_seen, response_text,

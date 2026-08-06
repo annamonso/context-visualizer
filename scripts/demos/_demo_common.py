@@ -8,7 +8,7 @@ to print a narrated walk-through — and tell you how to open the same data live
 in the dashboard.
 
 The point of these demos: show, with zero infrastructure, exactly what the new
-ChronoDoctor / Fleet / Tracing features do — then prove it scales by pointing
+PrismaDoctor / Fleet / Tracing features do — then prove it scales by pointing
 the dashboard at the same state dir on ARES.
 """
 

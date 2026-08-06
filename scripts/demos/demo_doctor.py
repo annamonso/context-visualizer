@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""DEMO 1 — ChronoDoctor: detect, diagnose, and remember failures.
+"""DEMO 1 — PrismaDoctor: detect, diagnose, and remember failures.
 
 Seeds a multi-agent run riddled with realistic failures (5xx errors, a
 rate-limited node, a wave of peer timeouts, a hung/dropped call, a retry storm,
-and checkpoint restores), then runs ChronoDoctor and prints the ranked
+and checkpoint restores), then runs PrismaDoctor and prints the ranked
 incidents with a root-cause + fix for each. Runs the scan twice to show the
 self-compacting incident memory recognising a *recurring* incident on the
 second pass.
@@ -96,16 +96,16 @@ def main() -> None:
     bootstrap(STATE_DIR)
     from chronolog_observability.diagnostics.scan import run_scan
 
-    h1("DEMO 1 — ChronoDoctor: error detection, diagnosis & memory")
+    h1("DEMO 1 — PrismaDoctor: error detection, diagnosis & memory")
     print("  Seeding a multi-agent run full of realistic failures into a local,")
     print("  offline ChronoLog store (no cluster / no API keys required)…")
     seed()
 
-    h2("First scan — ChronoDoctor detects, clusters, and diagnoses")
+    h2("First scan — PrismaDoctor detects, clusters, and diagnoses")
     report(run_scan())
 
     h2("Second scan — incident memory recognises the RECURRING incidents")
-    print(color("  (ChronoDoctor wrote the first pass to its self-compacting "
+    print(color("  (PrismaDoctor wrote the first pass to its self-compacting "
                 "incident_memory.md;\n   the same failures now carry a 'recurring' "
                 "badge with their prior count.)", "dim"))
     report(run_scan())

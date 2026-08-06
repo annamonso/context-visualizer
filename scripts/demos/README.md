@@ -1,4 +1,4 @@
-# Feature demos — ChronoDoctor · Fleet Health · Critical-Path Tracing
+# Feature demos — PrismaDoctor · Fleet Health · Critical-Path Tracing
 
 Three self-contained demos for the new analytics features. Each one:
 
@@ -30,9 +30,9 @@ CHRONOLOG_OFFLINE=1 DTP_STATE_DIR=/tmp/chronolog_demo_doctor \
 
 ---
 
-## Demo 1 — ChronoDoctor (`demo_doctor.py`)
+## Demo 1 — PrismaDoctor (`demo_doctor.py`)
 
-**What it shows.** ChronoDoctor reads every ChronoLog story, turns failures into
+**What it shows.** PrismaDoctor reads every ChronoLog story, turns failures into
 signals, **clusters** them into ranked incidents (500 identical timeouts → one
 card), and for each one explains **why it's happening** and **how to fix it**.
 Running the scan twice shows the **self-compacting incident memory** flagging
@@ -42,7 +42,7 @@ Running the scan twice shows the **self-compacting incident memory** flagging
 timeouts across many hosts; the **hung/dropped call** incident (invisible in the
 per-edge views); and the `RECURRING ×N` badge on the second pass.
 
-**Talk track.** "The system already records failures in three places. ChronoDoctor
+**Talk track.** "The system already records failures in three places. PrismaDoctor
 fuses them, clusters by signature so the count is the story, and tells the
 operator the likely cause and fix — and it remembers, so a repeat offender is
 recognised instantly. Diagnosis is heuristic by default (zero cost); set
