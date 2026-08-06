@@ -1,0 +1,2 @@
+20M	/mnt/common/$USER/observe-state-e5
+67M	$HOME/chronolog-install/chronolog/output
