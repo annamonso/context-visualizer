@@ -11,11 +11,11 @@
 #
 # Then drive it from the UI's "Generate traffic" (synthetic, real nodes, NO LLM
 # cost) — every edge is written through the live ChronoLog. For real agents +
-# LLM use scripts/allocate-and-run.sh instead.
+# LLM use scripts/ops/allocate-and-run.sh instead.
 #
 # Usage:
-#   scripts/chronolog-live.sh [num_nodes] [partition]
-#   scripts/chronolog-live.sh 4 compute
+#   scripts/ops/chronolog-live.sh [num_nodes] [partition]
+#   scripts/ops/chronolog-live.sh 4 compute
 #
 # Release when done:  scancel <jobid>   (printed at the end)
 set -uo pipefail
@@ -28,7 +28,7 @@ THESIS="${THESIS_DIR:-/mnt/common/$USER/chronolog-thesis}"
 export DTP_STATE_DIR="${DTP_STATE_DIR:-/mnt/common/$USER/observe-state}"
 
 # Login host used only for the SSH tunnel hint printed at the end. Override for
-# your own cluster: SSH_GATEWAY=login.mycluster.edu scripts/chronolog-live.sh
+# your own cluster: SSH_GATEWAY=login.mycluster.edu scripts/ops/chronolog-live.sh
 SSH_GATEWAY="${SSH_GATEWAY:-<cluster-login-host>}"
 SSH_USER="${SSH_USER:-$USER}"
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/id_ed25519}"

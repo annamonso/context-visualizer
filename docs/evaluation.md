@@ -8,7 +8,7 @@ need a live SLURM allocation. One ~3-hour allocation session covers everything
 in E3–E5.
 
 **Already done (no work):** §6.5 Functional validation — 28/28 on live 4- and
-8-node clusters via `scripts/run-live-agents.sh` + `verify-when-drained.sh`.
+8-node clusters via `scripts/ops/run-live-agents.sh` + `verify-when-drained.sh`.
 
 ---
 
@@ -152,7 +152,7 @@ in E3–E5.
 ## E5 — The allocation session (one sitting, ~3 h)
 
 ```
-1. scripts/chronolog-live.sh 8 debug          # deploy, note dashboard node
+1. scripts/ops/chronolog-live.sh 8 debug          # deploy, note dashboard node
 2. E2b drain measurement (starts, runs in background)
 3. synth steady load → E1d sidecar sampling → E1e/E1f storage
 4. E2a freshness (on dashboard node), E2c query latencies

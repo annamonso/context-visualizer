@@ -44,7 +44,7 @@ SLURM queueing is the classic live-demo killer. Warm everything in advance.
 
 1. **Bring ChronoLog live and let it drain.** From the repo root on ARES:
    ```bash
-   scripts/chronolog-live.sh 8 debug        # allocate 8 idle nodes, deploy keepers,
+   scripts/ops/chronolog-live.sh 8 debug        # allocate 8 idle nodes, deploy keepers,
                                             # start collectors + capture + dashboard. No LLM.
    ```
    Note the dashboard node (e.g. `ares-comp-11`) and the SLURM job id. Wait past the
@@ -54,7 +54,7 @@ SLURM queueing is the classic live-demo killer. Warm everything in advance.
 2. **Seed a baseline so nothing opens empty.** Drive a little steady traffic so the
    graphs have something on open:
    ```bash
-   PYTHONPATH=src python3 scripts/synth_live_traffic.py --pattern mesh --agents 6 \
+   PYTHONPATH=src python3 scripts/demos/synth_live_traffic.py --pattern mesh --agents 6 \
      --nodes 8 --rounds 9999 --speed 1.0 --spool &   # leave running at low rate
    ```
    (Kill it by explicit PID afterward — `pkill -f synth_live_traffic` self-kills the shell.)

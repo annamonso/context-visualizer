@@ -7,7 +7,7 @@ path), and the exact structure of the record.
 
 This is the ground-truth schema contract. It is derived directly from the code;
 each section cites the `file:line` where the shape is defined so the doc can be
-re-verified. For the narrative feature tour see [`FEATURES.md`](../FEATURES.md);
+re-verified. For the narrative feature tour see [`features.md`](./features.md);
 for setup see [`README.md`](../README.md).
 
 ---
@@ -115,7 +115,7 @@ dedups against per-`(session, kind)` high-water marks and rebuilds that state fr
 ChronoLog on restart, so a restart never re-writes accepted events.
 
 **Producers** (the de-facto field contract): `scripts/real_agent_chronolog.py`,
-`scripts/demos/_demo_common.py`, `scripts/synth_live_traffic.py`.
+`scripts/demos/_demo_common.py`, `scripts/demos/synth_live_traffic.py`.
 **Consumers** (which fields each view reads): `adapters/shape/conversation.py`,
 `analysis/*`, `api/provenance.py`.
 

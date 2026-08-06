@@ -16,7 +16,7 @@
 #   * DTP_STATE_DIR = shared NFS spool dir (agents write here; this worker drains)
 #
 # Usage (from the master; it ssh-es to the flask node):
-#   scripts/launch-dashboard.sh <SLURM_JOBID> <FLASK_NODE> [PORT] [QUERY_PORT]
+#   scripts/ops/launch-dashboard.sh <SLURM_JOBID> <FLASK_NODE> [PORT] [QUERY_PORT]
 
 set -euo pipefail
 
@@ -30,7 +30,7 @@ if [[ -z "$JOB_ID" || -z "$FLASK_NODE" ]]; then
   exit 2
 fi
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CHRONO_HOME="${CHRONOLOG_HOME:-$HOME/chronolog-install/chronolog}"
 STATE_DIR="${DTP_STATE_DIR:-/mnt/common/$USER/observe-state}"
 
@@ -88,7 +88,7 @@ export CHRONOLOG_ARCHIVE_FIRST=1
 # the capture worker's startup warm_up does a blocking ReplayStory (the
 # py_chronolog_client holds the GIL through it), which would stall Flask's
 # app.run() from ever binding. Path-A draining runs as a SEPARATE process
-# (scripts/launch-capture.sh) so the dashboard stays responsive.
+# (scripts/ops/launch-capture.sh) so the dashboard stays responsive.
 export DTP_STATE_DIR="$STATE_DIR"
 export OBSERVE_PORT="$PORT"
 unset CHRONOLOG_OFFLINE

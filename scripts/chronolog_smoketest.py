@@ -11,7 +11,7 @@ write -> ChronoLog -> read path through the plugin's own modules:
 
 Run it on a COMPUTE NODE co-located with the cluster — Mercury's ofi+sockets
 provider does not cross the master(172.20.x)/compute(172.25.x) subnet boundary.
-See scripts/run-smoketest.sh for the env wiring, or set up manually:
+See scripts/ops/run-smoketest.sh for the env wiring, or set up manually:
 
     source /etc/profile.d/lmod.sh
     module load python/3.11.9-zg4555e

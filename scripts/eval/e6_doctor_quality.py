@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E6 — PrismaDoctor detection quality (docs/eval-plan.md addendum).
+"""E6 — PrismaDoctor detection quality (docs/evaluation.md addendum).
 
 Measures whether PrismaDoctor is *correct*, not just fast, against a
 ground-truth manifest of injected faults. Fully OFFLINE: seeds the same

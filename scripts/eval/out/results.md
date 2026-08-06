@@ -1,6 +1,6 @@
 # Evaluation results — running summary
 
-Per `docs/eval-plan.md`. Raw data: the CSVs in this directory (`summary.csv`
+Per `docs/evaluation.md`. Raw data: the CSVs in this directory (`summary.csv`
 is the machine-readable index of everything below).
 
 **Status: ALL measurements FINAL — every `\tbd` in 06-evaluation.tex now has a number.**

@@ -1,4 +1,4 @@
-"""Shared helpers for the thesis evaluation scripts (docs/eval-plan.md).
+"""Shared helpers for the thesis evaluation scripts (docs/evaluation.md).
 
 Every bench writes machine-readable CSVs into ``scripts/eval/out/`` and prints
 a human summary. All timing uses ``time.perf_counter_ns()`` on a single host —

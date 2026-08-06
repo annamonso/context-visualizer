@@ -8,10 +8,10 @@
 #
 # Usage (from the master, after the ChronoLog cluster is up):
 #
-#     scripts/launch-collectors.sh <SLURM_JOBID> <DASHBOARD_URL> [<port>]
+#     scripts/ops/launch-collectors.sh <SLURM_JOBID> <DASHBOARD_URL> [<port>]
 #
 # Example:
-#     scripts/launch-collectors.sh 20847 http://ares-comp-10:5000 5650
+#     scripts/ops/launch-collectors.sh 20847 http://ares-comp-10:5000 5650
 #
 # Stop:
 #     for n in $(scontrol show hostnames "$(squeue -j <JOBID> -h -o '%N')"); do
@@ -28,7 +28,7 @@ if [[ -z "$JOB_ID" || -z "$DASHBOARD_URL" ]]; then
   exit 2
 fi
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CHRONO_HOME="${CHRONOLOG_HOME:-$HOME/chronolog-install/chronolog}"
 
 NODES=( $(scontrol show hostnames "$(squeue -j "$JOB_ID" -h -o '%N')") )

@@ -7,9 +7,9 @@ totals, and the edge cap should kick in with the "busiest flows" notice.
 Runs in CHRONOLOG_OFFLINE=1 mode on its own DTP_STATE_DIR, so it needs no
 visor and touches none of the real ~/.dt_provenance data.
 
-    python scripts/seed-scale-demo.py                  # 100 hosts
-    python scripts/seed-scale-demo.py --hosts 12       # mid-size cluster
-    python scripts/seed-scale-demo.py --hosts 4 --scenario demo-small
+    python scripts/demos/seed-scale-demo.py                  # 100 hosts
+    python scripts/demos/seed-scale-demo.py --hosts 12       # mid-size cluster
+    python scripts/demos/seed-scale-demo.py --hosts 4 --scenario demo-small
 
 Then open  http://<host>:<port>/static/workspace/index.html?tab=scenarios&scenario=demo-scale
 """

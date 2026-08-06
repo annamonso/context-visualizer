@@ -148,13 +148,13 @@ turns and a real `call_remote_agent` MCP tool call per agent.
 
 | Script | What it does |
 |--------|--------------|
-| `scripts/chronolog-live.sh [N] [partition]` | **Bring ChronoLog LIVE**: allocate N idle nodes → deploy ChronoLog (keeper on each) → start collectors + capture worker + dashboard connected to the live visor. No LLM. |
-| `scripts/allocate-and-run.sh [N] [scenario] [partition]` | Allocate → deploy ChronoLog → run **real agents** end-to-end (respects `AGENTS_PER_NODE`). Uses LLM. |
-| `scripts/run-live-agents.sh <JOBID> [scenario]` | Run real agents on an existing allocation (healthcheck → dashboard → capture → collectors → agents → verify). |
+| `scripts/ops/chronolog-live.sh [N] [partition]` | **Bring ChronoLog LIVE**: allocate N idle nodes → deploy ChronoLog (keeper on each) → start collectors + capture worker + dashboard connected to the live visor. No LLM. |
+| `scripts/ops/allocate-and-run.sh [N] [scenario] [partition]` | Allocate → deploy ChronoLog → run **real agents** end-to-end (respects `AGENTS_PER_NODE`). Uses LLM. |
+| `scripts/ops/run-live-agents.sh <JOBID> [scenario]` | Run real agents on an existing allocation (healthcheck → dashboard → capture → collectors → agents → verify). |
 | `scripts/demos/demo_doctor.py` | Offline PrismaDoctor demo (errors → incidents → diagnosis → recurring memory). |
 | `scripts/demos/demo_fleet_scale.py` | Offline Fleet demo at 100+ nodes (rollups + heatmap). |
 | `scripts/demos/demo_tracing.py` | Offline critical-path demo (nested call tree + bottleneck). |
-| `scripts/synth_live_traffic.py` | Synthetic per-node live traffic over the real ingest path. |
+| `scripts/demos/synth_live_traffic.py` | Synthetic per-node live traffic over the real ingest path. |
 
 Console scripts: `chronolog-observe`, `chronolog-capture`, `chronolog-collector`,
 `chronolog-doctor`, `chronolog-fleet-rollup`.

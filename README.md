@@ -105,7 +105,7 @@ keeper and forwards a thin copy to the dashboard for the live stream (with
 `X-DTP-Forwarded: chronolog`, so nothing is persisted twice):
 
 ```bash
-scripts/launch-collectors.sh <SLURM_JOBID> http://<dashboard-node>:5000   # all nodes
+scripts/ops/launch-collectors.sh <SLURM_JOBID> http://<dashboard-node>:5000   # all nodes
 # or by hand on one node:
 chronolog-collector --flask-url http://<dashboard-node>:5000 --port 5650
 ```
@@ -140,7 +140,7 @@ worker on a pristine cluster), and `chronolog_view._short_host` canonicalises
 node-name digit padding (ARES reverse-DNS `ares-comp-3` vs SLURM `ares-comp-03`,
 which otherwise hid every single-digit node from the Cluster tab).
 
-Drive the live views with **no LLM cost** via `scripts/synth_live_traffic.py`
+Drive the live views with **no LLM cost** via `scripts/demos/synth_live_traffic.py`
 (synthetic inter-agent edges + Path-A context, over the real ingest path).
 
 ## Live end-to-end test (real agents on a ChronoLog cluster)
@@ -157,13 +157,13 @@ same Python that has `py_chronolog_client`; and a conda env with
 
 ```bash
 # one real agent per node, feeding Path-A (spool) and Path-B (collector):
-scripts/run-live-agents.sh <SLURM_JOBID> <scenario_id>
+scripts/ops/run-live-agents.sh <SLURM_JOBID> <scenario_id>
 #   healthcheck -> dashboard -> capture worker -> collectors -> N real agents
 #   (agents scale with the cluster: 4 nodes -> 3 agents, 8 nodes -> 6)
 
 # restart the dashboard, wait for the CSV drain, then assert every tab AND the
 # scenario -> workspace click-through (per-agent metrics + inter-agent edges):
-scripts/verify-when-drained.sh <SLURM_JOBID> <FLASK_NODE> <scenario_id> <N_agents>
+scripts/ops/verify-when-drained.sh <SLURM_JOBID> <FLASK_NODE> <scenario_id> <N_agents>
 ```
 
 Reusable pieces: `real_agent_chronolog.py` (the agent), `launch-dashboard.sh`,
@@ -241,14 +241,14 @@ same three tabs render over the live cluster — the analysis path is identical.
   live allocation / idle nodes (never invented names); the **Fleet** grid draws
   every node, greying the unavailable by real SLURM state; the **Cluster** tab
   shows the deployment **plus idle/available** nodes (green-dashed).
-- **`scripts/chronolog-live.sh [N]`** — one command to bring **ChronoLog live**:
+- **`scripts/ops/chronolog-live.sh [N]`** — one command to bring **ChronoLog live**:
   allocate N idle nodes → deploy ChronoLog (keeper on each) → start collectors +
   capture worker + a dashboard connected to the live visor. No LLM. Drive it from
   the Generate-Traffic button for real ChronoLog data at zero cost.
 - **`AGENTS_PER_NODE=K`** — the real-agent harness runs K genuine agents per node,
   each captured through its node's collector + keeper.
 
-See **[`FEATURES.md`](./FEATURES.md)** for the complete feature reference (all
+See **[`docs/features.md`](./docs/features.md)** for the complete feature reference (all
 tabs, the capture model, scripts, capacity, tests, and operational notes).
 
 ## Status

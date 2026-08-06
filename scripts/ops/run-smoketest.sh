@@ -7,11 +7,11 @@
 # cross the master(172.20.x)/compute(172.25.x) subnet boundary.
 #
 # Usage (from a compute node in the allocation):
-#     scripts/run-smoketest.sh <SLURM_JOB_ID> [-- <extra smoketest args>]
+#     scripts/ops/run-smoketest.sh <SLURM_JOB_ID> [-- <extra smoketest args>]
 #
 # Example:
 #     ssh ares-comp-11
-#     cd <repo> && scripts/run-smoketest.sh 20685 -- --read-timeout 300
+#     cd <repo> && scripts/ops/run-smoketest.sh 20685 -- --read-timeout 300
 #
 # It resolves the visor IP from the allocation's FIRST node (the visor), via the
 # -40g hostname -> raw IPv4 (Mercury rejects the hostname form: HG_PROTONOSUPPORT).
@@ -29,7 +29,7 @@ if [[ -z "$JOB_ID" ]]; then
   exit 2
 fi
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CHRONO_HOME="${CHRONOLOG_HOME:-$HOME/chronolog-install/chronolog}"
 
 # --- resolve the visor node + raw IPv4 ---------------------------------------

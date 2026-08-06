@@ -6,7 +6,7 @@
 # ReplayStory) never stalls the dashboard's Flask server. Uses a query port
 # distinct from the dashboard (5557) and the collectors (5680+).
 #
-# Usage (from the master): scripts/launch-capture.sh <SLURM_JOBID> <NODE> [QUERY_PORT]
+# Usage (from the master): scripts/ops/launch-capture.sh <SLURM_JOBID> <NODE> [QUERY_PORT]
 
 set -euo pipefail
 
@@ -18,7 +18,7 @@ if [[ -z "$JOB_ID" || -z "$NODE" ]]; then
   echo "Usage: $0 <SLURM_JOBID> <NODE> [QUERY_PORT]" >&2; exit 2
 fi
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CHRONO_HOME="${CHRONOLOG_HOME:-$HOME/chronolog-install/chronolog}"
 STATE_DIR="${DTP_STATE_DIR:-/mnt/common/$USER/observe-state}"
 

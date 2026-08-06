@@ -1,6 +1,6 @@
 # E5 — Allocation-session runbook (one sitting, ~3 h)
 
-Executes the live half of `docs/eval-plan.md` (E1c/E1d/E1e-live, E2a-live,
+Executes the live half of `docs/evaluation.md` (E1c/E1d/E1e-live, E2a-live,
 E2b, E2c, E3c, E4). Everything offline-runnable was already measured and dry-run
 — see `scripts/eval/out/` and `scripts/eval/out/results.md`.
 
@@ -19,7 +19,7 @@ find "$OUT" -maxdepth 1 -type f ! -newermt "$(date +%F)" -print0 | xargs -0 -r m
 ## 0. Deploy (≈15 min)
 
 ```bash
-scripts/chronolog-live.sh 8 debug          # note JOB_ID + dashboard node
+scripts/ops/chronolog-live.sh 8 debug          # note JOB_ID + dashboard node
 export DASH_NODE=<dashboard compute node>  # printed by the script
 export DASH=http://$DASH_NODE:5000
 export STATE=/mnt/common/$USER/observe-state   # the DTP_STATE_DIR it used
@@ -43,7 +43,7 @@ echo $! > /tmp/drain.pid
 
 ```bash
 # on the dashboard node: steady load, note the offered rate it prints
-python3 scripts/synth_live_traffic.py --scenario eval-live --agents 6 \
+python3 scripts/demos/synth_live_traffic.py --scenario eval-live --agents 6 \
   --pattern mesh --speed 1.0 --spool &   # kill later by THIS pid
 echo $! > /tmp/synth.pid
 
@@ -93,7 +93,7 @@ conda run -n iowarp env FLASK_URL=$DASH MY_HOST=$(hostname) \
   scripts/eval/ab_turn_overhead.sh
 ```
 
-E3c — `AGENTS_PER_NODE ∈ {1,2,4}` with `scripts/run-live-agents.sh` (or synth
+E3c — `AGENTS_PER_NODE ∈ {1,2,4}` with `scripts/ops/run-live-agents.sh` (or synth
 at matching rates for the load curve without LLM cost); during each K, rerun:
 
 ```bash

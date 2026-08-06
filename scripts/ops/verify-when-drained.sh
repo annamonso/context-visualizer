@@ -12,12 +12,12 @@ set -uo pipefail
 
 JOB_ID="${1:?jobid}"; FLASK_NODE="${2:?flask node}"; SCEN="${3:?scenario}"
 N_AGENTS="${4:?n agents}"
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 URL="http://${FLASK_NODE}:5000"
 
 echo "=== restart dashboard on $FLASK_NODE (clean, no request backlog) ==="
 ssh -o BatchMode=yes "$FLASK_NODE" "pkill -9 -f chronolog_observability.app 2>/dev/null; true" 2>&1
-bash "$REPO_ROOT/scripts/launch-dashboard.sh" "$JOB_ID" "$FLASK_NODE" 5000 5557 >/dev/null 2>&1
+bash "$REPO_ROOT/scripts/ops/launch-dashboard.sh" "$JOB_ID" "$FLASK_NODE" 5000 5557 >/dev/null 2>&1
 for i in $(seq 1 30); do
   curl -sf --max-time 3 "$URL/api/config" >/dev/null 2>&1 && { echo "dashboard up (${i}s)"; break; }
   sleep 1
@@ -37,7 +37,7 @@ done
 (( ready )) && echo "DRAIN COMPLETE" || echo "WARN: drain incomplete after timeout — verifying anyway"
 
 echo "=== FULL VERIFICATION ==="
-python3 "$REPO_ROOT/scripts/verify_dashboard.py" "$URL" "$SCEN"
+python3 "$REPO_ROOT/scripts/ops/verify_dashboard.py" "$URL" "$SCEN"
 rc=$?
 echo "VERIFY_DONE rc=$rc"
 exit $rc

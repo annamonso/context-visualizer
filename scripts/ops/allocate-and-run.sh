@@ -8,9 +8,9 @@
 # are not already free — i.e. "only run if idle this second".)
 #
 # Usage:
-#   scripts/allocate-and-run.sh <num_nodes> [scenario] [partition]
-#   IMMEDIATE=1 scripts/allocate-and-run.sh 4            # only if 4 are free now
-#   ALLOC_TIME=01:00:00 scripts/allocate-and-run.sh 8 my-run compute
+#   scripts/ops/allocate-and-run.sh <num_nodes> [scenario] [partition]
+#   IMMEDIATE=1 scripts/ops/allocate-and-run.sh 4            # only if 4 are free now
+#   ALLOC_TIME=01:00:00 scripts/ops/allocate-and-run.sh 8 my-run compute
 #
 # Release the nodes when done:  scancel <jobid>   (printed at the end)
 set -euo pipefail

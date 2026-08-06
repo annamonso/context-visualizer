@@ -19,11 +19,11 @@ Agent model:
 
 Examples:
     # one distinct agent per node (8 nodes -> 8 agents):
-    python scripts/synth_live_traffic.py --flask-url http://HOST:5000 \\
+    python scripts/demos/synth_live_traffic.py --flask-url http://HOST:5000 \\
         --scenario demo-8node --hosts h1,h2,...,h8 --rounds 40 --spool
 
     # 12 agents over 8 nodes -> some nodes carry 2 agents:
-    python scripts/synth_live_traffic.py --flask-url http://HOST:5000 \\
+    python scripts/demos/synth_live_traffic.py --flask-url http://HOST:5000 \\
         --scenario demo-multi --hosts h1,...,h8 --agents 12 --rounds 40 --spool
 """
 from __future__ import annotations

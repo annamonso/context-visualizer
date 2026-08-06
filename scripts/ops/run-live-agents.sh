@@ -10,7 +10,7 @@
 #   5. run REAL agents (Claude Agent SDK + real MCP tool call) on 3 nodes
 #   6. curl the dashboard to confirm scenarios / interactions populated
 #
-# Usage:  scripts/run-live-agents.sh <SLURM_JOBID> [<scenario_id>]
+# Usage:  scripts/ops/run-live-agents.sh <SLURM_JOBID> [<scenario_id>]
 # Env:    AGENT_ENV (default iowarp), AGENT_MODEL (default claude-haiku-4-5),
 #         ROUNDS (default 1), FLASK_PORT (default 5000)
 
@@ -28,7 +28,7 @@ if [[ -z "$JOB_ID" ]]; then
   echo "Usage: $0 <SLURM_JOBID> [<scenario_id>]" >&2; exit 2
 fi
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 THESIS="/mnt/common/$USER/chronolog-thesis"
 STATE_DIR="${DTP_STATE_DIR:-/mnt/common/$USER/observe-state}"
 CONDA_SH="$HOME/miniconda3/etc/profile.d/conda.sh"
@@ -77,7 +77,7 @@ echo "[1/6] cluster healthcheck"
 
 # ── 2. dashboard ─────────────────────────────────────────────────────
 echo "[2/6] launching dashboard on $FLASK_NODE"
-DTP_STATE_DIR="$STATE_DIR" "$REPO_ROOT/scripts/launch-dashboard.sh" "$JOB_ID" "$FLASK_NODE" "$FLASK_PORT"
+DTP_STATE_DIR="$STATE_DIR" "$REPO_ROOT/scripts/ops/launch-dashboard.sh" "$JOB_ID" "$FLASK_NODE" "$FLASK_PORT"
 echo -n "  waiting for $FLASK_URL/api/config "
 up=0
 # Allow generous time: on a polluted ChronoLog index the capture worker's
@@ -90,12 +90,12 @@ done
 
 # ── 2b. standalone Path-A capture worker (drains spool -> ChronoLog) ──
 echo "[2b/6] launching standalone capture worker on $FLASK_NODE"
-DTP_STATE_DIR="$STATE_DIR" "$REPO_ROOT/scripts/launch-capture.sh" "$JOB_ID" "$FLASK_NODE" 5570 || \
+DTP_STATE_DIR="$STATE_DIR" "$REPO_ROOT/scripts/ops/launch-capture.sh" "$JOB_ID" "$FLASK_NODE" 5570 || \
   echo "  WARN: capture worker launch reported an error (Path-A interactions may not drain)"
 
 # ── 3. collectors ────────────────────────────────────────────────────
 echo "[3/6] launching collectors (one per node)"
-"$REPO_ROOT/scripts/launch-collectors.sh" "$JOB_ID" "$FLASK_URL" "$COLLECTOR_PORT" || \
+"$REPO_ROOT/scripts/ops/launch-collectors.sh" "$JOB_ID" "$FLASK_URL" "$COLLECTOR_PORT" || \
   echo "  WARN: collector launch reported an error (agents fall back to dashboard ingest)"
 sleep 3
 

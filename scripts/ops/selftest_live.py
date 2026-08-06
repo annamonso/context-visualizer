@@ -10,7 +10,7 @@ injected fakes for the collector's ChronoLog backend. Exercises:
   4. /_interceptor/live route presence
   5. CollectorDaemon submit -> flush -> chronolog write + forward marker
 
-Usage:  CHRONOLOG_OFFLINE=1 python3 scripts/selftest_live.py
+Usage:  CHRONOLOG_OFFLINE=1 python3 scripts/ops/selftest_live.py
 """
 
 from __future__ import annotations
