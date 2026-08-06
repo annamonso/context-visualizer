@@ -33,12 +33,37 @@ Everything CI runs, you can run locally:
 
 ```bash
 ruff check .                             # lint
-pytest tests -q                          # Python tests
+pytest                                   # tests + coverage gate
 cd frontend && npx tsc --noEmit          # frontend typecheck
 cd frontend && npm run build             # frontend build
 ```
 
 Please make sure all four pass before opening a pull request.
+
+### Tests
+
+`tests/` mirrors `src/`:
+
+| Directory | Covers |
+|---|---|
+| `tests/api/` | The HTTP surface via Flask's test client, including a sweep asserting no GET route 500s on empty state |
+| `tests/capture/` | The Path-A spool — ordering, sequence ids, session-id round-tripping |
+| `tests/adapters/` | Registry discovery and capability resolution |
+| `tests/test_*.py` | Pure logic: diagnostics, fleet rollups, tracing |
+
+Everything runs offline against a throwaway state directory (see
+`tests/conftest.py`), so the suite needs no ChronoLog cluster and no
+`py_chronolog_client`.
+
+Coverage has a floor of 50% (`fail_under` in `pyproject.toml`). It ratchets:
+raise it as coverage rises, never lower it to turn a red build green. Long-running
+daemons (`collector/daemon.py`, `capture/sync_worker.py`) and `checkpointing/`
+are excluded — they are exercised on a real cluster, and counting them would make
+the number claim more than the suite actually verifies.
+
+If you add a route with a new path parameter, add a value for it in
+`tests/api/test_route_smoke.py::_PARAM_VALUES`; the inventory test fails
+otherwise, on purpose, so new routes cannot silently escape the sweep.
 
 ## Architecture constraints
 

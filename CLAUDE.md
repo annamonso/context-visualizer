@@ -16,16 +16,28 @@ pip install -e ".[dev]"           # install with dev tooling
 make workspace                    # build the React SPA into the Python package
 make workspace-dev                # Vite dev server on :5173, proxied to :5000
 
-ruff check .                      # lint          <- CI runs this
-pytest tests -q                   # tests         <- CI runs this
-cd frontend && npx tsc --noEmit   # typecheck     <- CI runs this
-cd frontend && npm run build      # build         <- CI runs this
+ruff check .                      # lint                    <- CI runs this
+pytest                            # tests + coverage gate   <- CI runs this
+cd frontend && npx tsc --noEmit   # typecheck               <- CI runs this
+cd frontend && npm run build      # build                   <- CI runs this
 
 CHRONOLOG_OFFLINE=1 chronolog-observe   # run the dashboard with no cluster
 ```
 
-Run all four checks before considering a change done. They are exactly what CI
-runs, so a local pass means a green build.
+Run all four before considering a change done. They are exactly what CI runs, so
+a local pass means a green build.
+
+CI has a third job beyond those: it builds the SPA, installs the package
+**non-editable**, boots it offline and probes the API. That is what catches the
+bundle silently ceasing to be package-data — a failure where every unit test
+still passes and the shipped wheel serves no UI.
+
+Tests live in `tests/` mirroring `src/` (`tests/api/`, `tests/capture/`,
+`tests/adapters/`) and run entirely offline against a throwaway state dir from
+`tests/conftest.py`. Coverage floor is 50% and ratchets upward — never lower it
+to make a build pass. `tests/api/test_route_smoke.py` sweeps every non-streaming
+GET route and fails if a new one appears with a path parameter it does not know,
+so routes cannot escape the sweep unnoticed.
 
 ## Layout
 

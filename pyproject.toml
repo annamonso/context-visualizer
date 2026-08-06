@@ -34,7 +34,7 @@ dependencies = [
 # We therefore do not list it as a hard dependency; instead the backend probes
 # for it at runtime and fails with a clear message if it is missing.
 [project.optional-dependencies]
-dev = ["pytest", "ruff"]
+dev = ["pytest", "pytest-cov", "ruff"]
 
 [project.scripts]
 chronolog-observe = "chronolog_observability.app:main"
@@ -69,3 +69,27 @@ extend-exclude = ["frontend", "**/_imported"]
 [tool.ruff.lint]
 select = ["E", "F", "W"]
 ignore = ["E501"]   # long lines are pervasive in docstrings/tables; not worth churning
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Coverage is on by default so a bare `pytest` enforces the same floor CI does.
+addopts = "-q --cov=chronolog_observability --cov-report=term"
+
+# The floor ratchets: raise it when coverage rises, never lower it to make a
+# red build green. It sits a couple of points under the current figure so an
+# unrelated refactor does not fail CI on noise.
+[tool.coverage.run]
+source = ["chronolog_observability"]
+omit = [
+    "*/static/*",
+    # Long-running daemons and the checkpoint manager are exercised on a real
+    # cluster, not in unit tests; counting them would make the floor lie about
+    # what is actually verified here.
+    "*/collector/daemon.py",
+    "*/capture/sync_worker.py",
+    "*/checkpointing/*",
+]
+
+[tool.coverage.report]
+fail_under = 50
+show_missing = true

@@ -24,10 +24,14 @@ logs/
 # Staging area for material ported in from other trees. Never published.
 **/_imported/
 
-# Test / tooling caches
+# Test / tooling caches and coverage artefacts
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
 
 # Local thesis build driver — tied to a personal conda env and cache path, so it
 # is kept out of the repo. main.pdf ships pre-built.
