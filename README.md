@@ -16,6 +16,12 @@ as a native causal substrate.
 
 ![The Scenarios tab: a live inter-agent call graph laid out over the physical nodes running each agent](docs/assets/screenshot-scenarios.png)
 
+### 🎬 [Watch the demo](https://youtu.be/H_CoekzZsks)
+
+Seven real Claude Agent SDK agents across four cluster nodes, delegating to each
+other over MCP — observed live: the scenario graph, node-to-node traffic, the
+fleet heatmap, and ChronoDoctor catching a failure.
+
 ---
 
 ## Try it in 60 seconds
