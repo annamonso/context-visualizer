@@ -1,0 +1,15 @@
+# Normalise line endings for text; let git detect what is text.
+* text=auto eol=lf
+
+# Binary assets — never diff or merge these as text.
+*.png binary
+*.jpg binary
+*.pdf binary
+
+# Keep generated/vendored files out of language stats and diffs.
+frontend/package-lock.json linguist-generated=true
+src/chronolog_observability/static/workspace/** linguist-generated=true
+
+# The thesis is documentation, not the project's source language.
+thesis/** linguist-documentation=true
+docs/** linguist-documentation=true

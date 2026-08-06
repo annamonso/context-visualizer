@@ -34,7 +34,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Dict, Iterable, Optional, Set, Tuple
 
 from ..backend import constants
 from ..backend.client import ChronoLogBackend, get_backend

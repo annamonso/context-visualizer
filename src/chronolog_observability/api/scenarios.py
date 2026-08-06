@@ -15,7 +15,6 @@ from datetime import timedelta
 from ..adapters.base import Capability
 from ..adapters.registry import registry
 from ..adapters.shape import (
-    base_session_id,
     build_scenario_graph,
     build_scenario_summary,
     build_scenario_timeline,

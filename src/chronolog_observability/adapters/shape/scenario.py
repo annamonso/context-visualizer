@@ -22,12 +22,11 @@ will appear once Phase 2 walks interaction metadata.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Iterable, Optional
 
 from .conversation import (
     base_session_id,
-    infer_role,
 )
 
 

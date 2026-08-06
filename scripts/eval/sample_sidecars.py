@@ -19,7 +19,6 @@ import argparse
 import os
 import socket
 import time
-from pathlib import Path
 
 from _eval_common import append_summary, write_csv
 

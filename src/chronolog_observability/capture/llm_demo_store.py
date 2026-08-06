@@ -17,7 +17,7 @@ import json
 import os
 import threading
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 
 def _root() -> Path:

@@ -160,7 +160,7 @@ def h2(s: str) -> None:
 
 def view_hint(state_dir: str, tab: str, extra: str = "") -> None:
     h2("See it live in the dashboard")
-    print(f"  Launch the dashboard against this demo's data:\n")
+    print("  Launch the dashboard against this demo's data:\n")
     print(color(
         f"    CHRONOLOG_OFFLINE=1 DTP_STATE_DIR={state_dir} \\\n"
         f"      PYTHONPATH=src python3 -m chronolog_observability\n", "green"))

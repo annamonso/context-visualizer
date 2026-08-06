@@ -8,6 +8,21 @@ version = "0.1.0"
 description = "Drop-in observability dashboard and trace-capture for ChronoLog deployments."
 readme = "README.md"
 requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Anna Monsó" }]
+keywords = ["observability", "llm", "multi-agent", "distributed-tracing", "chronolog", "hpc"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Flask",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Monitoring",
+]
 dependencies = [
     "flask>=2.0",
     "pyyaml",
@@ -39,3 +54,18 @@ include = ["chronolog_observability*"]
 
 [tool.setuptools.package-data]
 chronolog_observability = ["templates/*.html", "static/**/*"]
+
+# ---------------------------------------------------------------------------
+# Lint. The selected rules are the ones that catch real defects: undefined or
+# unused names, syntax-level errors, and pycodestyle warnings. Stylistic and
+# modernisation families (I, UP, B) are deliberately NOT enabled yet — turning
+# them on rewrites several hundred lines across the tree, which is a separate
+# change from making the repo publishable.
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["frontend", "**/_imported"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501"]   # long lines are pervasive in docstrings/tables; not worth churning
