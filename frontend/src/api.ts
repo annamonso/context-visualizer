@@ -258,6 +258,10 @@ export interface ClusterTopology {
   scenarios: string[];
   now_ns: number;
   drain_window_sec: number;
+  /** The grapher's *configured* acceptance window (not measured freshness). */
+  accept_window_sec?: number;
+  /** Measured: freshest live keeper's drain age, seconds (null = no data). */
+  last_drain_sec?: number | null;
   allocation: string[];
   components: ClusterComponents;
   stale_cutoff_sec: number;
@@ -441,7 +445,7 @@ export async function clearInteractions(
   return res.json();
 }
 
-// ── Doctor tab: ChronoDoctor error detection & diagnosis ───────────────────
+// ── Doctor tab: PrismaDoctor error detection & diagnosis ───────────────────
 
 export interface IncidentDiagnosis {
   root_cause: string;
@@ -502,7 +506,7 @@ export async function getDoctorStatus(): Promise<DoctorStatus> {
   return res.json();
 }
 
-/** Activate / deactivate ChronoDoctor's live background scanner. */
+/** Activate / deactivate PrismaDoctor's live background scanner. */
 export async function setDoctorWatch(enabled: boolean): Promise<{ running: boolean }> {
   const res = await fetch("/api/diagnostics/watch", {
     method: "POST",
@@ -605,6 +609,8 @@ export interface TraceSpan {
   tool_name: string;
   status: string;
   is_error: boolean;
+  /** Started but never completed (no done frame) — the orphan-call pathology. */
+  is_open?: boolean;
   latency_ms: number;
   start_offset_ms: number;
   depth: number;
@@ -631,6 +637,8 @@ export interface Trace {
   end_ns: number;
   wall_ms: number;
   error_count: number;
+  /** Spans that started and never completed. */
+  open_count?: number;
   spans: TraceSpan[];
   critical_path: CriticalPath;
 }

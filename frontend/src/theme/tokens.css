@@ -31,11 +31,20 @@
   --role-subagent:     249 115 22;
   --role-tool:         168 85 247;
   --role-unknown:      107 114 128;
+  /* Never-completed (orphaned) delegations — must read as neither error-red
+     nor success; amber, matching the "hung call" warning severity. */
+  --role-orphan:       245 158 11;
 
   /* Status */
   --ok:    34 197 94;
   --warn:  234 179 8;
   --error: 239 68 68;
+
+  /* Incident severity (Health tab, trace criticality) */
+  --sev-critical: 239 68 68;
+  --sev-error:    249 115 22;
+  --sev-warning:  234 179 8;
+  --sev-info:     96 165 250;
 }
 
 [data-theme="light"] {
@@ -58,10 +67,16 @@
   --role-subagent:     234 88 12;
   --role-tool:         147 51 234;
   --role-unknown:      107 114 128;
+  --role-orphan:       217 119 6;
 
   --ok:    22 163 74;
   --warn:  202 138 4;
   --error: 220 38 38;
+
+  --sev-critical: 220 38 38;
+  --sev-error:    234 88 12;
+  --sev-warning:  202 138 4;
+  --sev-info:     59 130 246;
 }
 
 /* Base body styling so pages with no explicit bg inherit the canvas. */

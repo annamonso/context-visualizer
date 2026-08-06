@@ -1,0 +1,43 @@
+% One inter-agent call end to end: the start/done pair, the durable write on
+% the producing node, and the forwarded copy flagged so it is never persisted
+% twice. This is the mechanism of the "persist once per backend" contract.
+\begin{tikzpicture}[
+    font=\footnotesize, >=Stealth,
+    life/.style={draw, rounded corners=2pt, align=center, inner sep=3pt,
+                 fill=black!5, text width=2.15cm},
+    ll/.style={densely dashed, black!40},
+    msg/.style={->, semithick, black!75},
+    ret/.style={->, semithick, black!45, densely dashed},
+    lb/.style={font=\scriptsize, above, inner sep=1.6pt},
+    note/.style={font=\scriptsize\itshape, text=black!60, align=left},
+  ]
+
+  % ---------------------------------------------------------------- lifelines
+  \node[life] (a) at (0,0)    {\textbf{agent}\\\texttt{planner}, node $n_1$};
+  \node[life] (c) at (3.6,0)  {\textbf{collector}\\node $n_1$};
+  \node[life] (k) at (7.1,0)  {\textbf{keeper}\\node $n_1$};
+  \node[life] (d) at (10.8,0) {\textbf{dashboard}\\hot store $+$ bus};
+  \node[life] (b) at (14.4,0) {\textbf{agent}\\\texttt{executor}, node $n_2$};
+  \foreach \n in {a,c,k,d,b} { \draw[ll] (\n.south) -- ++(0,-7.9); }
+
+  % --------------------------------------------------------------- the start
+  \draw[msg] (0,-1.15)   -- node[lb] {\texttt{POST start} \ ($\kappa$)} (3.6,-1.15);
+  \draw[msg] (3.6,-1.95) -- node[lb] {append \texttt{start} \ (durable)} (7.1,-1.95);
+  \draw[msg] (3.6,-2.75) -- node[lb] {forward $+$ \texttt{X-DTP-Forwarded:\ chronolog}} (10.8,-2.75);
+  \node[note, anchor=west] at (10.95,-3.25) {header honoured:\\hot copy only,\\no second write};
+
+  % ------------------------------------------------------- the delegation itself
+  \draw[msg] (0,-4.15) -- node[lb] {MCP \ \texttt{call\_remote\_agent}} (14.4,-4.15);
+  \draw[ret] (14.4,-4.95) -- node[lb] {result} (0,-4.95);
+
+  % ---------------------------------------------------------------- the done
+  \draw[msg] (0,-5.85)   -- node[lb] {\texttt{POST done} \ ($\kappa$, status, latency)} (3.6,-5.85);
+  \draw[msg] (3.6,-6.60) -- node[lb] {append \texttt{done}} (7.1,-6.60);
+  \draw[msg] (3.6,-7.35) -- node[lb] {forward $+$ header \ $\to$ \ SSE frame to the browser} (10.8,-7.35);
+
+  % ------------------------------------------------------------------ bracket
+  \draw[decorate, decoration={brace, amplitude=4pt}, black!45]
+    (-1.25,-1.05) -- (-1.25,-7.45);
+  \node[note, anchor=east, rotate=90] at (-1.35,-4.25)
+    {one logical call, one \texttt{correlation\_id}};
+\end{tikzpicture}

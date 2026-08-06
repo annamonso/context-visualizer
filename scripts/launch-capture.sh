@@ -39,6 +39,12 @@ export PYTHONPATH="$CHRONO_HOME/lib:$REPO_ROOT/src:${PYTHONPATH:-}"
 export CHRONOLOG_VISOR_IP="$VISOR_IP"
 export CHRONOLOG_QUERY_PORT="$QUERY_PORT"
 export DTP_STATE_DIR="$STATE_DIR"
+# warm_up replays every known session; a story whose playback response never
+# arrives burns the ~180 s query timeout EACH — with dozens of sessions the
+# worker spends an hour "warming up" before it drains a single spool record.
+# Archive-first makes warm-up read the drained CSVs in milliseconds; the
+# drain writes (append_event) don't go through this path and are unaffected.
+export CHRONOLOG_ARCHIVE_FIRST=1
 unset CHRONOLOG_OFFLINE
 cd "$REPO_ROOT"; LOGDIR="$REPO_ROOT/logs"; mkdir -p "$LOGDIR"
 LOG="$LOGDIR/capture-${JOB_ID}-$(hostname).log"

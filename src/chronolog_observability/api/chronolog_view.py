@@ -352,13 +352,24 @@ def topology():
         keepers = [k for k in keepers if k["in_allocation"]]
     hidden = len(topo["keepers"]) - len(keepers)
 
+    # The measured, operator-relevant freshness number: the freshest live
+    # keeper's drain age (how long ago the archive last advanced). The 180 s
+    # is the grapher/player *configured* acceptance window — NOT the measured
+    # end-to-end availability (20-30 s in this deployment; see the thesis
+    # evaluation) — so it is exposed under its honest name and kept out of
+    # the headline stat.
+    drain_ages = [k["age_sec"] for k in keepers if k.get("age_sec") is not None]
+    last_drain_sec = round(min(drain_ages), 1) if drain_ages else None
+
     return jsonify({
         "via":               via,
         "connected":         backend is not None,
         "output_dir":        str(_output_dir()),
         "scenarios":         scenarios,
         "now_ns":            now_ns,
-        "drain_window_sec":  180,
+        "drain_window_sec":  180,  # kept for API compat; see accept_window_sec
+        "accept_window_sec": 180,
+        "last_drain_sec":    last_drain_sec,
         "allocation":        allocation,
         "components":        _components(allocation),
         "stale_cutoff_sec":  stale_cutoff,
@@ -389,8 +400,24 @@ def comms():
     scenario = (request.args.get("scenario") or "").strip()
     scenarios = [scenario] if scenario else store.list_local_scenarios()
 
-    def norm(h: str) -> str:
-        return _short_host(h) or "unknown"
+    scenario_ids = set(scenarios)
+
+    def norm(h: str) -> Optional[str]:
+        """Resolve an edge endpoint to a canonical cluster host, or None.
+
+        Endpoints arrive in three shapes: a bare host (``ares-comp-10``), an
+        ``agent@host`` session pinned to a node, or a purely logical
+        ``role@scenario`` id whose physical host is unknown. Strip a leading
+        ``<something>@`` and canonicalise the tail — so ``agent@ares-comp-04``
+        and bare ``ares-comp-4`` collapse to one node instead of two. But when
+        the tail is a scenario id (i.e. the endpoint is a logical agent, not a
+        node), return None so it is not drawn as a bogus cluster node."""
+        if not h:
+            return None
+        tail = h.split("@")[-1]
+        if tail in scenario_ids:
+            return None
+        return _short_host(tail)
 
     hosts: Dict[str, Dict] = {}
     pairs: Dict[tuple, Dict] = {}
@@ -411,6 +438,8 @@ def comms():
         for e in edges:
             fh = norm(e.get("from_host") or "")
             th = norm(e.get("to_host") or "")
+            if fh is None or th is None:
+                continue  # endpoint carries no resolvable host — not node-to-node
             is_err = str(e.get("status") or "").startswith("error")
             sf = host_slot(fh)
             st = host_slot(th)

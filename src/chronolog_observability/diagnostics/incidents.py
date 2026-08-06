@@ -1,6 +1,6 @@
 """Cluster ``Signal`` objects into ``Incident`` objects. Pure, no I/O.
 
-Clustering is the move that makes ChronoDoctor usable at scale: 500 identical
+Clustering is the move that makes PrismaDoctor usable at scale: 500 identical
 timeouts become ONE incident with ``count=500`` spanning a list of hosts, not
 500 rows. The signature is ``(kind, normalized_message)`` — host/tool/model are
 aggregated *inside* the incident so a fleet-wide tool bug stays one card while

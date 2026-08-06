@@ -6,8 +6,7 @@ runs against any ChronoLog cluster — and it ships a no-cost offline demo mode 
 viewing the UI without a cluster.
 
 This document is the complete feature reference. For setup and operational
-notes see [`README.md`](./README.md); for the migration record see
-[`MIGRATION.md`](./MIGRATION.md).
+notes see [`README.md`](./README.md).
 
 ---
 
@@ -42,14 +41,16 @@ agents ──Path-A (LLM turns)──▶ spool ──capture worker──▶ Chr
 
 | Tab | Purpose | Source |
 |-----|---------|--------|
-| **Workspace** | Per-agent conversation tree — LLM turns, handoffs, subagents | Path-A (ChronoLog) |
-| **Scenarios** | Multi-agent scenario graph — peers + inter-agent edges, live | Path-B (hot store + SSE) |
-| **Interactions** | Flat feed of every LLM turn | Path-A (ChronoLog) |
+| **Scenarios** | Multi-agent scenario graph — peers + inter-agent edges, live. Clicking an agent or host opens the **node inspector** pop-up: per-node LLM activity (flow graph + playhead timeline + turn detail), inter-agent I/O feed, and per-agent context memory | Path-B (hot store + SSE) + Path-A (ChronoLog) |
+| **Health** | Merged live-traffic + **PrismaDoctor** view — incident rail (clustered failures with diagnosis) beside the flat feed of every LLM turn; incidents filter the feed, feed rows badge their incident | Path-A (ChronoLog) + all stories |
 | **Cluster** | ChronoLog deployment topology + node-to-node comms + **idle/available nodes** | topology + hot store + `sinfo` |
 | **Fleet** | Per-node **health heatmap** (errors / p95 / throughput / cost), scales to 100+ nodes | rollups / spool |
-| **Doctor** | **ChronoDoctor** — error detection, diagnosis, self-compacting memory | all stories |
 | **Traces** | Distributed **critical-path tracing** waterfall | inter-agent edges |
 | **Memory** | Per-agent **working memory** (context-graph tokens growing/evicting) | Path-A spool |
+
+The former **Workspace** tab lives on as the Scenarios node-inspector pop-up;
+the former **Interactions** and **Doctor** tabs are merged into **Health**.
+Legacy `?tab=interactions` / `?tab=doctor` links redirect to Health.
 
 A **cluster-capacity badge** in the header shows the underlying SLURM cluster at a
 glance — total / idle / busy / down nodes, refreshed every 30 s from a live
@@ -57,7 +58,7 @@ glance — total / idle / busy / down nodes, refreshed every 30 s from a live
 
 ---
 
-## 3. ChronoDoctor — error detection & diagnosis (Doctor tab)
+## 3. PrismaDoctor — error detection & diagnosis (Health tab)
 
 Reads every ChronoLog story, turns failures into signals, clusters them, and
 explains each one.
@@ -150,7 +151,7 @@ turns and a real `call_remote_agent` MCP tool call per agent.
 | `scripts/chronolog-live.sh [N] [partition]` | **Bring ChronoLog LIVE**: allocate N idle nodes → deploy ChronoLog (keeper on each) → start collectors + capture worker + dashboard connected to the live visor. No LLM. |
 | `scripts/allocate-and-run.sh [N] [scenario] [partition]` | Allocate → deploy ChronoLog → run **real agents** end-to-end (respects `AGENTS_PER_NODE`). Uses LLM. |
 | `scripts/run-live-agents.sh <JOBID> [scenario]` | Run real agents on an existing allocation (healthcheck → dashboard → capture → collectors → agents → verify). |
-| `scripts/demos/demo_doctor.py` | Offline ChronoDoctor demo (errors → incidents → diagnosis → recurring memory). |
+| `scripts/demos/demo_doctor.py` | Offline PrismaDoctor demo (errors → incidents → diagnosis → recurring memory). |
 | `scripts/demos/demo_fleet_scale.py` | Offline Fleet demo at 100+ nodes (rollups + heatmap). |
 | `scripts/demos/demo_tracing.py` | Offline critical-path demo (nested call tree + bottleneck). |
 | `scripts/synth_live_traffic.py` | Synthetic per-node live traffic over the real ingest path. |
@@ -185,8 +186,9 @@ Console scripts: `chronolog-observe`, `chronolog-capture`, `chronolog-collector`
 - **Tunnel from a laptop**: dashboard runs on a compute node (Mercury subnet
   rules), so SSH-forward to that node (e.g. `-L 24000:ares-comp-11:5000`). Offline
   demo mode can run on the gateway and forward to its own `localhost`.
-- **Drain window**: live tabs (Scenarios, Cluster, Fleet, Doctor, Traces, Memory)
-  are instant; Workspace/Interactions full-fidelity fill in after the ~180 s
-  keeper→grapher drain.
+- **Drain window**: live views (Scenarios, Cluster, Fleet, Health incidents,
+  Traces, Memory) are instant; per-node LLM turns (node inspector) and the
+  Health feed's full fidelity fill in after the ~180 s keeper→grapher drain —
+  the node inspector lands on its I/O tab and says so while turns are pending.
 - **Capture is per-host**: keeper + collector + capture worker on every node;
   `chronolog-live.sh` sets this up automatically.

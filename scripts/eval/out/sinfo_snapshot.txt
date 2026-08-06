@@ -1,0 +1,7 @@
+PARTITION  AVAIL  TIMELIMIT  NODES  STATE NODELIST
+datacrumbs    up 2-00:00:00      8    mix ares-comp-[10-17]
+datacrumbs    up 2-00:00:00      6  alloc ares-comp-[03-08]
+datacrumbs    up 2-00:00:00     14   idle ares-comp-[18-23,25-32]
+compute*      up 2-00:00:00      8    mix ares-comp-[10-17]
+compute*      up 2-00:00:00     14   idle ares-comp-[18-23,25-32]
+debug         up 4-00:00:00      6  alloc ares-comp-[03-08]

@@ -1,0 +1,28 @@
+% (a) the single-agent loop; (b) multi-agent delegation across nodes.
+\begin{tikzpicture}[font=\footnotesize, thick, >=Stealth,
+    comp/.style={draw, fill=white, minimum height=0.65cm, minimum width=1.5cm, align=center},
+    agent/.style={draw, fill=white, circle, minimum size=0.8cm}]
+  % ---- panel (a): the agent loop ----
+  \node[comp] (ctx)  at (0,0)     {context};
+  \node[comp] (llm)  at (3.1,1.0) {LLM};
+  \node[comp] (tool) at (3.1,-1.0){tool};
+  \draw[->] (ctx.north) to[bend left=25] node[above left=-2pt] {\tiny prompt} (llm.west);
+  \draw[->] (llm.south) to[bend left=25] node[right=2pt] {\tiny action} (tool.north);
+  \draw[->] (tool.west) to[bend left=25] node[below left=-2pt] {\tiny observation} (ctx.south);
+  \draw[->] (llm.east) -- +(1.0,0) node[right] {\tiny answer};
+  \node at (1.9,-2.2) {(a) the agent loop: one \emph{turn} per LLM call};
+  % ---- panel (b): delegation across nodes ----
+  \node[agent] (A) at (7.6,0.0)   {$A$};
+  \node[agent] (B) at (11.0,0.9)  {$B$};
+  \node[agent] (C) at (11.0,-0.9) {$C$};
+  \node[draw, dashed, fit=(A), inner sep=8pt] (n1) {};
+  \node[anchor=south west, inner sep=2pt] at (n1.north west) {\tiny node 1};
+  \node[draw, dashed, fit=(B)(C), inner sep=8pt] (n2) {};
+  \node[anchor=south west, inner sep=2pt] at (n2.north west) {\tiny node 2};
+  \draw[->] (A) -- node[above, sloped] {\tiny start} (B);
+  \draw[->, dashed] (B) to[bend right=18]
+    node[above, sloped] {\tiny done (status, latency)} (A);
+  \draw[->] (B) -- node[right] {\tiny start} (C);
+  \draw[->, dashed] (C) to[bend left=30] (B);
+  \node at (9.7,-2.2) {(b) delegation: agents as tools, calls across nodes};
+\end{tikzpicture}

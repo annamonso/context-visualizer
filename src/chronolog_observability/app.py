@@ -100,9 +100,9 @@ def _maybe_start_capture(config: Config) -> None:
 
 
 def _maybe_start_doctor(config: Config) -> None:
-    """Start the ChronoDoctor background scanner if opted in via ``CHRONOLOG_DOCTOR=1``.
+    """Start the PrismaDoctor background scanner if opted in via ``CHRONOLOG_DOCTOR=1``.
 
-    ChronoDoctor's detection always runs on demand (the Doctor tab / API trigger
+    PrismaDoctor's detection always runs on demand (the Doctor tab / API trigger
     a scan). The daemon is the *live* mode: it scans on a timer so incidents pop
     in without a click and the incident-memory digest accrues across the run. Off
     by default — like capture, the dashboard is a reader first.
@@ -118,9 +118,9 @@ def _maybe_start_doctor(config: Config) -> None:
         interval = float(os.environ.get("CHRONOLOG_DOCTOR_INTERVAL", "30"))
         worker = start_doctor_worker(interval_sec=interval)
         if worker is not None:
-            log.info("chronodoctor worker started (interval=%.1fs)", interval)
+            log.info("prismadoctor worker started (interval=%.1fs)", interval)
     except Exception as exc:  # never let diagnostics wiring break the dashboard
-        log.warning("chronodoctor worker not started: %s", exc)
+        log.warning("prismadoctor worker not started: %s", exc)
 
 
 def _register_spa(app: Flask) -> None:
@@ -162,7 +162,12 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO)
     cfg = Config.from_env()
     app = create_app(cfg)
-    app.run(host=cfg.host, port=cfg.port)
+    # threaded=True: py_chronolog_client's ReplayStory holds the GIL and can
+    # block for minutes on an un-drained story. With the default single-threaded
+    # server, one such stuck request freezes the WHOLE dashboard (the Cluster
+    # tab's CSV-only topology read queues behind it). Threading lets the safe,
+    # CSV/hot-store endpoints stay responsive while one replay is blocked.
+    app.run(host=cfg.host, port=cfg.port, threaded=True)
 
 
 if __name__ == "__main__":

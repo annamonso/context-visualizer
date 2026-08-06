@@ -1,4 +1,4 @@
-"""ChronoDoctor background scanner — runs :func:`run_scan` on a timer.
+"""PrismaDoctor background scanner — runs :func:`run_scan` on a timer.
 
 Opt-in (``CHRONOLOG_DOCTOR=1``), mirroring the Path-A capture worker. Detection
 always works on demand without this; the daemon is the *live* mode that keeps
@@ -28,7 +28,7 @@ _STOP = threading.Event()
 
 
 def _loop(interval_sec: float) -> None:
-    log.info("chronodoctor loop start (interval=%.1fs)", interval_sec)
+    log.info("prismadoctor loop start (interval=%.1fs)", interval_sec)
     while not _STOP.is_set():
         try:
             rep = run_scan()
@@ -49,7 +49,7 @@ def start_doctor_worker(interval_sec: float = 30.0) -> Optional[threading.Thread
     if _THREAD is not None and _THREAD.is_alive():
         return None
     _STOP.clear()
-    _THREAD = threading.Thread(target=_loop, args=(interval_sec,), name="chronodoctor", daemon=True)
+    _THREAD = threading.Thread(target=_loop, args=(interval_sec,), name="prismadoctor", daemon=True)
     _THREAD.start()
     return _THREAD
 
@@ -65,7 +65,7 @@ def is_running() -> bool:
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
-    ap = argparse.ArgumentParser(description="ChronoDoctor background scanner")
+    ap = argparse.ArgumentParser(description="PrismaDoctor background scanner")
     ap.add_argument("--interval", type=float, default=30.0, help="seconds between scans")
     ap.add_argument("--once", action="store_true", help="run a single scan and exit")
     args = ap.parse_args()

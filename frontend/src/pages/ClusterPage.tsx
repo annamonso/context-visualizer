@@ -123,7 +123,16 @@ export default function ClusterPage() {
         <Kpi label="Keepers" value={String(liveKeepers.length)} />
         <Kpi label="Chronicles" value={String(new Set(topo.chronicles.map((c) => c.chronicle)).size)} />
         <Kpi label="Scenarios" value={String(topo.scenarios.length)} />
-        <Kpi label="Drain window" value={`${topo.drain_window_sec}s`} />
+        <div
+          title={`Measured: how long ago the archive last advanced (freshest keeper drain).\nGrapher acceptance window (configured): ${topo.accept_window_sec ?? topo.drain_window_sec}s — an upper bound, not the observed drain.`}
+        >
+          <Kpi
+            label="Last drain"
+            value={
+              topo.last_drain_sec != null ? fmtAge(topo.last_drain_sec) : "—"
+            }
+          />
+        </div>
       </section>
 
       <section className="px-5 py-4 border-b border-border-soft">

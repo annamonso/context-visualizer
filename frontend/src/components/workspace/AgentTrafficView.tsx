@@ -1,19 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import ResizableSplit from "../components/workspace/ResizableSplit";
-import ConversationHeader from "../components/workspace/ConversationHeader";
-import ViewToolbar, { type Scope, type ViewMode } from "../components/workspace/ViewToolbar";
-import AgentFlowGraph from "../components/workspace/AgentFlowGraph";
-import TimelineView from "../components/workspace/TimelineView";
-import DetailPanel from "../components/workspace/DetailPanel";
-import ErrorBoundary from "../components/ErrorBoundary";
-import Toast, { type ToastState } from "../components/ui/Toast";
-import {
-  useConversationData,
-  type ConversationData,
-  type NormalizedTurn,
-} from "../hooks/useConversationData";
-import { useHostData } from "../hooks/useHostData";
-import { usePlayhead } from "../hooks/usePlayhead";
+import ResizableSplit from "./ResizableSplit";
+import ViewToolbar, { type Scope, type ViewMode } from "./ViewToolbar";
+import AgentFlowGraph from "./AgentFlowGraph";
+import TimelineView from "./TimelineView";
+import DetailPanel from "./DetailPanel";
+import ErrorBoundary from "../ErrorBoundary";
+import Toast, { type ToastState } from "../ui/Toast";
+import type { ConversationData, NormalizedTurn } from "../../hooks/useConversationData";
+import { usePlayhead } from "../../hooks/usePlayhead";
 
 function errorToastMessage(turn: NormalizedTurn): string {
   const raw = turn.error ?? `HTTP ${turn.statusCode ?? "?"}`;
@@ -22,44 +16,35 @@ function errorToastMessage(turn: NormalizedTurn): string {
 }
 
 interface Props {
-  onOpenRawLog?: () => void;
+  /** Turn stream + graph to render. Both useConversationData and useHostData
+   *  produce this shape, so the view is agnostic to how it was scoped. */
+  data: ConversationData;
+  /** Shown centered when there is nothing to render (mode-specific copy). */
+  emptyHint?: string | null;
+  /** Namespace for persisted layout state (split fractions, detail-hidden)
+   *  so the node-inspector modal doesn't fight other embeddings. */
+  storagePrefix?: string;
 }
 
-export default function WorkspacePage({ onOpenRawLog }: Props) {
-  // Host mode (?host=<node>&hostScenario=<sid>): every agent on one node of a
-  // scenario, merged. Entered by clicking a host in the Scenarios topology.
-  const [hostScope] = useState<{ host: string; scenario: string } | null>(() => {
-    const params = new URLSearchParams(window.location.search);
-    const host = params.get("host");
-    const scenario = params.get("hostScenario");
-    return host && scenario ? { host, scenario } : null;
-  });
-
-  const [conversationId, setConversationId] = useState<string | null>(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("conv");
-  });
-
+/**
+ * The reusable heart of the old Workspace page: sequential/aggregate agent
+ * flow graph + per-turn detail panel + scrubbable timeline, synchronized by
+ * a shared playhead. Extracted so the Scenarios node-inspector modal (and
+ * any future embedding) can render per-node agent traffic without owning a
+ * whole tab. Keyboard shortcuts (space/arrows/Home/End) are registered for
+ * the lifetime of the component — mount it only while it should own them.
+ */
+export default function AgentTrafficView({
+  data: rawData,
+  emptyHint: emptyHintProp,
+  storagePrefix = "workspace",
+}: Props) {
   const [viewMode, setViewMode] = useState<ViewMode>("sequential");
   const [scope, setScope] = useState<Scope>("workflow");
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (hostScope) return; // host mode owns the URL params
-    const params = new URLSearchParams(window.location.search);
-    if (conversationId) params.set("conv", conversationId);
-    else params.delete("conv");
-    const qs = params.toString();
-    const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
-    window.history.replaceState(null, "", url);
-  }, [conversationId, hostScope]);
-
-  const convData = useConversationData(hostScope ? null : conversationId);
-  const hostData = useHostData(hostScope?.host ?? null, hostScope?.scenario ?? null);
-  const rawData: ConversationData = hostScope ? hostData : convData;
-
-  // Auto-select the first lane when scope flips to "session" and nothing is picked yet,
-  // or when the selected one disappears (conversation change).
+  // Auto-select the first lane when scope flips to "session" and nothing is
+  // picked yet, or when the selected one disappears (target change).
   useEffect(() => {
     if (scope !== "session") return;
     if (selectedSessionId && rawData.lanes.includes(selectedSessionId)) return;
@@ -78,8 +63,6 @@ export default function WorkspacePage({ onOpenRawLog }: Props) {
   const currentTurn = data.turns[playhead.idx] ?? null;
 
   // Error toast lives exactly as long as the playhead is on an error turn.
-  // Moves to the next turn → toast disappears. Scrubs back → toast returns.
-  // Ported from the reference project verbatim.
   const errorToast = useMemo<ToastState | null>(
     () =>
       currentTurn?.isError
@@ -89,17 +72,23 @@ export default function WorkspacePage({ onOpenRawLog }: Props) {
   );
 
   // Collapsible detail panel. Persist the choice so a full refresh preserves it.
+  const detailKey = `${storagePrefix}.detail.hidden`;
   const [detailHidden, setDetailHidden] = useState<boolean>(() => {
-    return window.localStorage.getItem("workspace.detail.hidden") === "1";
+    return window.localStorage.getItem(detailKey) === "1";
   });
   useEffect(() => {
-    window.localStorage.setItem("workspace.detail.hidden", detailHidden ? "1" : "0");
-  }, [detailHidden]);
+    window.localStorage.setItem(detailKey, detailHidden ? "1" : "0");
+  }, [detailKey, detailHidden]);
 
-  // Keyboard shortcuts.
+  // Keyboard shortcuts — active while mounted.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      )
+        return;
       if (e.key === " ") { e.preventDefault(); playhead.toggle(); }
       else if (e.key === "ArrowLeft")  { e.preventDefault(); playhead.step(-1); }
       else if (e.key === "ArrowRight") { e.preventDefault(); playhead.step( 1); }
@@ -110,23 +99,15 @@ export default function WorkspacePage({ onOpenRawLog }: Props) {
     return () => window.removeEventListener("keydown", handler);
   }, [playhead, data.turns.length]);
 
-  const emptyHint = hostScope
-    ? data.loading
-      ? "Loading node activity…"
+  const emptyHint =
+    emptyHintProp ??
+    (data.loading
+      ? "Loading agent activity…"
       : data.error
         ? `Error: ${data.error}`
         : data.turns.length === 0
-          ? "No agent activity recorded on this node."
-          : null
-    : !conversationId
-      ? "Select a conversation to begin."
-      : data.loading
-        ? "Loading conversation…"
-        : data.error
-          ? `Error: ${data.error}`
-          : data.turns.length === 0
-            ? "No interactions found for this conversation."
-            : null;
+          ? "No LLM turns recorded yet."
+          : null);
 
   const graphAndDetail = detailHidden ? (
     <div className="relative h-full">
@@ -148,7 +129,7 @@ export default function WorkspacePage({ onOpenRawLog }: Props) {
       initial={0.66}
       min={0.3}
       max={0.85}
-      storageKey="workspace.split.horizontal"
+      storageKey={`${storagePrefix}.split.horizontal`}
       first={
         <ErrorBoundary label="Agent graph">
           <AgentFlowGraph data={data} playhead={playhead} viewMode={viewMode} />
@@ -167,40 +148,6 @@ export default function WorkspacePage({ onOpenRawLog }: Props) {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {hostScope ? (
-        <div className="px-4 py-2 border-b border-border-soft flex items-center gap-3 shrink-0">
-          <span className="text-[10px] uppercase tracking-widest text-fg-muted">node</span>
-          <span className="font-mono text-sm font-semibold">{hostScope.host}</span>
-          <span className="text-[11px] text-fg-muted font-mono truncate">
-            {hostScope.scenario}
-          </span>
-          <span className="text-[11px] text-fg-muted tabular-nums">
-            {hostData.agentCount} agent{hostData.agentCount === 1 ? "" : "s"} ·{" "}
-            {data.totals.calls} calls · {data.totals.tokens.toLocaleString()} tok
-            {hostData.truncated > 0 && ` · first ${hostData.agentCount - hostData.truncated} shown`}
-          </span>
-          <a
-            href={`?tab=scenarios&scenario=${encodeURIComponent(hostScope.scenario)}`}
-            className="ml-auto text-[11px] text-fg-muted hover:text-fg-primary"
-          >
-            ← Back to scenario
-          </a>
-          <a
-            href={window.location.pathname}
-            className="text-[11px] text-fg-muted hover:text-fg-primary"
-            title="Leave host view"
-          >
-            ✕
-          </a>
-        </div>
-      ) : (
-        <ConversationHeader
-          conversationId={conversationId}
-          onConversationChange={setConversationId}
-          totals={data.totals}
-          onOpenRawLog={onOpenRawLog}
-        />
-      )}
       <ViewToolbar
         viewMode={viewMode}
         onViewModeChange={setViewMode}
@@ -226,7 +173,7 @@ export default function WorkspacePage({ onOpenRawLog }: Props) {
               initial={0.62}
               min={0.25}
               max={0.85}
-              storageKey="workspace.split.vertical"
+              storageKey={`${storagePrefix}.split.vertical`}
               first={graphAndDetail}
               second={
                 <ErrorBoundary label="Timeline">

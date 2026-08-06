@@ -34,6 +34,11 @@ class Span:
     start_ns: int
     end_ns: int
     latency_ms: float
+    # Started but never completed (no ``done`` frame): the orphan-call
+    # pathology. Zero-latency, so it never wins critical-path or self-time
+    # math — but it must surface in the waterfall as "open", not as a
+    # zero-width "ok" span (which is how it rendered before).
+    open: bool = False
     depth: int = 0
     children: List[str] = field(default_factory=list)
 
@@ -50,8 +55,9 @@ class Span:
             "to_host": self.to_host,
             "to_session": self.to_session,
             "tool_name": self.tool_name,
-            "status": self.status or "ok",
+            "status": "open (never completed)" if self.open else (self.status or "ok"),
             "is_error": self.is_error,
+            "is_open": self.open,
             "latency_ms": round(self.latency_ms, 1),
             "start_offset_ms": round((self.start_ns - trace_start_ns) / 1e6, 1) if trace_start_ns else 0.0,
             "depth": self.depth,
@@ -79,6 +85,7 @@ def _spans_from_stitched(stitched: List[Dict[str, Any]]) -> List[Span]:
             start_ns=start_ns,
             end_ns=max(end_ns, start_ns),
             latency_ms=lat,
+            open=not ev.get("ts_done"),
         ))
     return spans
 
@@ -144,6 +151,7 @@ def build_traces(stitched: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             "end_ns": trace_end,
             "wall_ms": round((trace_end - trace_start) / 1e6, 1),
             "error_count": sum(1 for m in members if m.is_error),
+            "open_count": sum(1 for m in members if m.open),
             "spans": [m.to_dict(trace_start) for m in sorted(members, key=lambda x: x.start_ns)],
             "critical_path": cp,
         })

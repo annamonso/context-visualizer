@@ -78,6 +78,12 @@ export CHRONOLOG_VISOR_PROTOCOL="ofi+sockets"
 export CHRONOLOG_QUERY_PORT="$QUERY_PORT"
 export CHRONOLOG_NODES="$NODELIST"
 export CHRONOLOG_OUTPUT_DIR="$CHRONO_HOME/output"
+# The dashboard's playback receiver never gets the player's response transfer
+# (requests reach the player, responses vanish; client burns the ~180 s query
+# timeout per story, per request — see the workarounds doc). Serve replay-backed
+# views archive-first; live replay stays available to processes whose receiver
+# works (the capture worker).
+export CHRONOLOG_ARCHIVE_FIRST=1
 # Dashboard is a PURE READER. We deliberately do NOT set CHRONOLOG_CAPTURE here:
 # the capture worker's startup warm_up does a blocking ReplayStory (the
 # py_chronolog_client holds the GIL through it), which would stall Flask's

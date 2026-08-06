@@ -6,6 +6,8 @@
  * cross between rectangles.
  */
 
+import { hostColor } from "../../../lib/hostHue";
+
 export interface HostGroupData {
   host: string;
   /** 0–360 stable hue derived from the host name. */
@@ -34,9 +36,9 @@ export default function HostGroupNode({ data }: { data: HostGroupData }) {
       style={{
         width: "100%",
         height: "100%",
-        border: `2px dashed hsl(${hue} 62% 48% / 0.75)`,
+        border: `2px dashed ${hostColor(hue, 0.75)}`,
         borderRadius: 14,
-        backgroundColor: `hsl(${hue} 62% 48% / 0.06)`,
+        backgroundColor: hostColor(hue, 0.06),
         boxSizing: "border-box",
         cursor: "pointer",
         transition: "background-color 120ms",
@@ -52,7 +54,7 @@ export default function HostGroupNode({ data }: { data: HostGroupData }) {
           fontSize: 11,
           fontWeight: 700,
           letterSpacing: "0.02em",
-          color: `hsl(${hue} 62% 34%)`,
+          color: hostColor(hue),
           textTransform: "uppercase",
         }}
       >
@@ -61,7 +63,7 @@ export default function HostGroupNode({ data }: { data: HostGroupData }) {
             width: 8,
             height: 8,
             borderRadius: "50%",
-            backgroundColor: `hsl(${hue} 62% 48%)`,
+            backgroundColor: hostColor(hue),
           }}
         />
         <span>node · {label}</span>

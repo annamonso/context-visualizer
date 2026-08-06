@@ -1,9 +1,9 @@
-"""The only I/O layer of ChronoDoctor: pull raw records from the read path.
+"""The only I/O layer of PrismaDoctor: pull raw records from the read path.
 
 Everything downstream (detectors, clustering, diagnosis) is pure and operates
 on the lists this module returns. Reads go through the same seams the dashboard
 uses — ``backend.path_a_reader`` for Path-A and the inter-agent store for
-Path-B — so ChronoDoctor sees exactly what the tabs see and inherits offline
+Path-B — so PrismaDoctor sees exactly what the tabs see and inherits offline
 (spool/JSONL) mode for free.
 """
 

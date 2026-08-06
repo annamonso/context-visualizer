@@ -215,7 +215,7 @@ class LLMDiagnoser:
         import json as _json
 
         prompt = (
-            "You are ChronoDoctor, diagnosing failures in a multi-agent system "
+            "You are PrismaDoctor, diagnosing failures in a multi-agent system "
             "observed via ChronoLog. Given this incident (errors already "
             "clustered by signature), respond with ONLY a JSON object: "
             '{"root_cause": "...", "blast_radius": "...", "remediation": "...", '

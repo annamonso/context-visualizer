@@ -1,0 +1,586 @@
+\chapter{Evaluation}
+\label{chap:evaluation}
+
+% All numbers are measured; raw data and scripts: scripts/eval/ and
+% scripts/eval/out/ in the repository (summary.csv is the machine index).
+% Live measurements: ARES, 8-node ChronoLog deployments, 2026-07-30/31.
+
+The evaluation asks six questions, mapped to the requirements of
+\S\ref{sec:problem-requirements}: what does capture cost the observed
+workload (R5, \S\ref{sec:eval-overhead}); how fresh are the live views
+(R2, \S\ref{sec:eval-freshness}); is PrismaDoctor's diagnosis
+\emph{correct}, not merely cheap (R6, \S\ref{sec:eval-doctor}); do the
+analyses scale as claimed (R4,
+\S\ref{sec:eval-scalability}); does the whole stack work end-to-end on a
+real cluster with real agents (R1, R3, R7,
+\S\ref{sec:eval-functional}); and does the system actually shorten the
+path from symptom to cause (\S\ref{sec:eval-casestudy}).
+Section~\ref{sec:eval-limitations} discusses limitations.
+Table~\ref{tab:eval-glance} previews the headline results.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{@{}p{0.34\linewidth}p{0.58\linewidth}@{}}
+\toprule
+\textbf{Question} & \textbf{Measured answer} \\
+\midrule
+What does capture cost the agent? &
+  $3.6$\,ms per turn-plus-delegation, ${<}\,0.05\%$ of a mean turn; the
+  A/B delta's confidence interval spans zero (\S\ref{sec:eval-overhead}). \\
+How fresh are live views? &
+  $10.7$\,ms emit${\to}$operator screen, ${\sim}1\,900\times$ inside
+  the measured $20$--$30$\,s durable drain (\S\ref{sec:eval-freshness}). \\
+Is diagnosis correct? &
+  $580/580$ planted faults detected, $0$ false positives on clean
+  background, $500$ raw signals ${\to}$ $1$ ranked card
+  (\S\ref{sec:eval-doctor}). \\
+Do the analyses scale? &
+  Fleet reads flat at $19$--$24$\,ms from $10$\,k to $500$\,k events
+  ($457\times$ over raw folding); heatmap $36$\,ms at 250 nodes
+  (\S\ref{sec:eval-scalability}). \\
+Does it run for real? &
+  $28/28$ end-to-end checks on live 4- and 8-node clusters; up to
+  $32$ real agents with flat per-node sidecar load
+  (\S\ref{sec:eval-functional}, \S\ref{sec:eval-scalability}). \\
+Does it shorten diagnosis? &
+  First-time operator: complete verified diagnosis in $72$\,s via the
+  dashboard vs.\ $0/3$ questions answered from raw logs
+  (\S\ref{sec:eval-casestudy}). \\
+\bottomrule
+\end{tabular}
+\caption[The evaluation at a glance]{The evaluation at a glance. Every number is measured; the
+sections referenced give conditions, distributions, and caveats.}
+\label{tab:eval-glance}
+\end{table}
+
+\section{Methodology}
+\label{sec:eval-method}
+
+\paragraph{Platform.} All live experiments run on the ARES cluster under
+SLURM. Each experiment allocates $M$ idle compute nodes and deploys
+ChronoLog across them (visor, one keeper per node, grapher draining to
+an archive on shared storage), followed by the observability components:
+one collector and one capture-worker process per node, and one dashboard
+on a designated node. The deployments evaluated live use $M = 4$ and
+$M = 8$. In this configuration the keeper seals 10\,s story chunks under a
+15\,s acceptance window, while the grapher and player run with a
+180\,s acceptance window; \S\ref{sec:eval-freshness} measures what these
+settings translate to end-to-end, and corrects a folklore number in the
+process.
+
+\paragraph{Workloads.} Two workloads exercise the identical ingest path.
+\emph{Real agents}: Claude Agent SDK agents, one or more per node
+(configurable as $K$ agents per node), each performing genuine LLM turns
+and one cross-node delegation through a remote-agent MCP tool per
+round; turns enter Path-A, edges Path-B. \emph{Synthetic traffic}: a
+generator that emits realistic interaction records and
+\texttt{start}/\texttt{done} edge pairs through the same spool and
+collector endpoints, with configurable topology (mesh, star, pipeline,
+ring), agent count, node spread, error rate, and pacing. Real agents
+provide ground truth end-to-end; synthetic traffic provides controlled,
+reproducible, zero-token-cost load for overhead and scalability
+measurements, and is the fault-injection vehicle for
+\S\ref{sec:eval-casestudy}.
+
+\paragraph{Measurements.} Latency overhead is measured as the difference
+in per-turn wall-clock between instrumented and uninstrumented runs of
+the same agent workload; capture-side costs by sampling the sidecar
+processes' CPU and resident memory under load; storage by bytes per
+record in each tier; freshness by timestamping an event at emission and
+at receipt in a subscribed SSE client. Each is reported with distribution
+statistics over repeated runs rather than as a single number: the workload
+under test is a non-deterministic one running on shared cluster hardware,
+which is exactly the regime in which single-run comparisons are known to
+mislead, and in which a difference must be stated with a confidence
+interval or not stated at all~\cite{georges2007rigorous}. Percentiles
+rather than means are reported wherever an operator's experience is
+governed by the tail~\cite{dean2013tail}.
+
+\section{Capture Overhead}
+\label{sec:eval-overhead}
+
+Capture overhead is the cost the observed workload pays, and the design
+predicts it is small by construction: the Path-A fast path is one local
+JSONL append (no network, no lock, no downstream dependency,
+\S\ref{sec:design-write}); the Path-B fast path is one HTTP POST to a
+daemon on \texttt{localhost} that enqueues and returns. Both are
+constant-time and independent of history size. Everything else (the
+ChronoLog write, the forward, the drain) happens in sidecar processes
+off the agent's critical path.
+
+Table~\ref{tab:overhead} reports the measured costs. All latency numbers
+are taken on live compute nodes with the production NFS state directory:
+the real deployment condition, not a tmpfs microbenchmark.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lllr@{}}
+\toprule
+\textbf{Cost} & \textbf{Path} & \textbf{Metric} & \textbf{Measured} \\
+\midrule
+Spool append          & A & added latency per turn (p50\,/\,p95) & 0.83\,/\,1.09\,ms \\
+Collector POST        & B & added latency per call (p50\,/\,p95) & 2.82\,/\,6.22\,ms \\
+\quad fallback (collector down) & B & direct POST to dashboard (p50\,/\,p95) & 8.95\,/\,12.75\,ms \\
+\textbf{End-to-end turn delta} & A{+}B & instrumented vs.\ not, per turn &
+  \textbf{$+365 \pm 2\,398$\,ms} \\
+Collector daemon      & B & CPU / RSS per node, 20\,ev/s     & 32\% / 40\,MB \\
+Capture worker        & A & CPU / RSS per node, same load    & 0.8\% / 51\,MB \\
+Interaction record    & A & bytes per event (spool / archive) & 2\,093 / 2\,173\,B \\
+Edge event            & B & bytes per event (hot / archive)   & 612 / ${\approx}560$\,B \\
+Live forward          & B & bytes per event on the wire       & 646\,B \\
+\bottomrule
+\end{tabular}
+\caption[Capture overhead, measured]{Capture overhead, measured on a live 8-node deployment
+(compute nodes, NFS state directory; $n{=}10\,000$ per latency row).
+The headline row is the end-to-end A/B turn delta over real LLM turns:
+its 95\% confidence interval spans zero: capture is statistically
+invisible inside the workload's own variance. Capture worker CPU is the
+mean of a bursty profile (idle between 5\,s drain passes, peaks of 85\%
+during them); the wire number is amortized over batches of ${\le}64$
+(658\,B unbatched).}
+\label{tab:overhead}
+\end{table}
+
+The headline is easy to over- and under-claim, so it needs stating
+carefully. The A/B experiment ran $n{=}30{+}30$ real agent turns
+(identical prompts, interleaved to absorb provider drift): instrumented
+turns averaged $8\,099 \pm 5\,147$\,ms, uninstrumented
+$7\,734 \pm 4\,291$\,ms, a delta of $+365$\,ms whose 95\% confidence
+interval ($\pm 2\,398$\,ms, Welch $t = 0.30$) makes it statistically
+indistinguishable from zero. The claim therefore rests on both
+measurements: the \emph{mechanism} costs
+$0.83 + 2.82 \approx 3.6$\,ms per turn-plus-delegation (under
+\textbf{0.05\%} of a 7.7\,s mean turn), and the A/B run confirms that
+nothing beyond the mechanism leaks onto the critical path. With the
+collector \emph{down}, the fallback POST to the dashboard costs
+$3\times$ the normal path (8.95 vs.\ 2.82\,ms p50): degraded mode is
+slower, not cheaper, which is why the collector exists.
+
+Two structural observations frame the numbers. First, the denominator is
+large: an LLM turn takes seconds and a delegation round-trip longer, so
+capture cost in milliseconds translates to a per-turn overhead orders of
+magnitude below the workload's own variance. This is the inverse of the
+classical tracing regime (\S\ref{sec:bg-sampling}), where sub-millisecond
+RPCs made even microseconds of instrumentation significant; it is
+why complete capture is affordable here. Second, the failure-mode cost is
+bounded by design rather than measured luck: if every downstream component
+dies, the agent's cost is unchanged (Path-A) or one failed local
+connection followed by a fallback POST (Path-B).
+
+\section{Freshness and Query Latency}
+\label{sec:eval-freshness}
+
+Freshness is the interval from an agent emitting an event to that event
+being visible to an operator. The claim under test is that the hot path
+(R2) puts the event on screen in milliseconds while the cold path
+delivers durability in tens of seconds, and the measurement corrects a
+number this thesis itself repeated from deployment folklore.
+
+Table~\ref{tab:freshness} reports the measured hot-path pipeline
+(emit $\to$ collector $\to$ dashboard ingest $\to$ SSE frame at a
+subscribed client), the measured cold-path drain, and per-view query
+latencies against the populated live deployment;
+Figure~\ref{fig:query-latency} plots the spread.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}llr@{}}
+\toprule
+\textbf{Measure} & & \textbf{Measured} \\
+\midrule
+Emit $\to$ SSE frame at client   & p50 / p95    & 10.7 / 11.8\,ms \\
+\quad direct-ingest fallback     & p50 / p95    & 8.5 / 8.9\,ms \\
+\textbf{Cold-path availability (drain)} & p50 / max, $n{=}10$ & \textbf{20 / 30\,s} \\
+Scenario graph query             & p50          & 470\,ms \\
+Cluster graph query              & p50          & 2\,009\,ms \\
+Fleet health query (raw fold)    & p50          & 1\,881\,ms \\
+\quad rollup-backed (\S\ref{sec:eval-scalability}) & p50 & 19--24\,ms \\
+Doctor scan (bounded gather)     & wall time    & 1\,807\,ms \\
+Trace reconstruction             & per scenario & 282\,ms \\
+\bottomrule
+\end{tabular}
+\caption[Freshness and query latency, measured]{Freshness and query latency on the live 8-node deployment
+(dashboard node, $n{=}100$ per query row, $n{=}1\,000$ paced events at
+20\,ev/s with zero loss for the SSE rows; corpus ${\approx}22$\,k
+archived events). The hot path sits three orders of magnitude inside
+the measured drain: an event is on the operator's screen
+${\sim}1\,900\times$ sooner than it is readable from the archive
+(p50 drain over p50 push).}
+\label{tab:freshness}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \input{figures/fig-query-latency}
+  \caption[Freshness and query latency, measured]{The freshness and query-latency spread on one log axis (p50,
+  live 8-node deployment). Live push takes single-digit milliseconds and
+  scenario-scoped reads stay sub-second, while population-wide reads
+  that fold the raw archive sit near $2$\,s on this corpus. That is the
+  linear-in-events cost the rollup design of
+  \S\ref{sec:eval-scalability} flattens to roughly $20$\,ms.}
+  \label{fig:query-latency}
+\end{figure}
+
+\paragraph{The drain is 20--30\,s; the ``$\sim$180\,s'' was something
+else.} Measured directly (append a marked event, poll the archive), a
+story chunk becomes readable \textbf{20--30\,s} after append ($n{=}10$,
+p50 20\,s), governed by the keeper's 10\,s chunking and 15\,s
+acceptance window plus the grapher's write batch, not by the 180\,s
+window configured downstream. The ${\sim}180$\,s that operators (and
+earlier drafts of this thesis) attributed to the drain is in fact the
+client's \emph{replay-query timeout}. In these deployments the player's
+playback responses never reach the dashboard process's receiver
+service: the player logs every request and completes none of the
+transfers toward that endpoint, while an otherwise-identical receiver
+in the capture process works. Every live replay issued by the dashboard
+therefore blocks for the full \texttt{CL\_ERR\_QUERY\_TIMED\_OUT}
+window of ${\sim}180$\,s: per story, per request, holding the client
+lock.
+Diagnosing this (\S\ref{sec:eval-limitations}) explained the
+folklore number and motivated generalizing the archive-first read rule
+of \S\ref{sec:design-read} from listing indexes to \emph{all} dashboard
+replays: with the drain at 20--30\,s, serving full-fidelity views from
+the archive costs at most half a minute of staleness and removes the
+last blocking read from the serving process.
+
+Qualitatively, the split then behaves as designed in every live run: the
+live views (scenarios, cluster, fleet, health, traces) render
+immediately during a run, while full-fidelity conversation views fill in
+within the half-minute drain; no view blocks the dashboard, fresh
+clusters included.
+
+\section{Detection Quality}
+\label{sec:eval-doctor}
+
+R6 demands that diagnosis be free of marginal token cost; this section
+asks whether the deterministic pipeline that satisfies it is also
+\emph{correct}. The experiment scores a full PrismaDoctor scan (gather,
+detect, cluster, diagnose, record; \S\ref{sec:analytics-doctor})
+against a ground-truth manifest of
+injected faults. Deliberately injecting the failure and checking that the
+system reports it is the discipline of controlled fault
+injection~\cite{basiri2016chaos}, applied here offline rather than in
+production so that the manifest is exact and the false-positive rate is
+measurable against a known-clean background.
+A controlled corpus is seeded offline through the same
+spool and inter-agent-store write paths the capture layer uses: a clean
+background of healthy traffic (216 turns, 120 completed delegations),
+plus ten planted faults of each kind the detectors claim to cover, plus
+one \emph{storm} (500 identical peer-timeout edges spread across 40
+hosts) to test the compression claim of
+\S\ref{sec:analytics-doctor}. Each planted fault is shaped to carry
+exactly one symptom (single-label ground truth), so every detection is
+unambiguously attributable. The same fault mix is then injected a second
+time and the corpus re-scanned, testing whether the incident history
+recognizes the recurrence. Table~\ref{tab:doctor-quality} reports the
+result.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lrrrrcc@{}}
+\toprule
+\textbf{Fault kind} & \textbf{Inj.} & \textbf{Det.} & \textbf{FP} &
+\textbf{Cards} & \textbf{Diagnosis} & \textbf{Recurring} \\
+\midrule
+Interaction 5xx errors        & 10  & 10  & 0 & 1 & yes (0.60) & yes \\
+Rate-limited calls (429)      & 10  & 10  & 0 & 1 & yes (0.85) & yes \\
+Retry storms                  & 10  & 10  & 0 & 1 & yes (0.70) & yes \\
+Latency outliers              & 10  & 10  & 0 & 1 & yes (0.55) & yes \\
+Edge errors (peer timeout)    & 10  & 10  & 0 & 1 & yes (0.70) & yes \\
+Orphan calls (no \texttt{done}) & 10 & 10 & 0 & 1 & yes (0.70) & yes \\
+Slow edges                    & 10  & 10  & 0 & 1 & yes (0.55) & yes \\
+Recovery events               & 10  & 10  & 0 & 1 & yes (0.60) & yes \\
+Storm: 500$\times$ identical timeouts & 500 & 500 & 0 & 1 & yes (0.70) & yes \\
+Clean background              & 0   & --- & 0 & 0 & ---            & ---    \\
+\bottomrule
+\end{tabular}
+\caption[PrismaDoctor detection quality against ground truth]{PrismaDoctor detection quality against a ground-truth fault
+manifest (offline, seeded through the production write paths;
+\texttt{e6\_doctor\_\allowbreak quality.py} in \texttt{scripts/eval/},
+seed-deterministic;
+results identical at $n{=}25$ and under a different seed). ``Cards'' is
+the number of incident cards produced per fault kind; ``Diagnosis''
+marks whether the heuristic diagnosis names the planted root-cause
+category, with the engine's stated confidence; ``Recurring'' marks
+whether the second scan badged the incident with its prior count.}
+\label{tab:doctor-quality}
+\end{table}
+
+Three of the numbers carry the argument. First, the clean background
+produces \emph{zero} incidents: the detectors' thresholds (medians with
+absolute floors, consecutive-repeat minima) do not fire on healthy
+variance, so a ranked incident list starts empty rather than requiring
+the operator to learn a noise floor. Second, compression behaves as
+designed: 580 injected raw signals become 9 ranked incident cards;
+in particular the 500 identical timeouts collapse into \emph{one} card
+whose count, host list, and severity escalation carry the blast radius
+(Q2's ``not a scroll of per-event errors''). Third, the longitudinal
+claim (Q5) holds mechanically: after the first scan writes the incident
+memory, the second scan badges all nine incidents as recurring with the
+correct prior count, read back from the self-compacting memory document
+rather than from process state.
+
+The scope of the claim is deliberately bounded. The planted faults are
+in-distribution and comfortably above the detector thresholds: the
+experiment establishes that detection, clustering, diagnosis routing,
+and cross-run memory are correct on unambiguous faults, not that the
+thresholds are well-calibrated on borderline cases. ``Diagnosis
+correct'' likewise means only that the incident reached the intended
+rule of the hand-built rule set, whose coverage limits are discussed in
+\S\ref{sec:eval-limitations}. A perfect score under these conditions is
+the expected behavior of deterministic detectors, not evidence against
+harder inputs; the informative results are the zero-false-positive
+background, the exact $500{\to}1$ compression, and the memory
+round-trip.
+
+\section{Scalability}
+\label{sec:eval-scalability}
+
+The evaluation tests three scaling claims.
+
+\paragraph{Fleet reads are independent of event volume.} The rollup
+design (\S\ref{sec:analytics-fleet}) makes the fleet query
+$O(\text{nodes} \times \text{buckets})$; the raw-fold fallback is
+$O(\text{events})$. The experiment holds nodes and window fixed (16
+nodes, 60-minute window) and grows the event count from $10^4$ to
+$5 \times 10^5$, comparing the fleet-health query latency of the two
+paths (20 requests per point, p50). Figure~\ref{fig:rollup-scaling}
+shows the result: rollup-backed reads stay flat at 19--24\,ms across a
+$50\times$ growth in event volume, while the raw fold grows linearly
+(slope ${\approx}17$\,ms per thousand events between the endpoints):
+107\,ms at 10\,k events, 8.5\,s at 500\,k, a $457\times$ gap at the
+largest size. The offline fleet harness, which seeds hundreds of nodes'
+worth of bucketized
+history, summarizes a 100--250-node fleet in interactive time
+(15\,ms p50 at 100 nodes, 36\,ms at 250), where the same query folded
+from raw events would touch every record ever captured.
+
+\begin{figure}[t]
+  \centering
+  \input{figures/fig-rollup-scaling}
+  \caption[Fleet-query latency vs.\ stored event count]{Fleet-health query latency vs.\ stored event count (16 nodes,
+  60-minute window, p50 over 20 requests). Pre-aggregated rollup reads
+  are independent of event volume; the raw-fold fallback is linear in
+  it. Measured offline via
+  \texttt{bench\_rollup\_\allowbreak scaling.py} in
+  \texttt{scripts/eval/}.}
+  \label{fig:rollup-scaling}
+\end{figure}
+
+\paragraph{Representation, not just computation, must scale.} The
+node-link cluster graph is legible to roughly a dozen nodes and
+degenerates beyond; this is a limit of the visual form, not of the
+data. The fleet heatmap holds one cell per node and remains legible at
+hundreds; its rendering cost grows with nodes only. This is why the
+system changes representation between Q1 (topology, small $M$, maximal
+detail) and Q4 (population, large $M$, one health value per node).
+
+\paragraph{Agents per node.} The real-agent harness scales in two
+dimensions: nodes ($M$) and agents per node ($K$). Capture is per-node
+(one collector, one keeper, one worker regardless of $K$), so
+per-node capture load grows linearly in $K$ with no cross-node
+coordination, and cross-node load grows only with actual inter-agent
+traffic. Live runs swept $K \in \{1, 2, 4\}$ at $M = 8$ with real agents
+(every agent performing genuine LLM turns and one cross-node delegation):
+all $8$, $16$, and $32$ agents exited cleanly and every delegation
+round-tripped through the archive (16, 32, and 64 edge records
+respectively). The per-node sidecar was flat across the sweep: the
+collector held $0.1$--$0.3\%$ mean CPU (transient forward bursts to
+${\sim}21\%$) and $37$--$39$\,MB RSS at every $K$, and the capture
+worker $0.3\%$ mean at $48$\,MB. These means sit far below
+Table~\ref{tab:overhead}'s 32\% figure because the regimes differ: the
+table's collector serves a sustained 20\,ev/s synthetic stress load,
+while real agents (one turn every several seconds) offer a small
+fraction of that rate. Both observations are consistent with the claim
+that agent count stresses the LLM provider, not the capture plane. The
+largest configuration exercised cleanly end-to-end is therefore
+$K {\times} M = 4 {\times} 8 = 32$ real agents.
+
+\section{Functional Validation}
+\label{sec:eval-functional}
+
+The system's end-to-end correctness claim, capture through substrate to
+every view with real agents on a real cluster (R1, R3, R7), is
+validated by an automated harness rather than by demonstration. The
+harness brings up the full deployment on a live allocation, runs real
+Claude agents (genuine LLM turns; one cross-node MCP delegation
+per agent), waits out the drain, restarts the dashboard cold against the
+same substrate (so everything shown is reconstructed from durable state,
+not process memory), and then asserts machine-checkable properties of
+every API the dashboard serves: each view is populated with the expected
+entities, per-agent metrics are non-zero where turns occurred, and
+inter-agent edges exist with correct endpoints. The strictest check is
+the cross-plane join: the scenario graph's clicked node resolves to that
+agent's conversation with its turns and token counts, exercising the
+session-identity contract of \S\ref{sec:design-mapping} end to end.
+
+The harness passes \textbf{28/28} checks on live 4-node and 8-node
+ChronoLog clusters. Beyond the pass count, the harness is the regression
+net that hardened the design: the pure-reader rule, the archive-first
+index read, and the hostname canonicalization of
+\S\ref{sec:design-isolation} were each introduced to turn a live-cluster
+failure of this harness into a pass, and remain pinned by it.
+
+\section{Case Study: Fault Injection and Localization}
+\label{sec:eval-casestudy}
+
+The final question is whether the pieces compose into the cross-layer
+diagnosis the thesis promises. The scenario: on a live $M$-node
+deployment carrying steady background traffic, the synthetic generator
+injects a retry/timeout storm concentrated on one node, alongside a
+delegation leg that starts and never completes. The fault is deliberately
+of the fail-slow rather than fail-stop kind~\cite{gunawi2018failslow}: the
+node stays up, keeps answering, and merely degrades, which is the case a
+liveness check cannot see and a population comparison can.
+
+The observed localization path runs one view per operator question. A
+Doctor scan returns not hundreds of error rows but a short ranked list:
+one incident aggregating the storm (count in the hundreds, blast radius
+naming the affected hosts and sessions, root cause and remediation
+attached) and one \emph{critical} orphan-call incident for the hung
+delegation, invisible in any per-edge view because its signature is an
+absence (Q2). The fleet heatmap turns ``the fleet looks unhealthy'' into
+``it is this machine'': one red cell among ok nodes (Q4). The trace
+waterfall for the affected scenario charges the bottleneck hop by
+self-time, landing on that same node (Q3). Clicking the offending agent
+opens its conversation, the actual turns, retries and costs behind the
+symptom, completing the pivot in two clicks (Q1). Re-running the fault
+and re-scanning badges the incident \texttt{recurring $\times N$}: the
+second occurrence is recognized, not rediscovered (Q5).
+
+\paragraph{Timed comparison.} The path above was then measured as a
+controlled exercise on the live 8-node deployment. Faults were injected
+by script (a 6-turn identical-prompt 5xx retry storm on one node, twelve
+peer-timeout delegations into it, and one delegation leg killed after
+its \texttt{start} frame), and a diagnostician answered three questions,
+once through the dashboard and once from the raw capture files with
+shell tools only, against a verifiable ground truth: \emph{which node,
+and what error} (CS1); \emph{which session is retrying, on what prompt}
+(CS2); \emph{which delegation never completed, by caller${\to}$callee
+and correlation id} (CS3; labeled CS to avoid collision with the
+operator questions Q1--Q5). The operator was the author, timing each question
+from first interaction to stated answer, with every answer checked
+against the injected values (including the orphan's correlation id).
+Table~\ref{tab:casestudy} reports the result.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}llrrrl@{}}
+\toprule
+\textbf{Operator} & \textbf{Interface} & \textbf{CS1} & \textbf{CS2} &
+\textbf{CS3} & \textbf{Outcome} \\
+\midrule
+Human, first exposure & dashboard & 35\,s & 17\,s & 20\,s & 3/3 correct (72\,s) \\
+Human, second pass    & dashboard & 10\,s & 5\,s  & 5\,s  & 3/3 correct (20\,s) \\
+Human, third pass     & dashboard & 5\,s  & 5\,s  & 5\,s  & 3/3 correct (15\,s) \\
+Human                 & raw logs  & \multicolumn{3}{c}{abandoned at ${\sim}$5--10\,min} & \textbf{0/3} \\
+LLM agent (supplementary) & raw logs & \multicolumn{3}{c}{44\,s wall-clock, 4 commands} & 3/3 correct \\
+\bottomrule
+\end{tabular}
+\caption[Timed diagnosis of the injected fault]{Timed diagnosis of the injected fault, $n{=}1$ operator
+(first-ever exposure to the task). Dashboard trials repeat the same
+questions, so passes 2--3 measure a practiced operator. The raw-log
+attempt ran \emph{after} the dashboard trials (answer leakage, if
+any, favored the raw-log path) and still produced no answers: the
+operator could not establish a starting point in the JSONL directories.
+The supplementary row is a fresh LLM agent given only the three
+questions and the data directories (no ground truth, shell text tools
+only); machine wall-clock is not comparable to human minutes and is
+reported for what it demonstrates about the \emph{data}, not the
+operator.}
+\label{tab:casestudy}
+\end{table}
+
+Two findings, one expected and one not (the second previewed in
+\S\ref{sec:bg-sota-gap}). The expected one: a first-time operator
+produced a complete, verified diagnosis through the dashboard in
+\textbf{72 seconds}, yet could not answer \emph{any} of the three
+questions from the raw files, abandoning after five to ten minutes
+without a foothold. The dashboard run included recovering from one
+wrong pick on CS3: the twelve errored-but-completed delegations
+rendered adjacent to the true orphan, and the correlation-id check
+caught the confusion. The unexpected one: the LLM-agent baseline
+answered all three questions from the raw JSONL in 44 seconds and four
+shell commands, finding the orphan by counting correlation-id
+occurrences, the very question the protocol predicted would time out
+under \texttt{grep}. Together they sharpen what this chapter can
+claim: the capture layer's raw data is \emph{sufficient} for
+complete diagnosis, but it is not \emph{accessible}: extracting the
+answer requires either expertise the on-call operator does not have or
+tooling that encodes it. The dashboard is that encoding: it substitutes
+for operator expertise, not for data.
+
+The caveats are plain: one operator, one injected incident on a small
+scenario corpus, and a
+UI defect surfaced by the CS3 stumble (never-completed delegations
+rendered indistinguishably from completed ones). That defect was fixed
+following the study. Open delegations now carry a dedicated visual
+class (amber, dashed, badged \emph{never completed}) across the
+scenario graph, the edge detail panel, and the trace waterfall, and
+hung flows outrank errors in edge selection; the pathology that cost
+the operator their one wrong pick is now the most visually distinct
+element on screen (Figure~\ref{fig:ui-orphan}).
+
+\section{Discussion and Limitations}
+\label{sec:eval-limitations}
+
+\paragraph{Hot store locality.} The hot store and live bus live with the
+dashboard process; they are not replicated. A dashboard failure loses no
+data (the log is authoritative; the hot view rebuilds from backlog and,
+after the drain, from ChronoLog) but interrupts live observation:
+acceptable for an operator tool, but a real asymmetry with the
+replicated cold path.
+
+\paragraph{The drain window is inherited; the replay path is broken
+beneath us.} The measured 20--30\,s cold-path latency is ChronoLog's
+configuration, not this system's contribution; the design works around
+it rather than removing it, and a substrate with tighter chunking would
+narrow the hot/cold gap without changing the architecture. A harder
+inherited fact surfaced during the evaluation itself: in these
+deployments the player's playback responses are never delivered to the
+dashboard process's receiver service (requests arrive in the player's
+log; no transfer toward that endpoint ever completes; an
+otherwise-identical receiver in the capture process works), so every
+live replay from the dashboard burns the ${\sim}180$\,s query timeout
+while holding the client lock. The transport-level cause remains
+undiagnosed; it sits inside the ChronoLog client/player pair, below
+this system's code. The response was to generalize the archive-first
+rule: with \texttt{CHRONOLOG\_ARCHIVE\_FIRST} set, the dashboard and
+capture worker serve all replay reads from the grapher's archive and
+never ask the player, bounding worst-case staleness at the measured
+drain window. This is the correct engineering trade under the observed
+substrate, but it means the live-replay path is effectively unused,
+and a substrate fix would recover it.
+
+\paragraph{Diagnosis coverage.} The heuristic diagnoser is
+first-match-wins over a hand-built rule set: specific on the failure
+classes it encodes, and explicitly low-confidence outside them. It
+explains known pathologies; it does not discover novel ones. The
+signature scheme can also split one logical failure into two incidents if
+its message text varies beyond what normalization strips.
+
+\paragraph{Evaluation scale.} Live validation ran at $M \in \{4, 8\}$
+with real agents (the allocation sizes available), while the
+100+-node claims rest on the rollup complexity argument and seeded
+fleet-scale data rather than a live fleet of that size. The p95 fold of
+\S\ref{sec:analytics-fleet} is upper-biased by construction, and
+inferred (parentless) traces rely on time nesting, which can
+mis-parent overlapping concurrent delegations between the same pair of
+agents; explicit parent propagation removes the ambiguity where the
+instrumentation provides it.
+
+\medskip
+
+Taken together, the six questions this chapter opened with have
+quantitative answers: capture is statistically invisible to the agent,
+live views run three orders of magnitude ahead of the durable drain,
+detection is exact on ground truth, the fleet reads scale as designed,
+the stack survives real agents on real clusters, and the path from
+symptom to cause takes an untrained operator seventy-two seconds. What
+these answers add up to, and what they cost, is the subject of the
+concluding chapter.

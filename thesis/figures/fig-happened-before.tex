@@ -1,0 +1,20 @@
+% Space-time diagram: happened-before, causal chains, concurrency.
+\begin{tikzpicture}[>=Stealth, thick, font=\small]
+  % process timelines
+  \foreach \y/\p in {0/{$P_3$}, 1.5/{$P_2$}, 3.0/{$P_1$}} {%
+    \draw[->, semithick] (0,\y) -- (10.4,\y);
+    \node[left=3pt] at (0,\y) {\p};
+  }
+  \node[below right] at (9.4,-0.1) {\footnotesize wall-clock time};
+  % events
+  \filldraw (1.2,3.0) circle (2.2pt) node[above=2pt] {$a$};
+  \filldraw (5.2,3.0) circle (2.2pt) node[above=2pt] {$b$};
+  \filldraw (2.6,1.5) circle (2.2pt) node[above=2pt] {$c$};
+  \filldraw (6.6,1.5) circle (2.2pt) node[above=2pt] {$d$};
+  \filldraw (4.2,0)   circle (2.2pt) node[below=2pt] {$e$};
+  \filldraw (8.6,0)   circle (2.2pt) node[below=2pt] {$f$};
+  % messages
+  \draw[->] (1.2,3.0) -- node[midway, left=2pt]  {\footnotesize $m_1$} (2.6,1.5);
+  \draw[->] (2.6,1.5) -- node[midway, left=2pt]  {\footnotesize $m_2$} (4.2,0);
+  \draw[->] (4.2,0)   -- node[midway, right=3pt] {\footnotesize $m_3$} (6.6,1.5);
+\end{tikzpicture}

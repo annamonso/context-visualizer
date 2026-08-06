@@ -2,7 +2,7 @@
 
 Every detector takes already-fetched records (see :mod:`.gather`) and yields
 ``Signal`` objects. Keeping them pure makes them trivially unit-testable — feed
-a list of dicts, assert on the signals — which is exactly what the ChronoDoctor
+a list of dicts, assert on the signals — which is exactly what the PrismaDoctor
 demo's pytest suite does.
 
 The records carry failure signals the system already records:
@@ -87,8 +87,15 @@ def _f(v: Any, default: float = 0.0) -> float:
         return default
 
 
+def _d(v: Any) -> Dict[str, Any]:
+    """Coerce a maybe-dict field to a dict — malformed spool records can
+    carry raw strings where the parsed request/response dict belongs, and a
+    single bad record must not abort a whole scan."""
+    return v if isinstance(v, dict) else {}
+
+
 def _interaction_status(rec: Dict[str, Any]) -> Optional[int]:
-    resp = rec.get("response") or {}
+    resp = _d(rec.get("response"))
     sc = resp.get("status_code", rec.get("status_code"))
     try:
         return int(sc) if sc is not None else None
@@ -97,14 +104,14 @@ def _interaction_status(rec: Dict[str, Any]) -> Optional[int]:
 
 
 def _interaction_latency(rec: Dict[str, Any]) -> float:
-    m = rec.get("metrics") or {}
+    m = _d(rec.get("metrics"))
     return _f(m.get("total_latency_ms") or m.get("latency_ms") or rec.get("latency_ms"))
 
 
 def _prompt_fingerprint(rec: Dict[str, Any]) -> str:
     """A cheap fingerprint of the user prompt, for retry-storm detection."""
-    req = rec.get("request") or {}
-    body = req.get("body") or req
+    req = _d(rec.get("request"))
+    body = _d(req.get("body")) or req
     msgs = body.get("messages") or []
     last = ""
     for m in msgs:
@@ -124,7 +131,7 @@ def detect_interaction_errors(records: Iterable[Dict[str, Any]]) -> List[Signal]
         sc = _interaction_status(rec)
         err = rec.get("error")
         if (sc is not None and sc >= 400) or err:
-            resp = rec.get("response") or {}
+            resp = _d(rec.get("response"))
             detail = err or resp.get("text") or f"HTTP {sc}"
             kind = "rate_limit" if sc == 429 else "http_error"
             sev = "critical" if (sc and sc >= 500) else "error"
