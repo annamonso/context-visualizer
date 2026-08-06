@@ -1,4 +1,4 @@
-"""Orchestrate a ChronoDoctor scan: gather -> detect -> cluster -> diagnose -> remember.
+"""Orchestrate a PrismaDoctor scan: gather -> detect -> cluster -> diagnose -> remember.
 
 A scan is cheap and side-effect-light: the only write is appending to the
 incident memory (and only when ``remember=True``). The latest report is cached

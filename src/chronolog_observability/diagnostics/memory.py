@@ -3,7 +3,7 @@
 Mirrors the project's own ``MEMORY.md`` discipline: one short line per incident,
 and when the file grows past a threshold the oldest entries are folded into a
 condensed digest so the document stays bounded while preserving the long tail as
-counts. This is what lets ChronoDoctor say "this is the 14th time comp-12 has
+counts. This is what lets PrismaDoctor say "this is the 14th time comp-12 has
 timed out" instead of treating every run as brand new.
 
 Format::

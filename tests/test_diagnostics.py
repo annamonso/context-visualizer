@@ -1,4 +1,4 @@
-"""Unit tests for ChronoDoctor's pure layers: detectors, clustering, memory.
+"""Unit tests for PrismaDoctor's pure layers: detectors, clustering, memory.
 
 These exercise the deterministic core with no I/O, so they run anywhere with no
 cluster and no API keys — the same property that makes the demo reproducible.

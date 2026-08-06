@@ -1,6 +1,6 @@
-"""ChronoDoctor — error detection, clustering, and diagnosis over ChronoLog stories.
+"""PrismaDoctor — error detection, clustering, and diagnosis over ChronoLog stories.
 
-ChronoDoctor reads the same stories the dashboard already serves (LLM
+PrismaDoctor reads the same stories the dashboard already serves (LLM
 interactions, inter-agent edges, recovery events), turns failures into
 ``Signal`` objects, clusters them into ``Incident`` objects by signature, and
 attaches a root-cause + remediation ``diagnosis``. A self-compacting
