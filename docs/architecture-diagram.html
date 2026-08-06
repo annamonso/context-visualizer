@@ -134,12 +134,12 @@
   <text x="800" y="172" font-size="14" font-weight="700" fill="#92400e" letter-spacing="1.2">CONSUMERS</text>
   <text x="918" y="172" font-size="11.5" fill="#a06a2a">three independent ways to read what was stored</text>
 
-  <!-- Consumer A: ChronoDoctor + analysis -->
+  <!-- Consumer A: PrismaDoctor + analysis -->
   <g>
     <rect x="800" y="186" width="226" height="600" rx="14" fill="#fef6e9" stroke="#f1b454" stroke-width="1.5"/>
     <rect x="800" y="186" width="226" height="54" rx="14" fill="#b45309"/>
     <rect x="800" y="226" width="226" height="14" fill="#b45309"/>
-    <text x="913" y="212" font-size="15" font-weight="800" fill="#ffffff" text-anchor="middle">ChronoDoctor</text>
+    <text x="913" y="212" font-size="15" font-weight="800" fill="#ffffff" text-anchor="middle">PrismaDoctor</text>
     <text x="913" y="230" font-size="10.5" fill="#fde9cf" text-anchor="middle">AI agent and analysis engines</text>
     <g fill="#7c4710">
       <text x="822" y="272" font-size="12.5" font-weight="700">Diagnostics scan</text>
@@ -233,7 +233,7 @@
   </g>
 </svg>
 
-  <p class="cap"><strong>How to read it.</strong> Interchangeable <strong>sources</strong> sit at the top. Data falls down the single <strong>write pipeline</strong> on the left, Capture then Publish then Transport then Persist, where each box is one isolated job and a darker box means deeper in the pipeline. The pipeline <strong>writes</strong> down into the <strong>Shared Provenance Store</strong> at the bottom (teal arrow). The three tall <strong>consumer</strong> cards on the right, the ChronoDoctor AI plus analysis, the Query API, and the live Dashboards, <strong>read</strong> back up from that store (amber arrows). Swappable backends appear at every layer: SSE, HTTP or collector for transport; ChronoLog, JSONL or CSV for storage; heuristic or Claude for the diagnoser; ChronoLog or custom for the read adapter. The design goal is modularity, any backend can be replaced without touching the others.</p>
+  <p class="cap"><strong>How to read it.</strong> Interchangeable <strong>sources</strong> sit at the top. Data falls down the single <strong>write pipeline</strong> on the left, Capture then Publish then Transport then Persist, where each box is one isolated job and a darker box means deeper in the pipeline. The pipeline <strong>writes</strong> down into the <strong>Shared Provenance Store</strong> at the bottom (teal arrow). The three tall <strong>consumer</strong> cards on the right, the PrismaDoctor AI plus analysis, the Query API, and the live Dashboards, <strong>read</strong> back up from that store (amber arrows). Swappable backends appear at every layer: SSE, HTTP or collector for transport; ChronoLog, JSONL or CSV for storage; heuristic or Claude for the diagnoser; ChronoLog or custom for the read adapter. The design goal is modularity, any backend can be replaced without touching the others.</p>
 </div>
 </body>
 </html>

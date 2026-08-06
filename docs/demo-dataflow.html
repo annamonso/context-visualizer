@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>ChronoLog Observability — Data Flow (demo view)</title>
+<style>
+  html,body{margin:0;background:#eef2f1;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:1500px;margin:0 auto;padding:30px 22px 50px;}
+  h1{font-size:23px;color:#0f3b3a;margin:0 0 4px;}
+  .sub{color:#4a6764;font-size:13.5px;margin:0 0 16px;max-width:1150px;line-height:1.5;}
+  svg{width:100%;height:auto;display:block;background:#ffffff;border:1px solid #d7e2e0;border-radius:14px;}
+  .cap{color:#4a6764;font-size:12.5px;margin-top:16px;line-height:1.6;max-width:1200px;}
+  .cap strong{color:#0f3b3a;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ChronoLog Observability — Data Flow</h1>
+  <p class="sub">How an agent fleet on the cluster becomes live views. Two capture paths feed
+  <strong>two stores</strong>: ChronoLog is the durable, ordered <em>cold path</em> (teal); an in-process hot store + SSE bus
+  is the instant <em>live path</em> (amber). Every dashboard tab is tagged with the store it reads — that split is why the
+  live views are real-time while full-fidelity history fills in after the ~180&nbsp;s keeper→grapher drain.</p>
+
+<svg viewBox="0 0 1440 888" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="aCold" markerWidth="12" markerHeight="12" refX="6" refY="5" orient="auto"><path d="M0,0 L9,5 L0,9 Z" fill="#0f766e"/></marker>
+    <marker id="aHot"  markerWidth="12" markerHeight="12" refX="6" refY="5" orient="auto"><path d="M0,0 L9,5 L0,9 Z" fill="#d97706"/></marker>
+  </defs>
+
+  <!-- LEGEND -->
+  <g font-size="12">
+    <rect x="1090" y="24" width="330" height="72" rx="10" fill="#f7faf9" stroke="#d7e2e0"/>
+    <rect x="1108" y="40" width="24" height="12" rx="3" fill="#0d9488"/>
+    <text x="1140" y="50" fill="#244c49" font-weight="600">Cold path — ChronoLog (durable, after drain)</text>
+    <rect x="1108" y="62" width="24" height="12" rx="3" fill="#d97706"/>
+    <text x="1140" y="72" fill="#244c49" font-weight="600">Hot path — hot store + SSE (instant, live)</text>
+    <text x="1108" y="90" fill="#5b8a86">★ = the hero demo view (agents × topology)</text>
+  </g>
+
+  <!-- ============ TIER 1 — AGENT FLEET ============ -->
+  <text x="40" y="44" font-size="14" font-weight="700" fill="#0f3b3a" letter-spacing="1.1">AGENT FLEET · one keeper + collector + capture spool per node</text>
+  <g font-size="11.5">
+    <!-- 4 node cards -->
+    <g>
+      <rect x="40" y="60" width="235" height="86" rx="12" fill="#eaf6f4" stroke="#8fd6cf"/>
+      <text x="157" y="80" text-anchor="middle" font-weight="700" fill="#0f3b3a">node ares-comp-01</text>
+      <rect x="58"  y="92" width="92" height="26" rx="13" fill="#d7eeec" stroke="#8fd6cf"/><text x="104" y="109" text-anchor="middle" fill="#0f3b3a">agent A</text>
+      <rect x="162" y="92" width="92" height="26" rx="13" fill="#d7eeec" stroke="#8fd6cf"/><text x="208" y="109" text-anchor="middle" fill="#0f3b3a">agent B</text>
+      <text x="157" y="136" text-anchor="middle" font-size="10.5" fill="#5b8a86">keeper · collector · spool</text>
+    </g>
+    <g>
+      <rect x="295" y="60" width="235" height="86" rx="12" fill="#eaf6f4" stroke="#8fd6cf"/>
+      <text x="412" y="80" text-anchor="middle" font-weight="700" fill="#0f3b3a">node ares-comp-02</text>
+      <rect x="313" y="92" width="92" height="26" rx="13" fill="#d7eeec" stroke="#8fd6cf"/><text x="359" y="109" text-anchor="middle" fill="#0f3b3a">agent C</text>
+      <rect x="417" y="92" width="92" height="26" rx="13" fill="#d7eeec" stroke="#8fd6cf"/><text x="463" y="109" text-anchor="middle" fill="#0f3b3a">agent D</text>
+      <text x="412" y="136" text-anchor="middle" font-size="10.5" fill="#5b8a86">keeper · collector · spool</text>
+    </g>
+    <g>
+      <rect x="550" y="60" width="235" height="86" rx="12" fill="#eaf6f4" stroke="#8fd6cf"/>
+      <text x="667" y="80" text-anchor="middle" font-weight="700" fill="#0f3b3a">node ares-comp-03</text>
+      <rect x="568" y="92" width="92" height="26" rx="13" fill="#d7eeec" stroke="#8fd6cf"/><text x="614" y="109" text-anchor="middle" fill="#0f3b3a">agent E</text>
+      <rect x="672" y="92" width="92" height="26" rx="13" fill="#d7eeec" stroke="#8fd6cf"/><text x="718" y="109" text-anchor="middle" fill="#0f3b3a">agent F</text>
+      <text x="667" y="136" text-anchor="middle" font-size="10.5" fill="#5b8a86">keeper · collector · spool</text>
+    </g>
+    <g>
+      <rect x="805" y="60" width="235" height="86" rx="12" fill="#eaf6f4" stroke="#8fd6cf"/>
+      <text x="922" y="80" text-anchor="middle" font-weight="700" fill="#0f3b3a">node ares-comp-… (×N)</text>
+      <rect x="823" y="92" width="92" height="26" rx="13" fill="#d7eeec" stroke="#8fd6cf"/><text x="869" y="109" text-anchor="middle" fill="#0f3b3a">agent …</text>
+      <rect x="927" y="92" width="92" height="26" rx="13" fill="#d7eeec" stroke="#8fd6cf"/><text x="973" y="109" text-anchor="middle" fill="#0f3b3a">agent …</text>
+      <text x="922" y="136" text-anchor="middle" font-size="10.5" fill="#5b8a86">scales to 100+ nodes</text>
+    </g>
+  </g>
+
+  <!-- ============ TIER 2 — TWO CAPTURE PATHS ============ -->
+  <text x="40" y="196" font-size="14" font-weight="700" fill="#0f3b3a" letter-spacing="1.1">TWO CAPTURE PATHS</text>
+
+  <!-- Path-A lane (left) -->
+  <rect x="40" y="212" width="640" height="150" rx="12" fill="#fbfdfc" stroke="#d7e2e0"/>
+  <text x="60" y="234" font-size="12.5" font-weight="700" fill="#0f766e">PATH&#8209;A · LLM turns</text>
+  <text x="60" y="250" font-size="10.5" fill="#6b8783">prompt · response · tokens · cost · latency · context-graph growth</text>
+  <g font-size="11.5" fill="#0f3b3a">
+    <rect x="60"  y="266" width="150" height="74" rx="10" fill="#d7eeec" stroke="#8fd6cf"/>
+    <text x="135" y="298" text-anchor="middle" font-weight="600">spool</text>
+    <text x="135" y="316" text-anchor="middle" font-size="10" fill="#5b8a86">per-node, on NFS</text>
+    <rect x="300" y="266" width="160" height="74" rx="10" fill="#bfe6e0" stroke="#6cc3ba"/>
+    <text x="380" y="298" text-anchor="middle" font-weight="600">capture worker</text>
+    <text x="380" y="316" text-anchor="middle" font-size="10" fill="#4a6764">dedup → exactly-once</text>
+    <line x1="210" y1="303" x2="298" y2="303" stroke="#0f766e" stroke-width="2" marker-end="url(#aCold)"/>
+    <text x="255" y="296" text-anchor="middle" font-size="10" fill="#5b8a86">drain</text>
+    <!-- worker also seeds hot store for Memory/Doctor -->
+    <line x1="460" y1="290" x2="640" y2="250" stroke="#d97706" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#aHot)"/>
+    <text x="560" y="256" text-anchor="middle" font-size="9.5" fill="#b8690a">spool also read live</text>
+  </g>
+
+  <!-- Path-B lane (right) -->
+  <rect x="700" y="212" width="700" height="150" rx="12" fill="#fbfdfc" stroke="#d7e2e0"/>
+  <text x="720" y="234" font-size="12.5" font-weight="700" fill="#0f766e">PATH&#8209;B · inter-agent calls</text>
+  <text x="720" y="250" font-size="10.5" fill="#6b8783">agent→agent MCP tool invocations (the edges of the swarm)</text>
+  <g font-size="11.5" fill="#0f3b3a">
+    <rect x="720" y="266" width="160" height="74" rx="10" fill="#d7eeec" stroke="#8fd6cf"/>
+    <text x="800" y="298" text-anchor="middle" font-weight="600">per-node collector</text>
+    <text x="800" y="316" text-anchor="middle" font-size="10" fill="#5b8a86">localhost ingest</text>
+    <rect x="930" y="266" width="150" height="74" rx="10" fill="#bfe6e0" stroke="#6cc3ba"/>
+    <text x="1005" y="298" text-anchor="middle" font-weight="600">node keeper</text>
+    <text x="1005" y="316" text-anchor="middle" font-size="10" fill="#4a6764">durable write</text>
+    <line x1="880" y1="303" x2="928" y2="303" stroke="#0f766e" stroke-width="2" marker-end="url(#aCold)"/>
+    <!-- collector forwards a live copy -->
+    <rect x="1130" y="266" width="230" height="74" rx="10" fill="#fbe6cd" stroke="#f1c27d"/>
+    <text x="1245" y="292" text-anchor="middle" font-weight="600" fill="#8a4d06">live-forward @ ingest</text>
+    <text x="1245" y="310" text-anchor="middle" font-size="9.5" fill="#8a4d06">X-DTP-Forwarded: chronolog</text>
+    <text x="1245" y="325" text-anchor="middle" font-size="9.5" fill="#8a4d06">(thin copy · not persisted twice)</text>
+    <line x1="880" y1="288" x2="1128" y2="288" stroke="#d97706" stroke-width="1.8" marker-end="url(#aHot)"/>
+  </g>
+
+  <!-- fleet -> paths arrows -->
+  <line x1="360" y1="146" x2="360" y2="210" stroke="#0f766e" stroke-width="2" marker-end="url(#aCold)"/>
+  <line x1="820" y1="146" x2="820" y2="210" stroke="#0f766e" stroke-width="2" marker-end="url(#aHot)"/>
+
+  <!-- ============ TIER 3 — TWO STORES ============ -->
+  <text x="40" y="410" font-size="14" font-weight="700" fill="#0f3b3a" letter-spacing="1.1">TWO STORES</text>
+
+  <!-- ChronoLog (cold) -->
+  <rect x="40" y="426" width="640" height="150" rx="12" fill="#e7f4f1" stroke="#6cc3ba"/>
+  <text x="60" y="450" font-size="13" font-weight="700" fill="#0f766e">ChronoLog — distributed shared log</text>
+  <text x="60" y="468" font-size="10.5" fill="#4a6764">durable · causally ordered · keeper on every node · the COLD path</text>
+  <g font-size="11">
+    <rect x="60"  y="484" width="150" height="70" rx="9" fill="#cfeae5" stroke="#6cc3ba"/><text x="135" y="516" text-anchor="middle" fill="#0f3b3a">visor</text><text x="135" y="532" text-anchor="middle" font-size="9.5" fill="#4a6764">coordinates</text>
+    <rect x="230" y="484" width="180" height="70" rx="9" fill="#cfeae5" stroke="#6cc3ba"/><text x="320" y="512" text-anchor="middle" fill="#0f3b3a">keepers (per node)</text><text x="320" y="530" text-anchor="middle" font-size="9.5" fill="#4a6764">accept writes</text>
+    <rect x="430" y="484" width="230" height="70" rx="9" fill="#cfeae5" stroke="#6cc3ba"/><text x="545" y="508" text-anchor="middle" fill="#0f3b3a">grapher → CSV / HDF5 archive</text><text x="545" y="526" text-anchor="middle" font-size="9.5" fill="#4a6764">~180 s keeper→grapher drain</text><text x="545" y="540" text-anchor="middle" font-size="9.5" fill="#b8690a">← full fidelity lands here</text>
+  </g>
+
+  <!-- Hot store (hot) -->
+  <rect x="700" y="426" width="700" height="150" rx="12" fill="#fdf3e6" stroke="#f1c27d"/>
+  <text x="720" y="450" font-size="13" font-weight="700" fill="#b8690a">Hot store + live bus</text>
+  <text x="720" y="468" font-size="10.5" fill="#8a4d06">in-process · JSONL-first · GIL-safe · instant · the HOT path</text>
+  <g font-size="11">
+    <rect x="720" y="484" width="200" height="70" rx="9" fill="#fbe6cd" stroke="#f1c27d"/><text x="820" y="512" text-anchor="middle" fill="#8a4d06">hot store (JSONL)</text><text x="820" y="530" text-anchor="middle" font-size="9.5" fill="#8a4d06">read_stitched · list_scenarios</text>
+    <rect x="940" y="484" width="200" height="70" rx="9" fill="#fbe6cd" stroke="#f1c27d"/><text x="1040" y="512" text-anchor="middle" fill="#8a4d06">SSE live bus</text><text x="1040" y="530" text-anchor="middle" font-size="9.5" fill="#8a4d06">/_inter-agent/stream</text>
+    <rect x="1160" y="484" width="200" height="70" rx="9" fill="#fbe6cd" stroke="#f1c27d"/><text x="1260" y="512" text-anchor="middle" fill="#8a4d06">comms aggregation</text><text x="1260" y="530" text-anchor="middle" font-size="9.5" fill="#8a4d06">host-pair traffic</text>
+  </g>
+
+  <!-- paths -> stores -->
+  <line x1="380" y1="340" x2="380" y2="424" stroke="#0f766e" stroke-width="2" marker-end="url(#aCold)"/>
+  <line x1="1005" y1="340" x2="1005" y2="424" stroke="#0f766e" stroke-width="2" marker-end="url(#aCold)"/>
+  <line x1="1245" y1="340" x2="1040" y2="424" stroke="#d97706" stroke-width="2" marker-end="url(#aHot)"/>
+
+  <!-- ============ TIER 4 — DASHBOARD TABS ============ -->
+  <text x="40" y="616" font-size="14" font-weight="700" fill="#0f3b3a" letter-spacing="1.1">DASHBOARD · each tab tagged by the store it reads</text>
+
+  <!-- tab cards: left-border color = primary source -->
+  <g font-size="11.5">
+    <!-- row of 8 tabs -->
+    <!-- Scenarios (hero) -->
+    <rect x="40"  y="636" width="220" height="86" rx="11" fill="#fff" stroke="#f1c27d"/>
+    <rect x="40"  y="636" width="8" height="86" rx="4" fill="#d97706"/>
+    <text x="62"  y="662" font-weight="700" fill="#0f3b3a">★ Scenarios (Live)</text>
+    <text x="62"  y="682" font-size="10.5" fill="#5b8a86">agent→agent graph, real time</text>
+    <text x="62"  y="700" font-size="10" fill="#b8690a">hot store + SSE</text>
+
+    <!-- Cluster (hero) -->
+    <rect x="280" y="636" width="220" height="86" rx="11" fill="#fff" stroke="#f1c27d"/>
+    <rect x="280" y="636" width="8" height="86" rx="4" fill="#d97706"/>
+    <text x="302" y="662" font-weight="700" fill="#0f3b3a">★ Cluster</text>
+    <text x="302" y="682" font-size="10.5" fill="#5b8a86">node-to-node comms + idle nodes</text>
+    <text x="302" y="700" font-size="10" fill="#b8690a">comms + topology + sinfo</text>
+
+    <!-- Fleet -->
+    <rect x="520" y="636" width="220" height="86" rx="11" fill="#fff" stroke="#8fd6cf"/>
+    <rect x="520" y="636" width="8" height="86" rx="4" fill="#0f766e"/>
+    <text x="542" y="662" font-weight="700" fill="#0f3b3a">Fleet</text>
+    <text x="542" y="682" font-size="10.5" fill="#5b8a86">health heatmap, 100+ nodes</text>
+    <text x="542" y="700" font-size="10" fill="#0f766e">rollups / spool</text>
+
+    <!-- Doctor -->
+    <rect x="760" y="636" width="220" height="86" rx="11" fill="#fff" stroke="#f1c27d"/>
+    <rect x="760" y="636" width="8" height="86" rx="4" fill="#d97706"/>
+    <text x="782" y="662" font-weight="700" fill="#0f3b3a">Doctor</text>
+    <text x="782" y="682" font-size="10.5" fill="#5b8a86">500 errors → 1 ranked incident</text>
+    <text x="782" y="700" font-size="10" fill="#b8690a">spool + hot store</text>
+
+    <!-- Traces -->
+    <rect x="1000" y="636" width="220" height="86" rx="11" fill="#fff" stroke="#f1c27d"/>
+    <rect x="1000" y="636" width="8" height="86" rx="4" fill="#d97706"/>
+    <text x="1022" y="662" font-weight="700" fill="#0f3b3a">Traces</text>
+    <text x="1022" y="682" font-size="10.5" fill="#5b8a86">critical-path waterfall</text>
+    <text x="1022" y="700" font-size="10" fill="#b8690a">inter-agent edges</text>
+
+    <!-- Memory -->
+    <rect x="1240" y="636" width="160" height="86" rx="11" fill="#fff" stroke="#f1c27d"/>
+    <rect x="1240" y="636" width="8" height="86" rx="4" fill="#d97706"/>
+    <text x="1262" y="662" font-weight="700" fill="#0f3b3a">Memory</text>
+    <text x="1262" y="682" font-size="10.5" fill="#5b8a86">context tokens live</text>
+    <text x="1262" y="700" font-size="10" fill="#b8690a">Path-A spool</text>
+
+    <!-- second row: Workspace + Interactions (durable) -->
+    <rect x="40"  y="736" width="220" height="82" rx="11" fill="#fff" stroke="#8fd6cf"/>
+    <rect x="40"  y="736" width="8" height="82" rx="4" fill="#0f766e"/>
+    <text x="62"  y="762" font-weight="700" fill="#0f3b3a">Workspace</text>
+    <text x="62"  y="782" font-size="10.5" fill="#5b8a86">per-agent conversation tree</text>
+    <text x="62"  y="800" font-size="10" fill="#0f766e">ChronoLog (after drain)</text>
+
+    <rect x="280" y="736" width="220" height="82" rx="11" fill="#fff" stroke="#8fd6cf"/>
+    <rect x="280" y="736" width="8" height="82" rx="4" fill="#0f766e"/>
+    <text x="302" y="762" font-weight="700" fill="#0f3b3a">Interactions</text>
+    <text x="302" y="782" font-size="10.5" fill="#5b8a86">flat feed of LLM turns</text>
+    <text x="302" y="800" font-size="10" fill="#0f766e">ChronoLog + SSE upgrade</text>
+  </g>
+
+  <!-- store -> dashboard arrows -->
+  <line x1="360" y1="576" x2="360" y2="634" stroke="#0f766e" stroke-width="2" marker-end="url(#aCold)"/>
+  <line x1="1040" y1="576" x2="1040" y2="634" stroke="#d97706" stroke-width="2" marker-end="url(#aHot)"/>
+  <line x1="900" y1="560" x2="640" y2="634" stroke="#d97706" stroke-width="1.6" opacity="0.75" marker-end="url(#aHot)"/>
+
+  <!-- ============ POSITIONING RIBBON ============ -->
+  <rect x="540" y="742" width="860" height="76" rx="12" fill="#f4faf8" stroke="#bfe6e0"/>
+  <text x="560" y="766" font-size="12.5" font-weight="700" fill="#0f3b3a">THE WHITESPACE — why this matters</text>
+  <text x="560" y="786" font-size="11" fill="#4a6764">LLM-observability tools = agent semantics, no cluster topology. HPC infra tools = node health, no agent semantics.</text>
+  <text x="560" y="804" font-size="11" fill="#0f766e" font-weight="600">This framework is the intersection: the agent-to-agent graph on physical nodes, with node-health at fleet scale.</text>
+
+  <!-- footer note -->
+  <text x="40" y="864" font-size="11" fill="#6b8783">Cold path (teal) is durable and complete but lags the ~180&nbsp;s drain. Hot path (amber) is instant, written at ingest — this is what the live demo shows.</text>
+</svg>
+
+  <p class="cap"><strong>Read it as a demo map.</strong> Top: the agent fleet across cluster nodes (Beat&nbsp;1).
+  Middle: two capture paths — <strong>Path-A</strong> (LLM turns → spool → capture worker) and <strong>Path-B</strong>
+  (inter-agent calls → collector → keeper). These fan into <strong>two stores</strong>: ChronoLog (durable, ordered — fills
+  the Workspace/Interactions tabs after the drain) and the <strong>hot store + SSE bus</strong> (instant — powers the ★ live
+  Scenarios/Cluster views, Doctor, Traces, Memory). The amber arrows are what the audience watches update in real time;
+  the teal arrows are what makes it durable and complete. The ribbon is the positioning: this is the only tool that draws
+  the agent graph <em>and</em> the machine graph together.</p>
+</div>
+</body>
+</html>

@@ -40,9 +40,10 @@ src/chronolog_observability/
 └── static/workspace/ # built React SPA lands here (gitignored build artifact)
 ```
 
-The React dashboard lives in `frontend/` (Vite). Its tabs — Workspace,
-Scenarios, Interactions, Cluster, and Memory — are served from ChronoLog and,
-for the real-time views, from an in-process **hot store** (see *Live views*).
+The React dashboard lives in `frontend/` (Vite). Its tabs — Scenarios (with a
+per-node inspector pop-up), Health (live feed + PrismaDoctor), Cluster, Fleet,
+Traces, and Memory — are served from ChronoLog and, for the real-time views,
+from an in-process **hot store** (see *Live views*).
 
 ## Install & run
 
@@ -96,7 +97,7 @@ durable cold path:
 - `GET /api/_inter-agent/stream?scenario=<sid>` — SSE: stored backlog first,
   then live `event: message` frames as events arrive.
 - `GET /_interceptor/live` — SSE push feed of new LLM interactions (the
-  Interactions tab upgrades from polling automatically).
+  Health tab's feed upgrades from polling automatically).
 
 For multi-node deployments, run one **collector** per compute node; local
 agents POST to it on localhost, it writes to ChronoLog through the node-local
@@ -191,19 +192,19 @@ Reusable pieces: `real_agent_chronolog.py` (the agent), `launch-dashboard.sh`,
 Verified **28/28** checks (all four tabs + the click-through) on live **4-node
 and 8-node** ChronoLog clusters.
 
-## Analytics features (ChronoDoctor · Fleet · Tracing)
+## Analytics features (PrismaDoctor · Fleet · Tracing)
 
 Three analytics views build on the same ChronoLog stories — each is served by
 the default adapter (advertised in `/api/config`) and appears as its own tab.
 
-- **Doctor — ChronoDoctor** (`diagnostics/`, `api/diagnostics.py`). Scans every
+- **Doctor — PrismaDoctor** (`diagnostics/`, `api/diagnostics.py`). Scans every
   story for failures (LLM 4xx/5xx, latency outliers, retry storms, failed *and
   hung/dropped* inter-agent calls, recovery/backtracks), **clusters** them by
   signature so a fleet-wide symptom is one ranked incident, and attaches a
   root-cause + remediation. Diagnosis is a deterministic heuristic engine by
   default (zero cost); `CHRONOLOG_DOCTOR_LLM=1` swaps in a Claude-backed
   diagnoser. A **self-compacting `incident_memory.md`** makes repeat offenders
-  recognisable across runs. Detection runs on demand (Doctor tab / `POST
+  recognisable across runs. Detection runs on demand (Health tab / `POST
   /api/diagnostics/scan`); `CHRONOLOG_DOCTOR=1` starts a background scanner
   (`chronolog-doctor`).
 - **Fleet — Fleet Health** (`fleet/`, `api/fleet.py`). Per-`(host, minute)`
@@ -261,4 +262,4 @@ verified on a 4-node cluster with both synthetic and real Claude agents.
 Backend, shape adapters, all generic blueprints (conversations, interactions,
 provenance, semantic, scenarios, inter_agent), capture stores, the chimaera-free
 Path-A capture worker (spool → ChronoLog), and the React frontend are ported and
-serve from ChronoLog. See [`MIGRATION.md`](./MIGRATION.md) for the port record.
+serve from ChronoLog.

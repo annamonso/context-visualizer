@@ -1,0 +1,853 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChronoLog Observability — Data Schema & Capture Reference</title>
+<style>
+  :root{
+    --bg:#f7f8fa; --panel:#ffffff; --ink:#1a1d23; --muted:#5b6470; --faint:#8a929e;
+    --line:#e3e7 ec; --line:#e4e8ee; --accent:#3b6ef5; --accent-soft:#eaf0ff;
+    --codebg:#f2f4f7; --codeink:#0f2b46; --th:#eef1f6; --rowalt:#fafbfd;
+    --pathA:#2e7d5b; --pathA-bg:#e4f4ec; --pathB:#8a5a00; --pathB-bg:#fbefd6;
+    --phase:#5a4bd0; --phase-bg:#ece9fb; --warn:#b23b3b; --warn-bg:#fce8e8;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1319; --panel:#161b22; --ink:#e6ebf2; --muted:#9aa4b2; --faint:#6b7482;
+      --line:#252c37; --accent:#5b8bff; --accent-soft:#1a2540;
+      --codebg:#0c1017; --codeink:#c9e2ff; --th:#1c222c; --rowalt:#12171e;
+      --pathA:#5fd6a0; --pathA-bg:#12241c; --pathB:#e0b062; --pathB-bg:#251d0e;
+      --phase:#a99bff; --phase-bg:#1c1830; --warn:#ff8080; --warn-bg:#2a1618;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0f1319; --panel:#161b22; --ink:#e6ebf2; --muted:#9aa4b2; --faint:#6b7482;
+    --line:#252c37; --accent:#5b8bff; --accent-soft:#1a2540;
+    --codebg:#0c1017; --codeink:#c9e2ff; --th:#1c222c; --rowalt:#12171e;
+    --pathA:#5fd6a0; --pathA-bg:#12241c; --pathB:#e0b062; --pathB-bg:#251d0e;
+    --phase:#a99bff; --phase-bg:#1c1830; --warn:#ff8080; --warn-bg:#2a1618;
+  }
+  :root[data-theme="light"]{
+    --bg:#f7f8fa; --panel:#ffffff; --ink:#1a1d23; --muted:#5b6470; --faint:#8a929e;
+    --line:#e4e8ee; --accent:#3b6ef5; --accent-soft:#eaf0ff;
+    --codebg:#f2f4f7; --codeink:#0f2b46; --th:#eef1f6; --rowalt:#fafbfd;
+    --pathA:#2e7d5b; --pathA-bg:#e4f4ec; --pathB:#8a5a00; --pathB-bg:#fbefd6;
+    --phase:#5a4bd0; --phase-bg:#ece9fb; --warn:#b23b3b; --warn-bg:#fce8e8;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:0;max-width:1400px;margin:0 auto}
+  /* sidebar */
+  nav.side{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;
+    padding:24px 18px;border-right:1px solid var(--line);background:var(--panel)}
+  nav.side h1{font-size:15px;margin:0 0 4px;letter-spacing:.2px}
+  nav.side .sub{color:var(--faint);font-size:12px;margin-bottom:18px}
+  nav.side a{display:block;color:var(--muted);text-decoration:none;font-size:13px;
+    padding:4px 8px;border-radius:6px;border-left:2px solid transparent}
+  nav.side a:hover{color:var(--ink);background:var(--accent-soft)}
+  nav.side a.sec{margin-top:12px;font-weight:600;color:var(--ink);font-size:12.5px;
+    text-transform:uppercase;letter-spacing:.5px}
+  nav.side a.sub2{padding-left:20px;font-size:12.5px}
+  /* content */
+  main{padding:40px 48px 120px;min-width:0}
+  main h2{font-size:24px;margin:48px 0 4px;padding-top:12px;border-top:1px solid var(--line);scroll-margin-top:20px}
+  main h2:first-of-type{border-top:none;margin-top:0}
+  main h3{font-size:18px;margin:32px 0 8px;scroll-margin-top:20px}
+  main h4{font-size:14.5px;margin:22px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  p{margin:10px 0}
+  a{color:var(--accent)}
+  code{font-family:var(--mono);font-size:.86em;background:var(--codebg);color:var(--codeink);
+    padding:1.5px 5px;border-radius:4px;white-space:nowrap}
+  pre{background:var(--codebg);color:var(--codeink);padding:16px 18px;border-radius:10px;
+    overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.5;border:1px solid var(--line)}
+  pre code{background:none;padding:0;white-space:pre;color:inherit}
+  .lead{font-size:16px;color:var(--muted);max-width:70ch}
+  /* badges */
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;
+    letter-spacing:.3px;vertical-align:middle;font-family:var(--sans)}
+  .b-a{background:var(--pathA-bg);color:var(--pathA)}
+  .b-b{background:var(--pathB-bg);color:var(--pathB)}
+  .b-phase{background:var(--phase-bg);color:var(--phase)}
+  .b-warn{background:var(--warn-bg);color:var(--warn)}
+  .pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:5px;
+    background:var(--th);border:1px solid var(--line);color:var(--muted)}
+  /* tables */
+  .tw{overflow-x:auto;margin:14px 0;border:1px solid var(--line);border-radius:10px}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--th);font-weight:600;position:sticky;top:0;white-space:nowrap}
+  tbody tr:nth-child(even){background:var(--rowalt)}
+  td:first-child code{white-space:nowrap}
+  table code{white-space:normal}
+  /* callouts */
+  .note{border-left:3px solid var(--accent);background:var(--accent-soft);padding:12px 16px;
+    border-radius:0 8px 8px 0;margin:16px 0;font-size:14px}
+  .note.warn{border-color:var(--warn);background:var(--warn-bg)}
+  .note strong{color:var(--ink)}
+  /* meta row for record cards */
+  .meta{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px;align-items:center;font-size:12.5px}
+  .meta .kv{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:3px 9px}
+  .meta .kv b{color:var(--muted);font-weight:600;margin-right:5px;font-size:11px;text-transform:uppercase;letter-spacing:.3px}
+  .kicker{font-size:12px;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;font-weight:700;margin-top:8px}
+  hr{border:none;border-top:1px solid var(--line);margin:28px 0}
+  .toggle{position:fixed;top:14px;right:16px;z-index:10;background:var(--panel);border:1px solid var(--line);
+    color:var(--muted);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;font-family:var(--sans)}
+  .toggle:hover{color:var(--ink)}
+  .cardgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:14px 0}
+  .card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--panel)}
+  .card h5{margin:0 0 6px;font-size:13.5px}
+  .card p{margin:0;font-size:12.5px;color:var(--muted)}
+  .foot{margin-top:60px;padding-top:20px;border-top:1px solid var(--line);color:var(--faint);font-size:12.5px}
+  @media (max-width:900px){
+    .layout{grid-template-columns:1fr}
+    nav.side{position:static;height:auto;border-right:none;border-bottom:1px solid var(--line)}
+    main{padding:24px 20px 80px}
+  }
+</style>
+</head>
+<body>
+<button class="toggle" id="themeToggle">◐ theme</button>
+<div class="layout">
+<nav class="side">
+  <h1>ChronoLog Observability</h1>
+  <div class="sub">Data Schema &amp; Capture Reference</div>
+  <a class="sec" href="#model">1 · Model &amp; phases</a>
+  <a class="sec" href="#patha">2 · Path-A · LLM turns</a>
+  <a class="sub2" href="#interaction">2.1 Interaction record</a>
+  <a class="sub2" href="#ctxnode">2.2 Context-graph node</a>
+  <a class="sub2" href="#recovery">2.3 Recovery event</a>
+  <a class="sub2" href="#spool">2.4 Spool &amp; HWM state</a>
+  <a class="sec" href="#pathb">3 · Path-B · Inter-agent</a>
+  <a class="sub2" href="#edge">3.1 InterAgentMessage</a>
+  <a class="sub2" href="#ingest">3.2 Ingest payload</a>
+  <a class="sub2" href="#stitched">3.3 Stitched edge</a>
+  <a class="sub2" href="#sse">3.4 Live-bus SSE</a>
+  <a class="sec" href="#fleet">4 · Fleet rollups</a>
+  <a class="sec" href="#doctor">5 · PrismaDoctor</a>
+  <a class="sub2" href="#signal">5.2 Signal</a>
+  <a class="sub2" href="#incident">5.3 Incident</a>
+  <a class="sub2" href="#diagnosis">5.4 Diagnosis</a>
+  <a class="sub2" href="#memory">5.6 Incident memory</a>
+  <a class="sec" href="#semantic">6 · Semantic &amp; rollback</a>
+  <a class="sec" href="#index">7 · __index__ chronicle</a>
+  <a class="sec" href="#envelope">8 · Storage envelope</a>
+  <a class="sec" href="#api">9 · API read models</a>
+  <a class="sec" href="#reference">10 · Reference tables</a>
+</nav>
+
+<main>
+  <p class="kicker">Ground-truth schema contract</p>
+  <h2 id="top" style="border:none;margin-top:4px">Data Schema &amp; Capture Reference</h2>
+  <p class="lead">The complete, field-level specification of every data structure the platform captures — at every
+  phase of every pipeline. For each field: <strong>what it is</strong>, <strong>why it is captured</strong>,
+  <strong>where it is stored</strong>, and the exact structure of the record. Everything here is derived from the
+  source; the code is the authority. Companion docs: <code>FEATURES.md</code> (feature tour),
+  <code>README.md</code> (setup), <code>DATA_SCHEMAS.md</code> (the Markdown twin of this page).</p>
+
+  <!-- ===================== 1. MODEL ===================== -->
+  <h2 id="model">1 · Model: phases, paths &amp; the storage substrate</h2>
+  <p>Every datum enters through one of <strong>two capture paths</strong>, each with its own record types,
+  storage, and phase pipeline.</p>
+
+  <pre><code>                          ┌──────── Path-A: LLM turns ────────┐
+ agent / proxy ─record_*─▶ │ capture spool (JSONL, shared NFS) │─sync worker─▶ ChronoLog stories
+                          └───────────────────────────────────┘              (llm_interactions,
+                                                                              context_graphs,
+                                                                              recovery_events)
+                          ┌──── Path-B: inter-agent calls ────┐
+ agent MCP wrapper ─emit─▶ │ per-node collector daemon (:5650) │─┬─▶ ChronoLog keeper (ia_&lt;scenario&gt;/edges)
+                          └───────────────────────────────────┘ └─▶ dashboard /ingest ─▶ live bus (SSE)
+
+ dashboard reads: ChronoLog (cold, full fidelity, after ~180s drain) + local hot store (live, instant)</code></pre>
+
+  <div class="cardgrid">
+    <div class="card"><h5><span class="badge b-a">PATH-A</span> LLM interactions</h5>
+      <p>Prompts, responses, tokens, cost, latency, and working-memory growth. Producers append to a local
+      <em>capture spool</em>; the <em>sync worker</em> drains it into ChronoLog.</p></div>
+    <div class="card"><h5><span class="badge b-b">PATH-B</span> Inter-agent calls</h5>
+      <p>Agent→agent MCP tool invocations, emitted as a <code>start</code>/<code>done</code> pair. A per-node
+      <em>collector</em> writes them to the node's keeper and forwards a thin copy for the live stream.</p></div>
+  </div>
+
+  <h4>The four phases (both paths share this shape)</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Phase</th><th>What happens</th><th>Where the data lives</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge b-phase">CAPTURE</span></td><td>Producer builds a free-form record and calls <code>record_*</code> / <code>emit()</code>.</td><td>in-memory dict</td></tr>
+      <tr><td><span class="badge b-phase">SPOOL / RELAY</span></td><td>Record appended to a local durable buffer (Path-A spool JSONL; Path-B collector queue + hot JSONL).</td><td>local disk (<code>~/.dt_provenance/…</code> or <code>$DTP_STATE_DIR</code>)</td></tr>
+      <tr><td><span class="badge b-phase">CHRONOLOG</span></td><td>Sync worker / collector writes the record to a Chronicle/Story via the node-local keeper.</td><td>ChronoLog (distributed, durable)</td></tr>
+      <tr><td><span class="badge b-phase">READ</span></td><td>Reader replays ChronoLog (or CSV archive after drain, or hot store for live); shapers build API view models.</td><td>dashboard JSON</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note"><strong>Why ChronoLog is not read in real time.</strong> The keeper→grapher drain lags
+  <strong>~180&nbsp;s</strong>, and a <code>ReplayStory</code> on an un-drained story blocks the process for minutes
+  holding the GIL. So live views (Scenarios, Fleet, Doctor, Traces, Memory) are served from local hot stores/spools at
+  the moment of ingest; full-fidelity views (Workspace, Interactions) fill in from ChronoLog after the drain. This is
+  why many records are written to <em>two</em> places — see the <code>X-DTP-Forwarded</code> contract in §3.2.</div>
+
+  <h4>ChronoLog naming contract <span class="pill">backend/constants.py</span></h4>
+  <p>Chronicle/Story names are a <strong>compatibility contract</strong> — they define the on-disk layout a deployment
+  already holds. The Story name for Path-A chronicles is <em>the session id itself</em> (e.g.
+  <code>writer@scenario-x</code>).</p>
+  <div class="tw"><table>
+    <thead><tr><th>Chronicle</th><th>Story</th><th>Holds</th><th>Path</th></tr></thead>
+    <tbody>
+      <tr><td><code>llm_interactions</code></td><td><code>&lt;session_id&gt;</code></td><td>Interaction records</td><td><span class="badge b-a">A</span></td></tr>
+      <tr><td><code>context_graphs</code></td><td><code>&lt;session_id&gt;</code></td><td>Context-graph diff nodes</td><td><span class="badge b-a">A</span></td></tr>
+      <tr><td><code>recovery_events</code></td><td><code>&lt;session_id&gt;</code></td><td>Recovery events</td><td><span class="badge b-a">A</span></td></tr>
+      <tr><td><code>checkpoints</code></td><td>—</td><td><em>reserved, currently unused</em> (checkpoints persist to a local JSON file)</td><td><span class="badge b-a">A</span></td></tr>
+      <tr><td><code>metrics_rollup</code></td><td><code>minute</code></td><td>Fleet per-<code>(host,minute)</code> buckets</td><td><span class="badge b-b">rollup</span></td></tr>
+      <tr><td><code>ia_&lt;scenario&gt;</code></td><td><code>edges</code></td><td>Inter-agent start/done edge events</td><td><span class="badge b-b">B</span></td></tr>
+      <tr><td><code>__index__</code></td><td><code>scenarios</code> / <code>sessions</code> / <code>hosts</code></td><td>Listing index (<code>{"v": …}</code> entries)</td><td>both</td></tr>
+    </tbody>
+  </table></div>
+
+  <!-- ===================== 2. PATH-A ===================== -->
+  <h2 id="patha">2 · Path-A — LLM interactions <span class="badge b-a">PATH-A</span></h2>
+  <p><strong>Pipeline:</strong> producer calls <code>spool.record_*</code> → append-only JSONL spool →
+  <code>SpoolToChronoLogSync</code> drains to ChronoLog → <code>path_a_reader</code> replays for views.
+  Capture is <em>at-least-once</em>, ingest is effectively <em>exactly-once</em>: the worker dedups against
+  per-<code>(session, kind)</code> high-water marks and rebuilds that state from ChronoLog on restart.</p>
+
+  <div class="note"><strong>Field enforcement.</strong> The spool payload is a <em>free-form dict</em>. The spool only
+  injects/guarantees three fields (<code>session_id</code>, <code>sequence_id</code> or <code>blob_name</code>,
+  <code>timestamp</code>). Everything else is a contract established by producers
+  (<code>real_agent_chronolog.py</code>, <code>demos/_demo_common.py</code>, <code>synth_live_traffic.py</code>) and
+  relied on by consumers (<code>adapters/shape/conversation.py</code>, <code>analysis/*</code>). Fields below are tagged
+  <span class="pill">spool</span> (injected) or <span class="pill">producer</span> (contract).</p></div>
+
+  <h3 id="interaction">2.1 Interaction record</h3>
+  <div class="meta">
+    <span class="kv"><b>phase</b>capture → spool → ChronoLog → read</span>
+    <span class="kv"><b>write</b><code>spool.record_interaction()</code></span>
+    <span class="kv"><b>chronicle</b><code>llm_interactions</code></span>
+    <span class="kv"><b>story</b><code>&lt;session_id&gt;</code></span>
+    <span class="kv"><b>dedup</b><code>sequence_id</code></span>
+  </div>
+  <p>One LLM turn. Read by <code>path_a_reader.get_session_interactions</code> / <code>get_interaction</code>
+  (deduped by <code>sequence_id</code>, last-write-wins, seq-ordered).</p>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>Type</th><th>Tag</th><th>Why captured</th></tr></thead>
+    <tbody>
+      <tr><td><code>session_id</code></td><td>str</td><td><span class="pill">spool</span></td><td>The agent session (<code>role@scenario</code>); <strong>becomes the ChronoLog Story name</strong>. Read by every Path-A view.</td></tr>
+      <tr><td><code>sequence_id</code></td><td>int</td><td><span class="pill">spool</span></td><td>Monotonic per-<code>(session,kind)</code> id (auto if omitted). <strong>The dedup / high-water / ordering key</strong> for exactly-once ingest.</td></tr>
+      <tr><td><code>timestamp</code></td><td>str ISO</td><td><span class="pill">spool</span></td><td>Turn wall-clock (<code>setdefault</code>). Timeline ordering.</td></tr>
+      <tr><td><code>scenario_id</code></td><td>str</td><td><span class="pill">producer</span></td><td>Ties the turn to the inter-agent scenario graph.</td></tr>
+      <tr><td><code>host</code></td><td>str</td><td><span class="pill">producer</span></td><td>Node that ran the turn; Fleet/host attribution.</td></tr>
+      <tr><td><code>provider</code></td><td>str</td><td><span class="pill">producer</span></td><td><code>anthropic</code>/<code>openai</code>/<code>ollama</code> — selects the parse branch in the shaper and checkpoint detector.</td></tr>
+      <tr><td><code>model</code></td><td>str</td><td><span class="pill">producer</span></td><td>Model id; per-turn display, cost.</td></tr>
+      <tr><td><code>request.method</code></td><td>str</td><td><span class="pill">producer</span></td><td>HTTP verb of the proxied call (<code>POST</code>).</td></tr>
+      <tr><td><code>request.path</code></td><td>str</td><td><span class="pill">producer</span></td><td>API endpoint (<code>/v1/messages</code>).</td></tr>
+      <tr><td><code>request.body.system</code></td><td>str | list</td><td><span class="pill">producer</span></td><td>System prompt; extracted for the turn view + token estimate.</td></tr>
+      <tr><td><code>request.body.messages</code></td><td>list</td><td><span class="pill">producer</span></td><td><code>{role, content}</code> prompt turns; rendered in the conversation, replayed by rollback.</td></tr>
+      <tr><td><code>response.status_code</code></td><td>int</td><td><span class="pill">producer</span></td><td>HTTP status; turns ≥400 flagged as errors.</td></tr>
+      <tr><td><code>response.text</code></td><td>str</td><td><span class="pill">producer</span></td><td>Raw response text; builds the response preview.</td></tr>
+      <tr><td><code>response.tool_calls</code></td><td>list</td><td><span class="pill">producer</span></td><td>Tool invocations (esp. streaming).</td></tr>
+      <tr><td><code>response.is_streaming</code></td><td>bool</td><td><span class="pill">producer</span></td><td>Streaming flag.</td></tr>
+      <tr><td><code>metrics.total_latency_ms</code></td><td>number</td><td><span class="pill">producer</span></td><td>Turn latency; latency views.</td></tr>
+      <tr><td><code>metrics.delta_input_tokens</code></td><td>int</td><td><span class="pill">producer</span></td><td>Prompt tokens this turn; token/cost rollups.</td></tr>
+      <tr><td><code>metrics.delta_output_tokens</code></td><td>int</td><td><span class="pill">producer</span></td><td>Completion tokens this turn.</td></tr>
+      <tr><td><code>metrics.delta_cost_usd</code></td><td>number</td><td><span class="pill">producer</span></td><td>Turn cost (USD); cost rollups.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><strong>Alternate flat shape</strong> (<code>synth_live_traffic.py</code>): some producers use flat
+  keys instead of the nested <code>metrics</code> block — <code>method</code>, <code>path</code>,
+  <code>status_code</code>, <code>is_streaming</code>, <code>total_latency_ms</code>, <code>response_text</code>,
+  <code>usage:{input_tokens, output_tokens}</code> (may add <code>prompt_tokens</code>,
+  <code>cache_creation_input_tokens</code>, <code>cache_read_input_tokens</code>). The shaper tolerates both.</div>
+  <pre><code>{
+  "session_id": "writer@scenario-x",
+  "sequence_id": 3,
+  "scenario_id": "scenario-x",
+  "host": "ares-comp-11",
+  "timestamp": "2026-07-20T10:15:30.123456Z",
+  "provider": "anthropic",
+  "model": "claude-opus-4-8",
+  "request":  {"method": "POST", "path": "/v1/messages",
+               "body": {"messages": [{"role": "user", "content": "do the work"}]}},
+  "response": {"status_code": 200, "text": "…", "is_streaming": false},
+  "metrics":  {"total_latency_ms": 320, "delta_input_tokens": 500,
+               "delta_output_tokens": 50, "delta_cost_usd": 0.001}
+}</code></pre>
+
+  <h3 id="ctxnode">2.2 Context-graph node</h3>
+  <div class="meta">
+    <span class="kv"><b>write</b><code>spool.record_context_node()</code></span>
+    <span class="kv"><b>chronicle</b><code>context_graphs</code></span>
+    <span class="kv"><b>story</b><code>&lt;session_id&gt;</code></span>
+    <span class="kv"><b>dedup</b><code>sequence_id</code></span>
+  </div>
+  <p>A working-memory diff (a node added to / evicted from context). This is the <strong>authoritative per-turn
+  metrics carrier</strong> — the conversation shaper reads tokens/cost/latency from the context node, not the
+  interaction. Read by <code>get_context_graph(session_id, since=0)</code> (filters <code>sequence_id &gt; since</code>).</p>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>Type</th><th>Tag</th><th>Why captured</th></tr></thead>
+    <tbody>
+      <tr><td><code>session_id</code></td><td>str</td><td><span class="pill">spool</span></td><td>Owning session / Story.</td></tr>
+      <tr><td><code>sequence_id</code></td><td>int</td><td><span class="pill">spool</span></td><td>Dedup / high-water / ordering key.</td></tr>
+      <tr><td><code>timestamp</code></td><td>str ISO</td><td><span class="pill">spool</span></td><td>Node time (<code>setdefault</code>).</td></tr>
+      <tr><td><code>op</code></td><td>str</td><td><span class="pill">producer</span></td><td><code>add</code>/<code>evict</code> — drives the Memory tab growth/eviction curve.</td></tr>
+      <tr><td><code>node</code></td><td>str</td><td><span class="pill">producer</span></td><td>Node identifier in the context graph (<code>ctx-3</code>, <code>writer-3</code>).</td></tr>
+      <tr><td><code>summary</code></td><td>str</td><td><span class="pill">producer</span></td><td>Short human label (<code>prompt[:60]</code>).</td></tr>
+      <tr><td><code>tokens</code></td><td>int</td><td><span class="pill">producer</span></td><td><strong>Content this turn added to working memory</strong> — the value the Memory tab plots as real context growth.</td></tr>
+      <tr><td><code>delta_input_tokens</code></td><td>int</td><td><span class="pill">producer</span></td><td>Prompt tokens; token/cost views.</td></tr>
+      <tr><td><code>delta_output_tokens</code></td><td>int</td><td><span class="pill">producer</span></td><td>Completion tokens.</td></tr>
+      <tr><td><code>delta_cost_usd</code></td><td>number</td><td><span class="pill">producer</span></td><td>Turn cost.</td></tr>
+      <tr><td><code>latency_ms</code></td><td>number</td><td><span class="pill">producer</span></td><td>Turn latency → <code>total_latency_ms</code> in views.</td></tr>
+      <tr><td><code>model</code></td><td>str</td><td><span class="pill">producer</span></td><td>Model id (real-agent producer).</td></tr>
+      <tr><td><code>ttft_ms</code></td><td>number</td><td><span class="pill">producer</span></td><td>Time-to-first-token (analysis latency chart).</td></tr>
+      <tr><td><code>event_type</code></td><td>str</td><td><span class="pill">producer</span></td><td>Turn type label (default <code>continuation</code>) for the token-delta chart.</td></tr>
+      <tr><td><code>delta_effective_input_tokens</code></td><td>int</td><td><span class="pill">producer</span></td><td>Effective (post-cache) prompt tokens; token-delta chart.</td></tr>
+      <tr><td><code>total_effective_input_tokens</code></td><td>int</td><td><span class="pill">producer</span></td><td>Cumulative effective context size; context-growth chart.</td></tr>
+    </tbody>
+  </table></div>
+  <pre><code>{
+  "session_id": "writer@scenario-x", "sequence_id": 3,
+  "timestamp": "2026-07-20T10:15:30.123456Z",
+  "op": "add", "node": "ctx-3", "summary": "do the work",
+  "tokens": 550, "delta_input_tokens": 500,
+  "delta_output_tokens": 50, "delta_cost_usd": 0.001
+}</code></pre>
+
+  <h3 id="recovery">2.3 Recovery event</h3>
+  <div class="meta">
+    <span class="kv"><b>write</b><code>spool.record_recovery()</code></span>
+    <span class="kv"><b>chronicle</b><code>recovery_events</code></span>
+    <span class="kv"><b>story</b><code>&lt;session_id&gt;</code></span>
+    <span class="kv"><b>dedup</b><code>blob_name</code></span>
+  </div>
+  <p>A checkpoint-restore / backtrack signal. Read by <code>get_recovery_events(session_id)</code> (sorted by
+  <code>timestamp</code>). <strong>Dedup key is <code>blob_name</code>, not <code>sequence_id</code>.</strong></p>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>Type</th><th>Tag</th><th>Why captured</th></tr></thead>
+    <tbody>
+      <tr><td><code>session_id</code></td><td>str</td><td><span class="pill">spool</span></td><td>Owning session / Story.</td></tr>
+      <tr><td><code>blob_name</code></td><td>str</td><td><span class="pill">spool</span></td><td><strong>Unique dedup id</strong> (uuid4 hex if absent) — the worker dedups on this instead of <code>sequence_id</code>.</td></tr>
+      <tr><td><code>timestamp</code></td><td>str ISO</td><td><span class="pill">spool</span></td><td>Event time (<code>setdefault</code>); read path sorts on it.</td></tr>
+      <tr><td><code>reason</code></td><td>str</td><td><span class="pill">producer</span></td><td>Human reason for the restore/backtrack (<code>checkpoint-restore</code>, …).</td></tr>
+      <tr><td><code>host</code></td><td>str</td><td><span class="pill">producer</span></td><td>Node where recovery happened.</td></tr>
+      <tr><td><code>source_session_id</code></td><td>str</td><td><span class="pill">producer</span></td><td>Used by <code>build_rollback_plan</code> to find peers with unacknowledged events from the trigger session.</td></tr>
+      <tr><td><code>acknowledged</code></td><td>bool</td><td><span class="pill">producer</span></td><td>Whether acknowledged; the rollback planner filters unacked.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="spool">2.4 Spool sequencing &amp; high-water state</h3>
+  <p>Not records — the control state that turns at-least-once capture into exactly-once ingest.</p>
+  <h4>On-disk spool layout</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Aspect</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td>Root</td><td><code>$DTP_STATE_DIR/path_a_spool/</code> else <code>~/.dt_provenance/path_a_spool/</code></td></tr>
+      <tr><td>Format</td><td>JSONL, one record per line, compact separators, <code>O_APPEND</code> (POSIX-atomic per line)</td></tr>
+      <tr><td>File naming</td><td><code>&lt;safe_session&gt;__interactions.jsonl</code> · <code>…__context_graph.jsonl</code> · <code>…__recovery.jsonl</code></td></tr>
+    </tbody>
+  </table></div>
+  <div class="note warn"><strong>The <code>@</code> is load-bearing.</strong> <code>_safe()</code> keeps
+  <code>alnum - _ . @</code> and truncates to 120 chars. <code>@</code> is deliberately preserved so the spool filename →
+  ChronoLog Story name round-trips with the <code>role@scenario</code> session id. Mapping <code>@</code>→<code>_</code>
+  once desynced the stored story from the looked-up id, showing zero tokens / an empty conversation.</div>
+  <h4>Worker high-water state <span class="pill">capture/sync_worker.py</span></h4>
+  <div class="tw"><table>
+    <thead><tr><th>State</th><th>Type</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>_hwm</code></td><td><code>{(session,kind) → int}</code></td><td>Last <code>sequence_id</code> forwarded; only <code>seq &gt; hwm</code> is appended. Rebuilt on startup by replaying ChronoLog.</td></tr>
+      <tr><td><code>_recovery_seen</code></td><td><code>{session → set[blob_name]}</code></td><td>Recovery dedup set; warm-seeded from replay.</td></tr>
+      <tr><td><code>_index_seen</code></td><td><code>set[str]</code></td><td>Sessions already <code>index_add</code>-ed.</td></tr>
+      <tr><td><code>SyncStats</code></td><td>dataclass</td><td>Telemetry: <code>polls</code>, <code>sessions_seen</code>, <code>events_written{kind:int}</code>, <code>last_error</code>, poll timestamps.</td></tr>
+    </tbody>
+  </table></div>
+
+  <!-- ===================== 3. PATH-B ===================== -->
+  <h2 id="pathb">3 · Path-B — Inter-agent edges <span class="badge b-b">PATH-B</span></h2>
+  <p><strong>Pipeline:</strong> agent MCP wrapper <code>emit()</code> → per-node <strong>collector daemon</strong>
+  (<code>:5650</code>) stamps ids → writer thread writes to ChronoLog keeper <em>and</em> forwards to the dashboard →
+  dashboard persists a hot copy + publishes to the live bus → SSE subscribers. The store &amp; bus live in
+  <code>capture/inter_agent/store.py</code> and <code>bus.py</code>. Each logical call emits <strong>two</strong>
+  records sharing one <code>correlation_id</code>: a <code>start</code> and a <code>done</code>.</p>
+
+  <h3 id="edge">3.1 InterAgentMessage (the stored edge event)</h3>
+  <div class="meta">
+    <span class="kv"><b>chronicle</b><code>ia_&lt;scenario&gt;</code></span>
+    <span class="kv"><b>story</b><code>edges</code></span>
+    <span class="kv"><b>offline</b><code>inter_agent/&lt;scenario&gt;.jsonl</code></span>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Why captured / consumer</th></tr></thead>
+    <tbody>
+      <tr><td><code>event_id</code></td><td>str</td><td>uuid4 hex</td><td>Unique per-record id; the <strong>SSE dedup key</strong> and the collector-preserved id on forward.</td></tr>
+      <tr><td><code>scenario_id</code></td><td>str</td><td>required</td><td>Selects the ChronoLog Chronicle (<code>ia_&lt;scenario&gt;</code>) and the bus topic.</td></tr>
+      <tr><td><code>correlation_id</code></td><td>str</td><td>auto uuid</td><td><strong>Stitches the <code>start</code>+<code>done</code> pair into one edge.</strong></td></tr>
+      <tr><td><code>phase</code></td><td>str</td><td>required</td><td><code>start</code> | <code>done</code>. <code>done</code> is authoritative for status/latency.</td></tr>
+      <tr><td><code>from_host</code></td><td>str</td><td>required</td><td>Source node — edge tail.</td></tr>
+      <tr><td><code>from_session</code></td><td>str</td><td>required</td><td>Source agent session (<code>role@scenario</code>); joins to Path-A session records.</td></tr>
+      <tr><td><code>to_host</code></td><td>str</td><td>required</td><td>Destination node — edge head; the host attributed in fleet bucketize.</td></tr>
+      <tr><td><code>to_session</code></td><td>str</td><td>required</td><td>Destination agent session; the <code>agents</code> dimension in fleet rollup.</td></tr>
+      <tr><td><code>ts</code></td><td>str ISO</td><td>required</td><td>Event wall-clock → <code>ts_start</code>/<code>ts_done</code>; parsed to ns for fleet minute-bucketing. Preserved verbatim on forward.</td></tr>
+      <tr><td><code>kind</code></td><td>str</td><td><code>mcp_call</code></td><td>Edge type (<code>mcp_call</code>/<code>tool_invoke</code>/<code>direct_message</code>); graph label.</td></tr>
+      <tr><td><code>tool_name</code></td><td>str</td><td><code>""</code></td><td>MCP tool invoked (e.g. <code>call_remote_agent</code>); shown on the edge.</td></tr>
+      <tr><td><code>payload_digest</code></td><td>str</td><td><code>""</code></td><td><code>sha256:&lt;hex&gt;</code> of the payload — reference a payload without storing it.</td></tr>
+      <tr><td><code>payload_preview</code></td><td>str</td><td><code>""</code></td><td>First 512 chars of the payload — a peek for the detail pane.</td></tr>
+      <tr><td><code>status</code></td><td>str</td><td><code>""</code></td><td>Set only on <code>done</code>: <code>ok</code> or <code>error:&lt;msg&gt;</code>. <code>startswith("error")</code> drives the fleet error count. Empty = in-flight.</td></tr>
+      <tr><td><code>latency_ms</code></td><td>float</td><td><code>0.0</code></td><td>Set only on <code>done</code>. Call duration; fleet latency sum/p95/max.</td></tr>
+      <tr><td><code>ingest_ns</code></td><td>int</td><td><code>0</code></td><td>Server-side <code>time.time_ns()</code> stamp; survives collector relays; monotonic ordering.</td></tr>
+      <tr><td><code>parent_correlation_id</code></td><td>str</td><td><code>""</code></td><td>The <code>correlation_id</code> of the call this one was made <em>while servicing</em> — lets the tracer build exact call trees; empty ⇒ tracer infers parents from session+time nesting.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="ingest">3.2 Ingest wire payload &amp; the exactly-once contract</h3>
+  <p><code>POST /api/_inter-agent/ingest</code> (dashboard) and collector <code>POST /ingest</code>.</p>
+  <h4>Single-event body</h4>
+  <p><strong>Required:</strong> <code>scenario_id</code>, <code>phase</code>, <code>from_host</code>,
+  <code>from_session</code>, <code>to_host</code>, <code>to_session</code>. <strong>Optional:</strong>
+  <code>correlation_id</code> (auto uuid), <code>kind</code>, <code>tool_name</code>, <code>payload</code> (object or
+  raw string — hashed + truncated), <code>status</code> (only on <code>done</code>), <code>latency_ms</code> (only on
+  <code>done</code>).</p>
+  <h4>Batch body</h4>
+  <p>A bare array <code>[ {…}, … ]</code> or <code>{"events": [ {…}, … ]}</code>. The collector always relays the
+  <code>{"events":[…]}</code> shape.</p>
+  <h4>Collector stamping</h4>
+  <p>Before enqueue, the collector fills <code>event_id</code>, <code>correlation_id</code>, <code>ts</code>
+  (setdefault) and <strong>unconditionally</strong> <code>ingest_ns = time.time_ns()</code>. These stamped ids are what
+  the dashboard later preserves — ids must match across the ChronoLog copy and the forwarded copy.</p>
+  <div class="note warn"><strong><code>X-DTP-Forwarded: chronolog</code> — the exactly-once contract.</strong>
+  The collector sets this header <em>only when it already wrote the event to ChronoLog</em>. On the dashboard,
+  when the header is present: (a) the parser <strong>preserves</strong> the supplied
+  <code>event_id</code>/<code>ts</code>/<code>ingest_ns</code>/digest instead of regenerating, and (b)
+  <code>store.append(skip_chronolog=True)</code> writes only the hot JSONL copy and skips the second ChronoLog write.
+  Net effect: <strong>each event persisted exactly once per backend</strong>. If the ChronoLog write failed, the
+  collector forwards <em>without</em> the header so the dashboard persists it — degraded, not lost. The direct
+  agent→dashboard fallback (collector down) also sends no header.</div>
+  <h4>Responses</h4>
+  <pre><code>// single
+{"event_id": "…", "correlation_id": "…", "ts": "2026-07-20T12:00:00.000000Z"}
+
+// batch          (HTTP 200 if accepted&gt;0 else 400; store failure ⇒ 500)
+{"accepted": 2,
+ "results": [{"event_id":"…","correlation_id":"…","ts":"…"}, …],
+ "errors":  [{"index": 3, "error": "missing required field: to_host"}]}
+
+// collector GET /health
+{"ok": true, "queued": 0, "accepted": 12, "flushed": 12, "dropped": 0}</code></pre>
+
+  <h3 id="stitched">3.3 Stitched edge (read shape)</h3>
+  <p><code>read_stitched()</code> — <strong>not</strong> the stored shape. One merged dict per
+  <code>correlation_id</code>, consumed by the scenario graph, tracing, and fleet:</p>
+  <pre><code>correlation_id, scenario_id, from_host, from_session, to_host, to_session,
+kind, tool_name, payload_digest, payload_preview, parent_correlation_id,
+ts_start (str|None), ts_done (str|None), status ("ok" default on done), latency_ms</code></pre>
+  <p>In-flight calls keep <code>ts_done = None</code>.</p>
+
+  <h3 id="sse">3.4 Live-bus SSE frames</h3>
+  <p>In-process fan-out (<code>EventBus</code>) because ChronoLog's ~180&nbsp;s drain makes it unusable live. Frame
+  format <code>event: &lt;name&gt;\ndata: &lt;compact-json&gt;\n\n</code>. Route
+  <code>GET /api/_inter-agent/stream?scenario=&lt;sid&gt;&amp;heartbeat_sec=&amp;backlog=</code>.</p>
+  <div class="tw"><table>
+    <thead><tr><th>SSE <code>event:</code></th><th><code>data</code> payload</th><th>Reason</th></tr></thead>
+    <tbody>
+      <tr><td><code>backlog</code></td><td>full <code>InterAgentMessage</code> dict</td><td>Late-join catch-up (replayed first). On by default offline, off vs live backend; override <code>?backlog=0|1</code>.</td></tr>
+      <tr><td><code>catchup</code></td><td><code>{scenario_id, count}</code></td><td>Marks end of backlog / start of live.</td></tr>
+      <tr><td><code>message</code></td><td>full <code>InterAgentMessage</code> dict</td><td>A newly-ingested event. Deduped against backlog <code>event_id</code>s.</td></tr>
+      <tr><td><em>(keepalive)</em></td><td><code>: keepalive</code> comment</td><td>Keeps proxies/browsers alive; lets the server notice a closed socket (<code>heartbeat_sec</code> clamped 1–60&nbsp;s).</td></tr>
+    </tbody>
+  </table></div>
+  <p>Bus internals: per-subscription bounded queue (<code>maxsize=1000</code>, drop-oldest with a <code>dropped</code>
+  counter); topic = <code>scenario_id</code>, <code>"*"</code> = firehose; <code>publish()</code> never blocks/raises
+  into ingest. <strong>Late-join protocol: subscribe first, then read backlog</strong>, so a gap event lands in both
+  and dedup is exhaustive.</p>
+
+  <!-- ===================== 4. FLEET ===================== -->
+  <h2 id="fleet">4 · Fleet health rollups <span class="pill">metrics_rollup</span></h2>
+  <p>Pre-aggregated per-<code>(host, minute)</code> buckets so the Fleet overview is
+  <code>O(nodes × buckets)</code> instead of <code>O(events)</code> — what keeps it responsive at 100+ nodes. Emitter
+  opt-in (<code>CHRONOLOG_FLEET_ROLLUP=1</code>); the API falls back to computing from the spool on demand.</p>
+
+  <h3>4.1 Bucket <span class="pill">metrics_rollup / minute</span></h3>
+  <p><strong>Key:</strong> composite <code>(host: str, minute: int)</code> where <code>minute</code> = epoch
+  <em>seconds</em> minute-aligned. Each emit writes a <strong>recomputed full snapshot</strong>; the reader keeps the
+  last value per key, so re-emits never double-count ("most complete snapshot wins").</p>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>Type</th><th>How aggregated</th></tr></thead>
+    <tbody>
+      <tr><td><code>host</code></td><td>str</td><td>Interaction <code>host</code> or edge <code>to_host</code>. Key part 1.</td></tr>
+      <tr><td><code>minute</code></td><td>int</td><td>Epoch s, minute-aligned. Key part 2.</td></tr>
+      <tr><td><code>events</code></td><td>int</td><td>Count of records (interactions + edges).</td></tr>
+      <tr><td><code>errors</code></td><td>int</td><td>Records where <code>is_err</code> (interaction <code>error</code>/<code>status_code&gt;=400</code>, or edge <code>status</code> starting <code>error</code>).</td></tr>
+      <tr><td><code>latency_sum</code></td><td>float</td><td>Σ latencies &gt; 0. Numerator of avg.</td></tr>
+      <tr><td><code>latency_count</code></td><td>int</td><td>Count of latency samples &gt; 0. Denominator of avg.</td></tr>
+      <tr><td><code>latency_p95</code></td><td>float</td><td>p95 <strong>within this minute</strong>, at build time.</td></tr>
+      <tr><td><code>latency_max</code></td><td>float</td><td>Max latency in the minute.</td></tr>
+      <tr><td><code>input_tokens</code></td><td>int</td><td>Σ <code>delta_input_tokens</code>/<code>input_tokens</code> (edges contribute 0).</td></tr>
+      <tr><td><code>output_tokens</code></td><td>int</td><td>Σ <code>delta_output_tokens</code>/<code>output_tokens</code>.</td></tr>
+      <tr><td><code>cost_usd</code></td><td>float</td><td>Σ <code>delta_cost_usd</code>/<code>cost_usd</code>.</td></tr>
+      <tr><td><code>agents</code></td><td>int</td><td>Count of distinct sessions (<code>session_id</code>/<code>to_session</code>).</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>4.2 NodeHealth (computed on read)</h3>
+  <p>Folded from a window of buckets by <code>health_from_buckets()</code>. <strong>Not persisted.</strong> Served by
+  <code>GET /api/fleet/health</code>. Fold rules: counts/tokens/cost summed; <code>agents = max</code> per-minute;
+  <code>avg_latency_ms = Σsum / Σcount</code>; <code>p95_latency_ms = max</code> of the per-minute bucket p95s (an
+  honest upper-ish estimate without keeping raw samples); <code>error_rate = errors/events</code>.</p>
+  <div class="tw"><table>
+    <thead><tr><th>status</th><th>Threshold</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge b-warn">crit</span></td><td><code>error_rate ≥ 0.20</code> OR <code>p95 ≥ 15000 ms</code></td></tr>
+      <tr><td><span class="badge b-b">warn</span></td><td><code>error_rate ≥ 0.05</code> OR <code>p95 ≥ 5000 ms</code></td></tr>
+      <tr><td><span class="badge b-a">ok</span></td><td>otherwise</td></tr>
+    </tbody>
+  </table></div>
+  <pre><code>{"host": "ares-comp-08", "events": 0, "errors": 0, "error_rate": 0.0,
+ "avg_latency_ms": 0.0, "p95_latency_ms": 0.0,
+ "input_tokens": 0, "output_tokens": 0, "total_tokens": 0,
+ "cost_usd": 0.0, "agents": 0, "last_minute": 0,
+ "in_allocation": true, "status": "ok"}</code></pre>
+  <div class="note"><code>total_tokens</code> is derived (<code>input + output</code>), present only in
+  <code>to_dict()</code>. <code>in_allocation</code> is canonicalized so a SLURM-padded bucket host
+  (<code>ares-comp-08</code>) matches its allocation entry (<code>ares-comp-8</code>); allocation nodes that produced no
+  events are injected as empty <code>NodeHealth</code> so <strong>idle/silent nodes still appear</strong> — silence is
+  itself a signal at scale.</div>
+
+  <!-- ===================== 5. DOCTOR ===================== -->
+  <h2 id="doctor">5 · PrismaDoctor diagnostics</h2>
+  <p><strong>Pipeline:</strong> <code>gather (I/O) → detect (Signal) → cluster (Incident) → diagnose (Diagnosis) →
+  remember (incident_memory.md)</code>, wrapped in a <code>Report</code>. Detection always runs on demand; the daemon
+  (<code>CHRONOLOG_DOCTOR=1</code>) scans on a timer (default 30&nbsp;s, clamped 5–600).</p>
+  <p><strong>5.1 gather</strong> returns <code>(interactions, stitched_edges, recoveries)</code>. Reads the Path-A
+  <em>spool first</em> (GIL-safe), falls back to <code>path_a_reader</code> only if no spool; Path-B edges from the local
+  hot store. Bounds: <code>max_sessions=400</code>, <code>max_scenarios=200</code>.</p>
+
+  <h3 id="signal">5.2 Signal (raw failure symptom)</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>Type</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td><code>kind</code></td><td>str</td><td>Detector category (<code>http_error</code>/<code>rate_limit</code>/<code>interaction_error</code>/<code>edge_error</code>/<code>orphan_call</code>/<code>latency_outlier</code>/<code>slow_edge</code>/<code>retry_storm</code>/<code>recovery</code>). Half of the clustering signature.</td></tr>
+      <tr><td><code>severity</code></td><td>str</td><td><code>info</code>|<code>warning</code>|<code>error</code>|<code>critical</code>. Ranking, colour, escalation base.</td></tr>
+      <tr><td><code>message</code></td><td>str</td><td>Short text, <strong>numbers stripped</strong> by <code>normalize_message</code>. Second half of the clustering signature.</td></tr>
+      <tr><td><code>host / session / scenario / tool / model</code></td><td>str</td><td>Attribution → aggregated into the incident's <code>hosts</code>/<code>sessions</code>/<code>scenarios</code>/<code>tools</code>/<code>models</code> (blast radius).</td></tr>
+      <tr><td><code>ts</code></td><td>str</td><td>→ incident <code>first_ts</code>/<code>last_ts</code>.</td></tr>
+      <tr><td><code>latency_ms</code></td><td>float</td><td>For latency/slow signals.</td></tr>
+      <tr><td><code>evidence</code></td><td>dict</td><td>Per-kind raw pointers; kept in incident <code>samples</code> (cap 5) for drill-down.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><strong><code>normalize_message</code></strong> is the clustering-key normalizer: lowercases,
+  replaces UUIDs/long-hex with <code>&lt;id&gt;</code>, digit runs with <code>&lt;n&gt;</code>, truncates to 200 chars.
+  E.g. <code>"peer ares-comp-12 timed out after 30001ms"</code> →
+  <code>"peer ares-comp-&lt;n&gt; timed out after &lt;n&gt;ms"</code>. Retry-storm counts are deliberately kept
+  <em>out</em> of the message so storms of any length still cluster.</div>
+
+  <h3 id="incident">5.3 Incident (clustered failure)</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>Type</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td><code>signature</code></td><td>str</td><td>12-char SHA1 of <code>f"{kind}|{message}"</code>. <strong>THE clustering key.</strong></td></tr>
+      <tr><td><code>kind</code></td><td>str</td><td>From first signal; matched by diagnoser rules.</td></tr>
+      <tr><td><code>title</code></td><td>str</td><td>Human title.</td></tr>
+      <tr><td><code>severity</code></td><td>str</td><td>Signal severity, then escalated by count.</td></tr>
+      <tr><td><code>count</code></td><td>int</td><td>Collapsed-signal count (the "500 timeouts → 1" number).</td></tr>
+      <tr><td><code>first_ts / last_ts</code></td><td>str</td><td>Time span.</td></tr>
+      <tr><td><code>hosts / sessions / tools / models / scenarios</code></td><td>list[str]</td><td>Deduped, cap 25 each. Blast radius / distribution.</td></tr>
+      <tr><td><code>samples</code></td><td>list[dict]</td><td>Up to 5 full <code>Signal.to_dict()</code> for drill-down + diagnosis text.</td></tr>
+      <tr><td><code>diagnosis</code></td><td>dict</td><td>Filled by the diagnoser (§5.4).</td></tr>
+      <tr><td><code>recurring / prior_count</code></td><td>bool / int</td><td>Added by the scan after clustering (§5.6) — the <code>recurring ×N</code> badge.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><strong>Why 500 timeouts become one card.</strong> The clustering key is
+  <code>(kind, normalized_message)</code> hashed to 12-char SHA1. Host/tool/model/session/scenario are aggregated
+  <em>inside</em> the incident, not part of the key — so a fleet-wide bug stays one ranked incident while its host
+  distribution stays visible. Escalation: <code>count ≥ 50</code> bumps severity 2 rungs, <code>≥ 10</code> bumps 1.
+  Ranking: <code>(severity_index, count, len(hosts))</code>, worst-first.</div>
+
+  <h3 id="diagnosis">5.4 Diagnosis (per incident)</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>Type</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td><code>root_cause</code></td><td>str</td><td>WHY, from the matched rule or fallback.</td></tr>
+      <tr><td><code>blast_radius</code></td><td>str</td><td><code>"{count} occurrence(s), {N} host(s), {N} agent(s), {N} scenario(s)"</code>.</td></tr>
+      <tr><td><code>remediation</code></td><td>str</td><td>HOW to fix, from the matched rule.</td></tr>
+      <tr><td><code>confidence</code></td><td>float</td><td>Rule confidence 0.0–1.0.</td></tr>
+      <tr><td><code>source</code></td><td>str</td><td><code>heuristic</code> / <code>llm</code> / <code>heuristic-fallback</code>.</td></tr>
+    </tbody>
+  </table></div>
+  <p>The default <code>HeuristicDiagnoser</code> (zero-cost) walks a first-match-wins rule list keyed on kind + sample
+  text: orphan_call (0.70), rate-limit/429 (0.85), timeout (0.70), transport/<code>ofi</code>/<code>mercury</code> (0.65),
+  context/token-overflow (0.75), retry_storm (0.70), latency/slow_edge (0.55), recovery (0.60), http 5xx (0.60),
+  fallback (0.30). <code>CHRONOLOG_DOCTOR_LLM=1</code> swaps in a Claude-backed diagnoser (falls back to heuristic).</p>
+
+  <h3>5.5 Report (scan envelope)</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>Type</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td><code>generated_ns</code></td><td>int</td><td><code>time.time_ns()</code> stamp; SSE change-detection key.</td></tr>
+      <tr><td><code>incidents</code></td><td>list[dict]</td><td>Clustered incidents + <code>diagnosis</code> + <code>recurring</code> + <code>prior_count</code>.</td></tr>
+      <tr><td><code>totals</code></td><td>dict</td><td>Per-severity counts + <code>incidents</code> count + <code>events</code> (Σ count).</td></tr>
+      <tr><td><code>scanned</code></td><td>dict</td><td><code>{interactions, edges, recoveries}</code> raw counts.</td></tr>
+      <tr><td><code>error</code></td><td>str | null</td><td>Scan never raises; failure message lands here.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="memory">5.6 incident_memory.md (self-compacting cross-run memory)</h3>
+  <div class="meta"><span class="kv"><b>path</b><code>{DTP_STATE_DIR|~/.dt_provenance}/diagnostics/incident_memory.md</code></span></div>
+  <pre><code># ChronoLog Incident Memory
+
+## Digest (compacted)                       ← present only if non-empty
+- [&lt;kind&gt;] &lt;title&gt; — seen &lt;N&gt;x
+…
+
+## Recent
+- &lt;ts&gt; [&lt;sev&gt;] &lt;kind&gt; ×&lt;N&gt; — &lt;title&gt; (&lt;hosts&gt;)
+- 2026-06-22T10:30Z [critical] orphan_call ×7 — hung/dropped peer (comp-12)</code></pre>
+  <p><strong>Compaction:</strong> append one Recent line per incident; when Recent exceeds <code>compact_at=200</code>,
+  keep the newest <code>keep_recent=60</code> and fold the rest into the Digest (summing counts per <code>(kind,title)</code>
+  key).</p>
+  <div class="note"><strong>The <code>recurring ×N</code> badge</strong> = <code>prior_count</code>, computed against
+  <code>known_signatures()</code>: <code>key = f"[{kind}] {title}"</code>,
+  <code>prior = known.get(key) or known.get(title)</code>. <code>known_signatures()</code> parses <code>seen (\d+)x</code>
+  from Digest lines <em>and</em> the <code>×N</code> from uncompacted Recent lines — so a repeat is recognized on the very
+  next scan, not only after compaction. This is the cross-run learning that survives restarts.</div>
+
+  <!-- ===================== 6. SEMANTIC ===================== -->
+  <h2 id="semantic">6 · Semantic checks, checkpoints &amp; rollback</h2>
+
+  <h3>6.1 SemanticCheck (a check definition)</h3>
+  <p>Config discovered at <code>DTP_SEMANTIC_CHECKS</code> → <code>./semantic_checks.yaml</code> →
+  <code>~/.dt_provenance/semantic_checks.yaml</code>.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td><code>name</code></td><td>str</td><td>required</td><td>Identifier; used in <code>CheckResult.check_name</code>.</td></tr>
+      <tr><td><code>description</code></td><td>str</td><td>required</td><td>Plain-English criterion → the <code>{criterion}</code> in the eval prompt.</td></tr>
+      <tr><td><code>trigger</code></td><td>str</td><td><code>per_query</code></td><td><code>per_query</code> (after every response) / <code>on_strict_error</code> / <code>always</code>.</td></tr>
+      <tr><td><code>severity</code></td><td>str</td><td><code>error</code></td><td><code>error</code> (emits a recovery event, surfaced to agent) / <code>warning</code> (recorded only).</td></tr>
+      <tr><td><code>enabled</code></td><td>bool</td><td><code>True</code></td><td>Gate.</td></tr>
+    </tbody>
+  </table></div>
+  <p><code>SemanticChecksConfig</code>: <code>checks:[SemanticCheck]</code>, <code>model</code> (default
+  <code>claude-haiku-4-5-20251001</code>), <code>max_tokens</code> (default 512).</p>
+
+  <h3>6.2 CheckResult / CheckBatch (outcomes)</h3>
+  <p><code>CheckResult</code>: <code>check_name</code>, <code>passed</code> (bool), <code>confidence</code> (0–1),
+  <code>explanation</code>, <code>severity</code>, <code>error_introduced_at_sequence</code> (Optional[int] — where the
+  LLM thinks the error was first introduced; feeds rollback). The evaluator uses the Anthropic SDK <strong>directly,
+  bypassing the proxy</strong> so eval calls aren't recorded as agent interactions; on any failure it defaults to
+  <code>passed=True, confidence=0.0</code> so infra issues don't block. <code>CheckBatch</code>: <code>session_id</code>,
+  <code>sequence_id</code>, <code>results:[CheckResult]</code>; <code>to_dict()</code> adds <code>has_failures</code>,
+  <code>error_count</code>, <code>warning_count</code>.</p>
+
+  <h3>6.3 Checkpoint (restore-point record)</h3>
+  <div class="meta"><span class="kv"><b>store</b><code>$DTP_CHECKPOINT_STORE</code> or <code>~/.dt_provenance/checkpoints.json</code></span></div>
+  <div class="note warn"><strong>Separate store — not ChronoLog.</strong> Persisted to a single JSON object
+  <code>{session_id: [checkpoint,…]}</code> (atomic temp-file + rename). The <code>checkpoints</code> Chronicle constant
+  exists but <em>no code writes to it</em> — reserved.</div>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>Type</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td><code>checkpoint_id</code></td><td>str uuid4</td><td>Unique id → <code>recommended_checkpoint_id</code>.</td></tr>
+      <tr><td><code>session_id</code></td><td>str</td><td>Owning session.</td></tr>
+      <tr><td><code>sequence_id</code></td><td>int</td><td>The turn this restore-point sits at; "before error" filter + replay distance.</td></tr>
+      <tr><td><code>name</code></td><td>str</td><td>Label, e.g. <code>auto_end_turn@7</code>.</td></tr>
+      <tr><td><code>checkpoint_type</code></td><td>enum → str</td><td><code>auto_end_turn</code>/<code>auto_tool_boundary</code>/<code>auto_delegation</code>/<code>manual</code>; base of the score.</td></tr>
+      <tr><td><code>timestamp</code></td><td>str ISO</td><td>When taken.</td></tr>
+      <tr><td><code>score</code></td><td>float 0–20</td><td>type-base + token-component (fewer ⇒ higher, 0–3) + latency-component (faster ⇒ higher, 0–2).</td></tr>
+      <tr><td><code>token_count</code></td><td>int</td><td>Context size; lowers score as it grows.</td></tr>
+      <tr><td><code>latency_ms</code></td><td>float</td><td>Latency at checkpoint; lowers score.</td></tr>
+      <tr><td><code>metadata</code></td><td>dict</td><td>Free-form.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Auto-checkpoints are detected from the LLM <strong>response body</strong>: anthropic <code>stop_reason</code> +
+  <code>content[].type=="tool_use"</code>; openai/ollama <code>finish_reason</code> + <code>tool_calls</code>.
+  <code>end_turn</code>/<code>stop</code> (no tools) → <code>AUTO_END_TURN</code>; tool use → <code>AUTO_TOOL_BOUNDARY</code>.</p>
+
+  <h3>6.4 Rollback analysis</h3>
+  <p><code>CheckpointCandidate</code>: <code>checkpoint</code>, <code>fix_probability</code> (0–1),
+  <code>replay_token_estimate</code>, <code>cost_effectiveness</code> (sort key), <code>rationale</code>.
+  <code>RollbackAnalysis</code>: <code>session_id</code>, <code>error_sequence</code>, <code>error_description</code>,
+  <code>candidates</code> (ranked desc), <code>analysis_summary</code>, <code>recommended_checkpoint_id</code>.
+  Cost-effectiveness: <code>CE = (fix_probability × quality_score) / (1 + log2(1 + replay_tokens/10000))</code>.
+  <code>RollbackPlan</code> (in-memory only): <code>plan_id</code>, <code>trigger_session_id</code>,
+  <code>trigger_sequence_id</code>, <code>error_description</code>, <code>failed_messages[]</code>,
+  <code>sessions{session_id:{checkpoint, score}}</code>, <code>timestamp</code>.</p>
+
+  <!-- ===================== 7. INDEX ===================== -->
+  <h2 id="index">7 · The <code>__index__</code> chronicle</h2>
+  <p>Solves the missing <code>ShowChronicles</code> Python binding: every scenario / session / host ever seen appends a
+  one-off event so listing operations have something to <code>ReplayStory</code> (or CSV-read) against.</p>
+  <ul>
+    <li>Chronicle <code>__index__</code>, three stories: <code>scenarios</code>, <code>sessions</code>, <code>hosts</code>.</li>
+    <li><strong>On-wire entry:</strong> <code>index_add(story, value)</code> appends exactly <code>{"v": "&lt;value&gt;"}</code>.</li>
+    <li><strong>Read:</strong> <code>index_list(story)</code> reads <strong>CSV-archive-first</strong> (a live
+    <code>ReplayStory</code> on a never-written index story blocks forever holding the GIL; live replay is opt-in via
+    <code>CHRONOLOG_INDEX_LIVE=1</code>), pulls each event's <code>"v"</code>, keeps distinct strings in first-seen order.</li>
+    <li><strong>Writers/readers:</strong> <code>scenarios</code> written by the inter-agent store + collector;
+    <code>sessions</code> written by the sync worker; <code>hosts</code> is declared but has no in-tree writer/reader
+    (reserved for symmetry).</li>
+  </ul>
+
+  <!-- ===================== 8. ENVELOPE ===================== -->
+  <h2 id="envelope">8 · ChronoLog storage envelope &amp; CSV archive</h2>
+  <p>On replay, every stored record is wrapped with keeper metadata that <code>_strip_chronolog_meta</code> removes
+  before views see it:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Field</th><th>Type</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><td><code>_chronolog_time_ns</code></td><td>int</td><td>Keeper-assigned event timestamp (ns); replay-ordering key.</td></tr>
+      <tr><td><code>_chronolog_index</code></td><td>int</td><td>Event index within the story.</td></tr>
+      <tr><td><code>_chronolog_client</code></td><td>int</td><td>Producer client id.</td></tr>
+      <tr><td><code>_chronolog_archived</code></td><td>bool</td><td>Present only when served from the CSV-archive fallback.</td></tr>
+      <tr><td><code>_drained_from_keeper_ip</code></td><td>str</td><td>Present on CSV-drained cluster events (comms/topology view).</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><strong>CSV archive fallback:</strong> grapher-drained keeper output at
+  <code>$CHRONOLOG_OUTPUT_DIR</code> (else <code>~/chronolog-install/chronolog/output</code>), file naming
+  <code>{chronicle}.{story}.{ip}.{port}.{startSec}.csv</code>, line format
+  <code>event : sid:time_ns:client:index:payload</code>. Used when a live <code>ReplayStory</code> returns nothing for
+  accepted data, and it is the <em>primary</em> path for <code>index_list</code>.</div>
+
+  <!-- ===================== 9. API ===================== -->
+  <h2 id="api">9 · API read models (per dashboard tab)</h2>
+  <p>Every view is a <code>Capability</code> served by an adapter; the shipped <code>ChronoLogAdapter</code> serves them
+  all. <code>/api/config</code> advertises <code>{adapters, capabilities, offline}</code>; the SPA shows only active tabs.
+  Capabilities: <code>CONVERSATIONS, SCENARIOS, INTERACTIONS, PROVENANCE, SEMANTIC, INTER_AGENT, RECOVERY, CLUSTER,
+  DIAGNOSTICS, FLEET, TRACING</code>.</p>
+
+  <h4>Workspace / Conversations <span class="badge b-a">PATH-A</span></h4>
+  <p><code>GET /api/conversations</code> → <code>ConversationSummary[]</code>: <code>conversationId</code>,
+  <code>agentId</code>, <code>turnCount</code>, <code>firstTurn</code>, <code>lastTurn</code>, <code>scenarioId</code>.<br>
+  <code>GET /_interceptor/conversations/&lt;id&gt;</code> → <code>ConversationTurn[]</code>: <code>id</code>
+  (<code>&lt;session&gt;:&lt;seq&gt;</code>), <code>session_id</code>, <code>scenario_id</code>, <code>turn_number</code>,
+  <code>turn_type</code> (<code>initial</code>/<code>handoff</code>/<code>tool_result</code>/<code>continuation</code>),
+  <code>timestamp</code>, <code>provider</code>, <code>model</code>, <code>parent_interaction_id</code>,
+  <code>context_metrics{input_tokens, output_tokens, total_tokens, cost_usd}</code>, <code>response_text_preview</code>,
+  <code>tool_calls[{id,name,input}]</code>, <code>total_latency_ms</code>, <code>status_code</code>, <code>error</code>,
+  + flat token/cost mirrors.<br>
+  <code>GET /api/conversations/&lt;id&gt;/agent-graph</code> → <code>{conversation_id, nodes[], edges[]}</code> (node:
+  <code>agent_role</code> <code>orchestrator</code>/<code>subagent</code>; edge: <code>kind:"handoff"</code>).<br>
+  <code>GET /api/interactions/&lt;path:id&gt;</code> → full interaction detail incl.
+  <code>token_usage{input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, total_tokens}</code>,
+  <code>cost_usd</code>, <code>tool_calls</code>, <code>system_prompt</code>, <code>messages</code>.</p>
+
+  <h4>Interactions feed <span class="badge b-a">PATH-A</span></h4>
+  <p><code>GET /_interceptor/interactions</code> (params <code>limit</code> 1–500, <code>provider</code>,
+  <code>model</code>, <code>session_id</code>) → <code>InteractionSummary[]</code>: <code>id</code>, <code>session_id</code>,
+  <code>timestamp</code>, <code>provider</code>, <code>model</code>, <code>method</code>, <code>path</code>,
+  <code>status_code</code>, <code>is_streaming</code>, <code>total_latency_ms</code>, <code>response_text_preview</code>.
+  <code>GET /_interceptor/live</code> → SSE <code>event: interaction</code> (2&nbsp;s poll, 15&nbsp;s keepalive).</p>
+
+  <h4>Scenarios <span class="badge b-b">PATH-B</span> + <span class="badge b-a">PATH-A</span></h4>
+  <p><code>GET /api/scenarios</code> (+ <code>/&lt;id&gt;</code>) → <code>ScenarioSummary</code>: <code>scenario_id</code>,
+  <code>agent_count</code>, <code>agents[]</code>, <code>hosts[]</code>, <code>event_count</code>, <code>firstEvent</code>,
+  <code>lastEvent</code>.<br>
+  <code>GET /api/scenarios/&lt;id&gt;/graph</code> → agent node incl. <code>scoped_session_id</code> (<strong>the real key
+  the frontend must use to fetch the agent's conversation</strong>), edge <code>kind:"inter_agent_msg"</code> with
+  <code>from/to_session_id</code>, <code>from/to_sub_session_id</code>, hosts, timestamps, <code>tool_name</code>,
+  <code>status</code>, <code>latency_ms</code>.<br>
+  <code>GET /api/scenarios/&lt;id&gt;/timeline</code> → events tagged <code>agent_msg</code> / <code>llm_call</code> /
+  <code>tool_call</code>.</p>
+
+  <h4>Memory &amp; Provenance <span class="badge b-a">PATH-A spool direct</span></h4>
+  <p><code>GET /api/memory/sessions</code> → per-agent <code>session_id, role, scenario, context_nodes, live_nodes,
+  interactions, total_tokens, last_ts</code>. <code>GET /api/memory/&lt;sid&gt;/context</code> → nodes with
+  <code>op, node, summary, tokens, running_tokens (clamped ≥0), timestamp</code>. Plus raw
+  <code>/api/session/&lt;sid&gt;/{interactions,graph,analysis,call-graph,tool-sequence,stream}</code>.</p>
+
+  <h4>Traces <span class="badge b-b">PATH-B</span></h4>
+  <p><code>GET /api/tracing/&lt;scenario&gt;/traces</code> → Trace <code>{root_id, scenario_id, span_count, start_ns,
+  end_ns, wall_ms, error_count, spans[], critical_path}</code>; Span <code>{correlation_id, parent_id, from/to_host,
+  from/to_session, tool_name, status, is_error, latency_ms, start_offset_ms, depth, children[]}</code>.
+  <code>/critical-path</code> → <code>{total_latency_ms, hops, chain[], bottleneck}</code>; each chain span adds
+  <code>self_time_ms</code> (exclusive time), <code>bottleneck</code> = max-self-time hop.</p>
+
+  <h4>Cluster <span class="pill">grapher CSVs + Path-B + SLURM</span></h4>
+  <p><code>GET /api/chronolog/topology</code> → <code>{via, connected, drain_window_sec:180, allocation[],
+  components{visor,grapher,player}, keepers[], chronicles[]}</code>. <code>GET /api/chronolog/comms</code> → hosts +
+  edges. <code>GET /api/cluster/capacity</code> → live <code>sinfo</code> (<code>total/idle/busy/down</code> + per-node
+  states).</p>
+
+  <!-- ===================== 10. REFERENCE ===================== -->
+  <h2 id="reference">10 · Reference tables</h2>
+
+  <h4>10.1 Record → storage → dedup key</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Record</th><th>Path</th><th>Spool file / store</th><th>Chronicle</th><th>Story</th><th>Dedup key</th></tr></thead>
+    <tbody>
+      <tr><td>Interaction</td><td><span class="badge b-a">A</span></td><td><code>&lt;sid&gt;__interactions.jsonl</code></td><td><code>llm_interactions</code></td><td><code>&lt;session_id&gt;</code></td><td><code>sequence_id</code></td></tr>
+      <tr><td>Context node</td><td><span class="badge b-a">A</span></td><td><code>&lt;sid&gt;__context_graph.jsonl</code></td><td><code>context_graphs</code></td><td><code>&lt;session_id&gt;</code></td><td><code>sequence_id</code></td></tr>
+      <tr><td>Recovery</td><td><span class="badge b-a">A</span></td><td><code>&lt;sid&gt;__recovery.jsonl</code></td><td><code>recovery_events</code></td><td><code>&lt;session_id&gt;</code></td><td><code>blob_name</code></td></tr>
+      <tr><td>Inter-agent edge</td><td><span class="badge b-b">B</span></td><td><code>inter_agent/&lt;scenario&gt;.jsonl</code></td><td><code>ia_&lt;scenario&gt;</code></td><td><code>edges</code></td><td><code>event_id</code> / <code>correlation_id</code></td></tr>
+      <tr><td>Fleet bucket</td><td><span class="badge b-b">rollup</span></td><td><code>fleet/rollup.jsonl</code></td><td><code>metrics_rollup</code></td><td><code>minute</code></td><td><code>(host, minute)</code> last-wins</td></tr>
+      <tr><td>Session index</td><td>—</td><td>(worker)</td><td><code>__index__</code></td><td><code>sessions</code></td><td><code>v</code> distinct</td></tr>
+      <tr><td>Scenario index</td><td>—</td><td>(store/collector)</td><td><code>__index__</code></td><td><code>scenarios</code></td><td><code>v</code> distinct</td></tr>
+      <tr><td>Checkpoint</td><td><span class="badge b-a">A</span></td><td><code>checkpoints.json</code></td><td><em>reserved (unused)</em></td><td>—</td><td><code>(session, seq, type)</code></td></tr>
+      <tr><td>Incident memory</td><td>doctor</td><td><code>diagnostics/incident_memory.md</code></td><td>—</td><td>—</td><td><code>(kind, title)</code></td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>10.2 On-disk state layout <span class="pill">$DTP_STATE_DIR else ~/.dt_provenance/</span></h4>
+  <pre><code>path_a_spool/   &lt;safe_session&gt;__{interactions|context_graph|recovery}.jsonl   Path-A spool
+inter_agent/    &lt;scenario&gt;.jsonl                                            Path-B hot store (offline)
+fleet/          rollup.jsonl                                                Fleet buckets (offline)
+diagnostics/    incident_memory.md                                         PrismaDoctor memory
+demo_llm/       sessions.jsonl, interactions/&lt;sid&gt;.jsonl, context_graphs/…  Offline demo store
+checkpoints.json  (or $DTP_CHECKPOINT_STORE)                               Restore points
+
+CSV archive: $CHRONOLOG_OUTPUT_DIR else ~/chronolog-install/chronolog/output
+             {chronicle}.{story}.{ip}.{port}.{startSec}.csv</code></pre>
+
+  <h4>10.3 Environment variables</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Var</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td><code>CHRONOLOG_VISOR_IP</code></td><td>Visor endpoint — <strong>raw IP, not the <code>-40g</code> hostname</strong> (Mercury rejects hostnames with <code>HG_PROTONOSUPPORT</code>).</td></tr>
+      <tr><td><code>CHRONOLOG_VISOR_PROTOCOL</code></td><td>Default <code>ofi+sockets</code>.</td></tr>
+      <tr><td><code>CHRONOLOG_OFFLINE=1</code></td><td>Replay from drained CSVs / local stores; disables live capture/doctor workers.</td></tr>
+      <tr><td><code>OBSERVE_HOST</code> / <code>OBSERVE_PORT</code></td><td>Flask bind (default <code>0.0.0.0:5000</code>).</td></tr>
+      <tr><td><code>CHRONOLOG_CAPTURE=1</code></td><td>Auto-start the Path-A sync worker as a daemon thread (<code>DTP_CHRONOLOG_CAPTURE</code> alias).</td></tr>
+      <tr><td><code>CHRONOLOG_CAPTURE_INTERVAL</code></td><td>Sync-worker drain interval (s, default 5).</td></tr>
+      <tr><td><code>CHRONOLOG_DOCTOR=1</code></td><td>Auto-start the PrismaDoctor background scanner.</td></tr>
+      <tr><td><code>CHRONOLOG_DOCTOR_INTERVAL</code></td><td>Doctor scan interval (s, default 30, clamped 5–600).</td></tr>
+      <tr><td><code>CHRONOLOG_DOCTOR_LLM=1</code></td><td>Use the Claude-backed diagnoser (falls back to heuristic).</td></tr>
+      <tr><td><code>CHRONOLOG_FLEET_ROLLUP=1</code></td><td>Auto-start the fleet rollup emitter.</td></tr>
+      <tr><td><code>CHRONOLOG_INDEX_LIVE=1</code></td><td>Allow live <code>ReplayStory</code> on <code>__index__</code> (off by default — it blocks).</td></tr>
+      <tr><td><code>DTP_STATE_DIR</code></td><td>Root for all local spools/stores (default <code>~/.dt_provenance</code>).</td></tr>
+      <tr><td><code>DTP_CHECKPOINT_STORE</code></td><td>Checkpoint JSON path.</td></tr>
+      <tr><td><code>DTP_SEMANTIC_CHECKS</code></td><td>Semantic-checks YAML path.</td></tr>
+      <tr><td><code>CHRONOLOG_OUTPUT_DIR</code></td><td>Grapher-drained CSV archive dir.</td></tr>
+      <tr><td><code>AGENTS_PER_NODE</code></td><td>Real-agent harness: agents launched per node.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>10.4 Session-id convention (load-bearing)</h4>
+  <div class="note warn">Path-A turns and Path-B edges <strong>must</strong> use the scenario-scoped id
+  <code>role@scenario</code> as the session key. The scenario graph keys each agent node by this
+  (<code>scoped_session_id</code>), and the frontend fetches a clicked node's conversation by that exact key. Emitting a
+  bare <code>role</code> on an edge orphans the node from its LLM turns (zero tokens, "No interactions" after a click).
+  The <code>@</code> is preserved through spool filenames and ChronoLog Story names so the id round-trips end to end.</div>
+
+  <div class="foot">
+    Generated from the <code>chronolog-observability</code> source. Re-verify any section against the cited
+    <code>file:line</code> in the code — the code is the authority. Markdown twin: <code>docs/DATA_SCHEMAS.md</code>.
+  </div>
+</main>
+</div>
+
+<script>
+  (function(){
+    var btn = document.getElementById('themeToggle');
+    function cur(){
+      var r = document.documentElement.getAttribute('data-theme');
+      if(r) return r;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light';
+    }
+    btn.addEventListener('click', function(){
+      var next = cur()==='dark' ? 'light':'dark';
+      document.documentElement.setAttribute('data-theme', next);
+    });
+  })();
+</script>
+</body>
+</html>
