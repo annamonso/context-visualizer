@@ -22,6 +22,7 @@ from _demo_common import bootstrap, color, edge, h1, h2, now, recovery, turn, vi
 
 STATE_DIR = os.environ.get("DEMO_STATE_DIR", "/tmp/chronolog_demo_doctor")
 SCENARIO = "incident-demo"
+COORD_HOST = "ares-comp-02"   # the coordinator's node — edges need a HOST here, not a session id
 
 
 def seed() -> None:
@@ -44,14 +45,14 @@ def seed() -> None:
 
     # 3) A wave of inter-agent peer timeouts across MANY hosts -> one incident.
     for i, h in enumerate(hosts * 6):
-        edge(SCENARIO, "coordinator@%s" % SCENARIO, "coordinator@%s" % SCENARIO,
+        edge(SCENARIO, COORD_HOST, "coordinator@%s" % SCENARIO,
              h, "executor@%s" % SCENARIO, tool="call_remote_agent",
              status="error:peer timed out after %dms" % (30000 + i),
              latency_ms=30000 + i, when=t0 + timedelta(seconds=i))
 
     # 4) Hung / dropped calls — started, never completed (invisible elsewhere).
     for i in range(4):
-        edge(SCENARIO, "coordinator@%s" % SCENARIO, "coordinator@%s" % SCENARIO,
+        edge(SCENARIO, COORD_HOST, "coordinator@%s" % SCENARIO,
              "ares-comp-07", "summarizer@%s" % SCENARIO, orphan=True,
              when=t0 + timedelta(seconds=i))
 

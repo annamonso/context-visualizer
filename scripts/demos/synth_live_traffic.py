@@ -65,6 +65,21 @@ ROLE_POOL = [
 ]
 TOOLS = ["call_remote_agent", "shard_query", "merge_results", "fetch_chunk", "broadcast_plan"]
 MODELS = ["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5"]
+# Published per-MTok list prices, so the cost column and the Fleet cost rollup
+# differentiate models instead of showing one blended number.
+RATES = {
+    "claude-opus-4-8":  (5.0, 25.0),
+    "claude-sonnet-4-6": (3.0, 15.0),
+    "claude-haiku-4-5":  (1.0, 5.0),
+}
+
+
+def _cost(model: str, in_tok: int, out_tok: int) -> float:
+    """Synthetic per-turn cost in USD from the model's list price."""
+    rate_in, rate_out = RATES.get(model, (3.0, 15.0))
+    return round((in_tok * rate_in + out_tok * rate_out) / 1e6, 6)
+
+
 THOUGHTS = [
     "Reviewing prior turn for context handoff.",
     "Selecting which peer to delegate to.",
@@ -162,25 +177,45 @@ def main() -> int:
             for a in (fa, ta):
                 seq[a["sid"]] += 1
                 s = seq[a["sid"]]
+                model = rng.choice(MODELS)
+                in_tok = rng.randint(400, 4000)
+                out_tok = rng.randint(40, 600)
+                latency = round(rng.uniform(200, 2400), 1)
+                cost = _cost(model, in_tok, out_tok)
+                text = f"{a['role']} step {s}: {rng.choice(THOUGHTS)}"
+                # Nested request/response/metrics — the shape shape/conversation.py
+                # reads. A flat record spools and replays fine but renders every
+                # card empty, which reads as "the dashboard is broken".
                 spool.record_interaction(a["sid"], {
+                    "scenario_id": args.scenario,
+                    "host": a["host"],
                     "provider": "anthropic",
-                    "model": rng.choice(MODELS),
-                    "method": "POST", "path": "/v1/messages",
-                    "status_code": 500 if (err and a is ta) else 200,
-                    "is_streaming": True,
-                    "total_latency_ms": round(rng.uniform(200, 2400), 1),
-                    "request": {"messages": [
-                        {"role": "system", "content": f"You are the {a['role']} agent on {a['host']}."},
-                        {"role": "user", "content": f"[turn {s}] {rng.choice(THOUGHTS)}"},
-                    ]},
-                    "response_text": f"{a['role']} step {s}: {rng.choice(THOUGHTS)}",
-                    "usage": {"input_tokens": rng.randint(400, 4000), "output_tokens": rng.randint(40, 600)},
+                    "model": model,
+                    "request": {"method": "POST", "path": "/v1/messages",
+                                "body": {"messages": [
+                                    {"role": "system", "content": f"You are the {a['role']} agent on {a['host']}."},
+                                    {"role": "user", "content": f"[turn {s}] {rng.choice(THOUGHTS)}"},
+                                ]}},
+                    "response": {"status_code": 500 if (err and a is ta) else 200,
+                                 "text": text, "is_streaming": True},
+                    "metrics": {"total_latency_ms": latency,
+                                "delta_input_tokens": in_tok,
+                                "delta_output_tokens": out_tok,
+                                "delta_cost_usd": cost},
                 }, sequence_id=s)
+                # Tokens, cost, latency and model on a conversation turn are read
+                # off the CONTEXT node keyed by the same sequence_id, not off the
+                # interaction — so the per-turn numbers have to be repeated here.
                 spool.record_context_node(a["sid"], {
                     "op": rng.choice(["add", "add", "add", "evict"]),
                     "node": f"ctx-{s}",
                     "summary": f"{a['role']}: {rng.choice(THOUGHTS)}",
-                    "tokens": rng.randint(50, 600),
+                    "tokens": in_tok + out_tok,
+                    "model": model,
+                    "latency_ms": latency,
+                    "delta_input_tokens": in_tok,
+                    "delta_output_tokens": out_tok,
+                    "delta_cost_usd": cost,
                 }, sequence_id=s)
 
         print(f"  round {r+1}/{args.rounds}: {fa['role']}@{fa['host']} -> {ta['role']}@{ta['host']} "

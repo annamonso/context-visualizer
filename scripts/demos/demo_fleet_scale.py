@@ -72,7 +72,8 @@ def seed(hosts: list[str], turns_per_node: int,
     # Inter-agent timeouts hammering one node — callers are deployment nodes.
     for i in range(40):
         when = t0 + timedelta(seconds=rng.uniform(0, spread_sec))
-        edge(SCENARIO, f"agent@{rng.choice(comms_hosts)}", "caller", timeout_node, "callee",
+        caller_host = rng.choice(comms_hosts)
+        edge(SCENARIO, caller_host, f"agent@{caller_host}", timeout_node, f"agent@{timeout_node}",
              status="error:peer timed out", latency_ms=rng.uniform(20000, 35000), when=when)
         events += 1
 

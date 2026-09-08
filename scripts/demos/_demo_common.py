@@ -118,6 +118,9 @@ def turn(
         "session_id": session, "sequence_id": seq, "timestamp": iso(when),
         "op": "add", "node": f"ctx-{seq}", "summary": prompt[:60],
         "tokens": in_tok + out_tok,
+        # Latency and model are read off the context node, not the interaction —
+        # omitting them renders a populated card with a blank latency column.
+        "latency_ms": latency_ms, "model": model,
         "delta_input_tokens": in_tok, "delta_output_tokens": out_tok,
         "delta_cost_usd": cost,
     }, sequence_id=seq)

@@ -39,23 +39,23 @@ def seed() -> None:
 
     # Root: orchestrator -> retriever (the whole request), 9.2s wall.
     root = uuid.uuid4().hex
-    edge(SCENARIO, sid("orchestrator"), sid("orchestrator"), H["retriever"], sid("retriever"),
+    edge(SCENARIO, H["orchestrator"], sid("orchestrator"), H["retriever"], sid("retriever"),
          tool="call_remote_agent", status="ok", latency_ms=9200, when=t0, correlation_id=root)
 
     # retriever fans out to vectordb (fast) and webfetch (SLOW — the bottleneck).
-    edge(SCENARIO, sid("retriever"), sid("retriever"), H["vectordb"], sid("vectordb"),
+    edge(SCENARIO, H["retriever"], sid("retriever"), H["vectordb"], sid("vectordb"),
          tool="shard_query", status="ok", latency_ms=600,
          when=t0 + timedelta(milliseconds=200), parent_corr=root)
-    edge(SCENARIO, sid("retriever"), sid("retriever"), H["webfetch"], sid("webfetch"),
+    edge(SCENARIO, H["retriever"], sid("retriever"), H["webfetch"], sid("webfetch"),
          tool="fetch_chunk", status="ok", latency_ms=6800,   # <-- bottleneck hop
          when=t0 + timedelta(milliseconds=300), parent_corr=root)
 
     # retriever -> ranker (after the fetch), ranker -> summarizer.
     rank = uuid.uuid4().hex
-    edge(SCENARIO, sid("retriever"), sid("retriever"), H["ranker"], sid("ranker"),
+    edge(SCENARIO, H["retriever"], sid("retriever"), H["ranker"], sid("ranker"),
          tool="merge_results", status="ok", latency_ms=1500,
          when=t0 + timedelta(milliseconds=7300), parent_corr=root, correlation_id=rank)
-    edge(SCENARIO, sid("ranker"), sid("ranker"), H["summarizer"], sid("summarizer"),
+    edge(SCENARIO, H["ranker"], sid("ranker"), H["summarizer"], sid("summarizer"),
          tool="broadcast_plan", status="ok", latency_ms=900,
          when=t0 + timedelta(milliseconds=7500), parent_corr=rank)
 
