@@ -102,7 +102,13 @@ crash (\S\ref{sec:design-write}).
 \label{sec:bg-tracing-lineage}
 
 Distributed tracing is the discipline of reconstructing, from per-process
-records, the cross-machine causal story of a single request. Google's
+records, the cross-machine causal story of a single request. The idea
+predates its industrial form. Magpie~\cite{barham2004magpie} extracted
+per-request resource traces by stitching fine-grained kernel, middleware
+and application events into request paths, and
+X-Trace~\cite{fonseca2007xtrace} propagated an explicit task identifier
+across layers and administrative domains so that a request's full path
+could be reconstructed rather than inferred. Google's
 Dapper~\cite{sigelman2010dapper} established the modern vocabulary: a
 \emph{trace} is a tree of \emph{spans}, each span a timed operation carrying
 the trace's identifier, its parent's identifier, and annotations. Two Dapper
@@ -184,7 +190,7 @@ requires totals, not estimates.
 
 \emph{Used in this thesis:} the system captures completely and treats
 storage, not sampling, as the scaling lever, pushing the volume problem
-down to the log substrate and the read-side rollups
+down to the log store and the read-side rollups
 (\S\ref{sec:bg-log},~Chapter~\ref{chap:analytics}).
 
 \section{The Distributed Shared Log Abstraction}
@@ -288,7 +294,7 @@ readers. The design mirrors the tiered storage hierarchies of HPC I/O
 systems: a fast, distributed, memory-resident ingest tier in front of a
 durable, ordered archival tier.
 
-Two consequences of this architecture are load-bearing for this thesis. The
+Two consequences of this architecture matter for this thesis. The
 keeper-per-node layout means capture is \emph{physically co-located} with the
 workload: an agent's events are appended on the machine where the agent runs,
 and the mapping from events to nodes (the coupling of semantics to

@@ -1,0 +1,35 @@
+% Fleet-health query latency vs. FLEET SIZE (E3b, re-measured 2026-08-10).
+% Complements fig-rollup-scaling, which holds nodes fixed and grows events.
+% \input this inside a figure environment; needs \usepackage{pgfplots}.
+%
+% Data: thesis/figures/e3b_heatmap_nodes_p50.csv, derived from
+% scripts/eval/out/e3b_heatmap_nodes.csv (50 requests per point, synthetic
+% fleet state, real dashboard, ARES gateway).
+\begin{tikzpicture}
+\begin{axis}[
+    width=0.85\linewidth, height=6cm,
+    xlabel={fleet size (nodes; synthetic rollup state)},
+    ylabel={\texttt{/api/fleet/health} latency (ms)},
+    xmin=0, xmax=420, ymin=0,
+    legend pos=north west, legend cell align=left,
+    legend style={font=\small, draw=gray!40},
+    grid=major, grid style={dashed,gray!25},
+    tick style={draw=gray!50},
+]
+\addplot[dashed, gray!70, domain=0:400, samples=2] {5.20 + 0.1053*x};
+\addlegendentry{$5.2 + 0.105\,n$ (fit, $R^2{=}0.98$)}
+% Styles set explicitly rather than taken from the cycle: the dashed fit line
+% above consumes a cycle index, which would otherwise render p95 heavier than
+% p50 and make the secondary series the visually dominant one.
+\addplot[black!80, thick, mark=*, mark size=1.6pt,
+         mark options={fill=black!30, draw=black!80}]
+    table [x=nodes, y=p50_ms, col sep=comma]
+    {figures/e3b_heatmap_nodes_p50.csv};
+\addlegendentry{p50}
+\addplot[black!45, thick, mark=square*, mark size=1.6pt,
+         mark options={fill=black!8, draw=black!45}]
+    table [x=nodes, y=p95_ms, col sep=comma]
+    {figures/e3b_heatmap_nodes_p50.csv};
+\addlegendentry{p95}
+\end{axis}
+\end{tikzpicture}

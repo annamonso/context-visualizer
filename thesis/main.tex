@@ -18,8 +18,26 @@
 \usetikzlibrary{arrows.meta, positioning, fit, decorations.pathreplacing}
 \usepackage{pgfplots}          % measured-data plots (e.g. fig-rollup-scaling)
 \pgfplotsset{compat=1.17}
+% One visual language for every measured-data plot. The default pgfplots cycle
+% is blue/red, which made the five evaluation figures look like three unrelated
+% documents and reproduces poorly in print; this greyscale cycle plus a
+% recessive grid and legend is applied document-wide so the figures read as one
+% system. Bar charts set their fills explicitly and use \addplot (not
+% \addplot+), so no cycle colour leaks into their value labels.
+\pgfplotsset{
+  cycle list={%
+    {black!75, mark=*, mark size=1.6pt, mark options={fill=black!30, draw=black!75}},%
+    {black!45, mark=square*, mark size=1.6pt, mark options={fill=black!8, draw=black!45}},%
+  },
+  every axis/.append style={
+    grid=major,
+    grid style={dashed, gray!25},
+    tick style={draw=gray!50},
+    legend cell align=left,
+    legend style={font=\small, draw=gray!40},
+  },
+}
 \usepackage{microtype}
-\usepackage{xspace}
 \usepackage[margin=2.45cm]{geometry}
 % The report class reserves ~2 inches of whitespace above every chapter
 % title; with 11 chapter-level headings that is most of a page. Tighten it.
@@ -52,7 +70,6 @@
 \PassOptionsToPackage{hyphens}{url}
 \usepackage[hidelinks]{hyperref}
 
-\newcommand{\sys}{Prism Observability\xspace}
 % Placeholder for numbers not yet measured — grep for \tbd before submission.
 \newcommand{\tbd}[1]{\textbf{[TBD: #1]}}
 % Support levels in the substrate feature matrix (Table 3.4). Named with a
@@ -65,7 +82,7 @@
 
 % ------------------------------ Title page -------------------------------
 % Hand-built rather than \maketitle: the default report title block cannot
-% carry the institution, the advisor line, or the system name.
+% carry the institution or the advisor line.
 \begin{titlepage}
 \centering
 \vspace*{\stretch{1}}
@@ -79,9 +96,7 @@
 \vspace{1.6em}
 \rule{0.62\linewidth}{0.4pt}\par
 \vspace{1.1em}
-{\large\itshape \sys{}\par}
-\vspace{0.5em}
-{\small an observability system for LLM-agent fleets on HPC clusters\par}
+{\small An observability framework for LLM-agent fleets on HPC clusters\par}
 \vspace{1.1em}
 \rule{0.62\linewidth}{0.4pt}\par
 
@@ -106,43 +121,50 @@
 \end{titlepage}
 
 \begin{abstract}
-Applications built on large language models (LLMs) are becoming
-multi-agent and are moving onto clusters, yet to our knowledge no
-existing observability tool covers both facts at once: LLM-observability platforms capture rich
-agent semantics but have no notion of physical topology, while HPC and
-fleet monitoring knows node health at scale but nothing about agents. This
-thesis fills that gap, starting from one observation: a multi-agent
-execution is already a causally-ordered event log, so a distributed shared
-log is its natural storage substrate. We state the minimal contract such a
-substrate must honour, five features (caller-named, ordered, durable,
-replayable, multi-reader streams) that any log store satisfying them can
-host the system, and four further features whose absence costs a specific,
-named mechanism rather than a redesign. Against that contract we design
-\sys{}, a drop-in observability system for LLM-agent fleets, and implement
-it on ChronoLog, a distributed tiered log store that additionally places a
-capture process on every cluster node and so makes host attribution
-structural. Two capture paths feed the log (LLM turns through a
-spooled capture worker; inter-agent calls through per-node collectors)
-with at-least-once capture and effectively exactly-once ingest, and a
-hot/cold read design works around the log's ingest-optimized acceptance
-window to serve real-time views from the same event stream. On this
-substrate we build fleet-scale analyses: failure detection with signature
-clustering and zero-cost diagnosis, per-node health rollups whose cost is
-independent of event volume, and cross-host critical-path tracing. We
-validate the system end-to-end with real Claude agents on live 4- and
-8-node ChronoLog clusters (28/28 automated checks, up to 32 concurrent
-agents) and measure it throughout: capture costs the agent 3.6\,ms per
-turn (statistically invisible against real LLM latency), events
-reach the operator's screen in 10.7\,ms against a 20--30\,s durable
-drain, fleet queries stay flat as event volume grows $50\times$, and a
-ground-truth fault study scores 580/580 detections with zero false
-positives. In a timed case study, a first-time operator produced a
-complete, verified cross-layer diagnosis through the system in 72
-seconds, a task they could not begin from raw logs.
-\end{abstract}
+Applications built on large language models (LLMs) have outgrown the tooling
+built to observe them. They have changed in two ways at once: they have
+become multi-agent, and they have moved onto clusters.
+Observability tooling has followed one change or the other, never both:
+LLM-observability platforms capture rich agent semantics but have no notion
+of the physical machines involved, while HPC and fleet monitoring tracks
+node health at scale but carries no application semantics. To our
+knowledge, no existing tool spans the two.
 
-\chapter*{Acknowledgements}
-% TODO
+This thesis begins from the observation that a multi-agent execution is
+already a causally-ordered event log, and tests the hypothesis that follows:
+if such a fleet's events are captured into a distributed shared log whose
+store places an append endpoint on every compute node, then agent semantics
+and cluster topology are coupled by construction, and a single reader over
+that log can answer the operator's fleet-scale questions.
+
+To keep the design independent of any one store, we state the contract a
+store must honour: five required features (caller-named, ordered, durable,
+replayable, multi-reader streams) and four convenient ones whose absence
+costs a named mechanism rather than a redesign. Against that contract we
+design an observability framework for LLM-agent fleets, and implement
+it on ChronoLog, a distributed tiered log store that runs a capture process
+on every cluster node. Two capture paths feed the log (LLM turns through
+a node-local spool drained by a capture worker, inter-agent calls through
+per-node collectors), with at-least-once capture and effectively
+exactly-once ingest. Because that log is optimized for ingest and cannot be
+read inside its acceptance window, a hot/cold read design serves real-time
+views from the same event stream. On top of it we build fleet-scale
+analyses: failure detection that groups textually identical failures into
+ranked, diagnosed incidents at no token cost; per-node health rollups whose
+cost is independent of event volume; and cross-host critical-path tracing.
+
+We validate the system end to end with real Claude agents on live 4- and
+8-node ChronoLog clusters, passing 28 of 28 automated checks with up to 32
+concurrent agents, and measure it throughout. Capture costs an agent
+3.6\,ms per turn, statistically invisible against real LLM latency. Events
+reach the operator's screen in 10.7\,ms, against a 20--30\,s durable drain.
+Fleet queries stay flat as event volume grows $50\times$. A ground-truth
+fault study scores 580 of 580 detections with zero false positives. In a
+timed case study, a first-time operator produced a complete, verified
+cross-layer diagnosis in 72 seconds, a task they could not begin from the
+raw logs. The implementation is a research prototype: it is validated at
+the scales reported here, and its limits are stated alongside the results.
+\end{abstract}
 
 % Sections only: the subsection level pushed the contents onto a second page
 % without helping a reader navigate a document this size.

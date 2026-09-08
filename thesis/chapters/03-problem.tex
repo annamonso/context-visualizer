@@ -37,24 +37,25 @@ engineer running the fleet, who needs answers both while the system runs
 and after it finishes:
 
 \begin{enumerate}
-\item[Q1.] \emph{What is the fleet doing right now?} Which agents exist,
+\item \emph{What is the fleet doing right now?} Which agents exist,
   which are talking to which, and on which physical nodes?
-\item[Q2.] \emph{Is anything failing?} Not as a scroll of per-event
+\item \emph{Is anything failing?} Not as a scroll of per-event
   errors, but as a ranked, deduplicated set of problems with causes.
-\item[Q3.] \emph{Why is this scenario slow?} Which hop in a cross-host
+\item \emph{Why is this scenario slow?} Which hop in a cross-host
   delegation chain is the bottleneck?
-\item[Q4.] \emph{Which node is dragging the fleet down?} A
+\item \emph{Which node is dragging the fleet down?} A
   population-level comparison across all $M$ nodes, including silent
   ones.
-\item[Q5.] \emph{Has this happened before?} Whether a failure is novel
+\item \emph{Has this happened before?} Whether a failure is novel
   or a recurring pattern across runs.
 \end{enumerate}
 
-Q1--Q3 are agent-semantic questions; Q4 is a fleet-topology question; Q5
-is a longitudinal question, and it is posed because the failure modes of
+The first three are agent-semantic questions; the fourth is a
+fleet-topology question; the last is longitudinal, and it is posed because
+the failure modes of
 multi-agent LLM systems are empirically systematic rather than
 incidental~\cite{cemri2025mast}: a failure worth diagnosing once is
-usually worth recognizing again. Q2--Q4 in combination require pivoting
+usually worth recognizing again. Answering the middle three together requires pivoting
 between layers (from a fleet symptom to a single agent's
 conversation), the pivot neither tooling camp of
 \S\ref{sec:bg-sota} supports.
@@ -64,8 +65,8 @@ conversation), the pivot neither tooling camp of
 
 Seven requirements follow from the questions above; they are the rubric
 Chapters~\ref{chap:evaluation} and~\ref{chap:conclusions} check the system
-against. Three of them (R1, R4, R5) are the load-bearing ones, in the sense
-that dropping any would collapse the thesis's claim rather than degrade it.
+against. Three of them (R1, R4, R5) are essential: dropping any one would
+collapse the thesis's claim rather than degrade it.
 
 \begin{table}[h]
 \centering
@@ -80,10 +81,11 @@ R1 & Dual-plane causal capture &
   inter-agent calls (caller, callee, hosts, timing, outcome). The planes
   must be \emph{joinable}: an edge resolves to its endpoints'
   conversations, and every event is attributed to the node that produced
-  it. Without the join, Q1 and the Q2--Q4 pivot are unanswerable. \\
+  it. Without the join, neither the fleet-state question nor the
+  cross-layer pivot is answerable. \\
 R2 & Real-time visibility &
   Live views reflect events within seconds of ingest, not limited by the
-  substrate's drain latency, and no read may block the serving process on
+  log store's drain latency, and no read may block the serving process on
   un-drained log state. \\
 R3 & Durability and replayability &
   Every event survives process and node restarts and stays replayable after
@@ -106,15 +108,16 @@ R6 & Zero-marginal-cost diagnosis &
   Detection and diagnosis consume no LLM tokens by default; a pipeline that
   costs money per scan gets disabled in practice. LLM assistance is opt-in
   on top of a deterministic baseline. \\
-R7 & Drop-in deployment &
+R7 & Non-invasive deployment &
   Attach to an existing deployment without modifying the log store, the
   scheduler, or the agent framework: a thin client library or local HTTP
   endpoint, per-node components launchable on a plain SLURM allocation, and
   a read-only dashboard. \\
 \bottomrule
 \end{tabular}
-\caption[The seven requirements R1--R7]{The seven requirements, derived from the operator questions
-Q1--Q5 and used as the evaluation rubric.}
+\caption[The seven requirements R1--R7]{The seven requirements, derived from
+the operator questions of \S\ref{sec:problem-scenario} and used as the
+evaluation rubric.}
 \label{tab:requirements}
 \end{table}
 
@@ -124,7 +127,7 @@ Q1--Q5 and used as the evaluation rubric.}
 R1--R7 constrain the observability system. They say nothing about
 \emph{where} the events are stored, and keeping that question separate is
 what stops the design of Chapter~\ref{chap:design} from degenerating into
-the description of one product. The insight of
+the description of one product.
 \S\ref{sec:intro-insight} commits this thesis to a \emph{class} of
 store, the distributed shared log of \S\ref{sec:bg-log}, but not to a
 member of that class. This section states the contract between the two:
@@ -132,9 +135,9 @@ the features S1--S5 that a store must offer for the design to be
 implementable on it at all, and a second tier S6--S9 of features whose
 absence costs a known, bounded piece of machinery rather than a redesign.
 
-\paragraph{Required features.} Five properties are load-bearing, in the
-sense that a store lacking any one of them cannot host this design without
-changing what the design \emph{is}.
+\paragraph{Required features.} Five properties are strictly necessary: a
+store lacking any one of them cannot host this design without changing what
+the design \emph{is}.
 
 \begin{table}[h]
 \centering
@@ -179,11 +182,11 @@ nothing narrower.}
 \end{table}
 
 \paragraph{Convenient features, and the price of their absence.} Four
-further properties are not required but are load-bearing for
-\emph{simplicity}. Each is a feature some members of the shared-log class
+further properties are not required, but each one the substrate lacks has to
+be paid for in machinery. Each is a feature some members of the shared-log class
 provide and others do not; and for each, this thesis carries a specific,
 named mechanism that exists only to compensate for its absence in the
-deployed substrate. Stating them this way makes the boundary explicit:
+deployed substrate.
 Table~\ref{tab:substrate-optional} is, read right to left, an inventory of
 which parts of the design are contributions of the architecture and which
 are workarounds that a better-provisioned substrate would delete.
@@ -231,9 +234,9 @@ providing S6--S9 would let a reimplementation delete.}
 \end{table}
 
 \paragraph{Candidate substrates.} Table~\ref{tab:substrate-systems} scores
-representative members of the class against S1--S9. The point of the table
-is not to rank the systems, which were built for different purposes, but to
-show that the required tier S1--S5 is satisfied broadly, so the design is
+representative members of the class against S1--S9. The systems were built
+for different purposes and the table does not rank them. It shows that the
+required tier S1--S5 is satisfied broadly, so the design is
 portable, while the convenient tier S6--S9 is where the systems differ, so
 the design's portability costs are predictable from the table rather than
 discovered during a port.
@@ -268,11 +271,15 @@ expose a shared address space and ledgers respectively, on which named
 streams are a layer built above rather than a native primitive.
 The ChronoLog row is scored for the deployed version and client binding
 used in this work (\S\ref{sec:design-chronolog}), not for the design in
-the published paper. Two observations drive the rest of the thesis: every
-row satisfies the required tier, and ChronoLog is simultaneously the only
-substrate here that provides S6, the property that makes agent events
-natively host-attributed, and the only one missing S7--S9, which is
-exactly the machinery Chapter~\ref{chap:design} must supply.}
+the published paper. The last row is not a shared log at all but the
+degenerate single-node case, included because it is the offline adapter of
+\S\ref{sec:design-adapters} and because it shows which features are hard
+only \emph{because} the store is distributed. Two observations drive the
+rest of the thesis: every row satisfies the required tier, subject to the
+caveats above, and ChronoLog is the only general-purpose log store here
+that provides S6, the property that makes agent events
+natively host-attributed, while also being the only one missing S7--S9,
+which is exactly the machinery Chapter~\ref{chap:design} must supply.}
 \label{tab:substrate-systems}
 \end{table}
 

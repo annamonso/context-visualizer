@@ -1,9 +1,12 @@
 \chapter{Fleet-Scale Analytics on the Log}
 \label{chap:analytics}
 
-Chapter~\ref{chap:design} produced a substrate: every observable event of
-the fleet, durably ordered, attributed to node and agent, readable hot or
-cold. This chapter presents the analyses that turn that substrate into
+Chapter~\ref{chap:design} produced a complete event record: every observable
+event of the fleet, durably ordered and attributed to node and agent,
+readable either from the log itself once it has drained (the cold path,
+complete but tens of seconds late) or from the ingest-time hot store that
+serves the interval before that (\S\ref{sec:design-read}).
+This chapter presents the analyses that turn that record into
 answers to the operator questions of \S\ref{sec:problem-scenario}. Each
 section follows the same shape: the question, the algorithm, and the
 argument for why it stays cheap at fleet scale. The screenshots throughout
@@ -17,15 +20,26 @@ nodes, delegating over MCP.}
 \section{Live Topology Coupling: Scenario Graph and Cluster Graph}
 \label{sec:analytics-topology}
 
-The first question (Q1) is situational awareness: what is the fleet doing,
-right now, and where. The system answers it with two live graphs, built
-deliberately as \emph{two projections of the same event stream}.
+The first operator question is situational awareness: what is the fleet doing,
+right now, and where. The system answers it with two live graphs, built as
+\emph{two projections of the same event stream}.
 
-The \emph{scenario graph} projects Path-B edges onto agent identity: nodes
+Both are built from the inter-agent plane, Path-B of
+\S\ref{sec:design-overview}: every delegation between agents was captured as
+a \texttt{start} and a \texttt{done} sharing a correlation identifier, and
+reassembled into one \emph{stitched edge} carrying both endpoint sessions,
+both hosts, the outcome, and the latency (\S\ref{sec:design-mapping}). Being
+live, both graphs read the \emph{hot store} rather than the log: the
+ingest-time copy that \S\ref{sec:design-read} introduced precisely because
+the log itself cannot be read inside its visibility window.
+
+The \emph{scenario graph} projects those edges onto agent identity: nodes
 are sessions (\texttt{role@scenario}), edges are stitched calls labeled
 with tool, status, and latency, built incrementally in the browser from the
-live bus: backlog first, then per-event frames
-(\S\ref{sec:design-read}). LLM-observability tools already offer this view
+\emph{live bus}, the publish/subscribe fan-out of
+\S\ref{sec:design-read} that pushes each newly ingested event to the
+browser: the stored backlog first, then live per-event frames.
+LLM-observability tools already offer this view
 (\S\ref{sec:bg-sota-llm}); here it is rendered live. The \emph{cluster graph} projects
 the very same edges onto physical topology: hosts as nodes, aggregated
 host-pair traffic as edges (counts, error counts, active agents per host),
@@ -46,24 +60,33 @@ node opens that agent's conversation (the \texttt{role@scenario} join of
 two-projection design (same events, agent layer and machine layer) is
 the direct answer to the gap of \S\ref{sec:bg-sota-gap}.
 
-\section{PrismaDoctor: Detection, Clustering, and Diagnosis}
+\section{Failure Detection, Clustering, and Diagnosis}
 \label{sec:analytics-doctor}
 
-The second question (Q2) is not ``show me the errors'' but ``tell me what
+The second is not ``show me the errors'' but ``tell me what
 is wrong'': at fleet scale, a per-event error feed is least readable
-when it matters most. PrismaDoctor is a five-stage pipeline
+when it matters most. This section describes the analysis built for that
+question: a five-stage pipeline
 (\emph{gather} $\to$ \emph{detect} $\to$ \emph{cluster} $\to$
 \emph{diagnose} $\to$ \emph{record}) that turns raw events into a
-ranked list of explained incidents. The shape is the one established by
+ranked list of explained incidents. It is a component of the system
+presented here, not an external tool; the dashboard exposes it as the
+\emph{Doctor} tab, and the remainder of the thesis calls it the Doctor.
+The shape is the one established by
 console-log mining for large systems~\cite{xu2009console}: normalize
 messages into templates, group by template, and present groups rather than
-lines. What differs here is the input, which is not free-text logs but a
+lines; Oliner et al.~\cite{oliner2012loganalysis} survey the wider design
+space that shape sits in. What differs here is the input, which is not free-text logs but a
 structured, causally ordered event stream, so the detectors can key on
 typed fields rather than on parsed text.
 
-\paragraph{Gather and detect.} Gathering is the only I/O: interactions and
-recoveries from the Path-A spool (hot, GIL-safe), stitched edges from the
-Path-B hot store, with explicit bounds on sessions and scenarios scanned.
+\paragraph{Gather and detect.} Gathering is the only I/O, and it reads only
+hot sources: interactions and recoveries from the Path-A spool, stitched
+edges from the Path-B hot store, with explicit bounds on sessions and
+scenarios scanned. Neither read touches the log, which matters because a
+scan runs inside the dashboard process: a replay that landed in the
+visibility window would block that process outright (C2,
+\S\ref{sec:design-gaps}), taking the whole interpreter with it.
 Detection is a set of pure, unit-tested functions over the gathered lists,
 each emitting typed \emph{signals}: HTTP 4xx/5xx and explicit errors on
 turns (429 classified separately as rate-limiting); latency outliers,
@@ -78,8 +101,8 @@ shows anything wrong.
 Detection is a single pass: $O(n)$ in gathered events, with per-group
 medians over small per-model and per-tool groups.
 
-\paragraph{Clustering.} The insight that makes the view scale is that
-fleet-wide failures are \emph{textually self-similar}. Each signal's
+\paragraph{Clustering.} The view scales because fleet-wide failures are
+\emph{textually self-similar}. Each signal's
 message is normalized, with identifiers, hex runs, and digit strings replaced
 by placeholders (\texttt{peer ares-comp-12 timed out after 30001ms}
 $\to$ \texttt{peer ares-comp-<n> timed out after <n>ms}), and the pair
@@ -87,7 +110,7 @@ $\to$ \texttt{peer ares-comp-<n> timed out after <n>ms}), and the pair
 clustering key. Normalization by placeholder substitution is the fixed,
 hand-specified end of the log-parsing spectrum whose learned end is
 occupied by online template miners such as
-Drain~\cite{he2017drain}; the fixed variant is chosen deliberately, because
+Drain~\cite{he2017drain}; the fixed variant is chosen here because
 R6 forbids a per-scan cost and because empirical comparisons of log-analysis
 pipelines find that parsing quality, not detector sophistication, dominates
 end-to-end accuracy~\cite{he2016loganalysis}, and the message set here is
@@ -105,12 +128,25 @@ first-match-wins rule engine keyed on signal kind and sample text: orphan
 calls map to hung-peer causes, 429s to rate limiting, transport-layer
 markers to network-fabric issues, token-overflow patterns to context
 exhaustion, and so on, each with a calibrated confidence; a conservative
-fallback catches the rest. The engine costs nothing per scan (R6). An
+fallback catches the rest. Attributing a failure to a responsible component
+is the problem Pinpoint~\cite{chen2002pinpoint} posed for internet
+services, and it solved it by correlating the success or failure of many
+requests with the components each one touched. The setting here is easier
+in one specific respect: causal attribution is already explicit in the
+events (\S\ref{sec:design-mapping}), so what remains is naming the cause,
+not locating it.
+
+The engine costs nothing per scan (R6). The learned alternative, sequence
+models over log streams of which DeepLog~\cite{du2017deeplog} is the
+canonical instance, generalizes to anomalies no rule anticipates, but buys
+that with a training corpus and a per-event inference budget: exactly the
+per-scan cost R6 forbids. An
 LLM-backed diagnoser can be enabled explicitly, and any failure of it falls
 back to the heuristic: the deterministic path is the contract, the LLM
 an enhancement.
 
-\paragraph{Recording recurrence.} The final stage answers Q5. Every scan
+\paragraph{Recording recurrence.} The final stage answers whether the
+failure has happened before. Every scan
 appends one line
 per incident to a Markdown incident history file; when the recent section
 exceeds a threshold, the oldest lines fold into a digest with running
@@ -124,7 +160,7 @@ survives restarts by construction.
 \section{Fleet Health at Scale}
 \label{sec:analytics-fleet}
 
-The fourth question (Q4) is population-level: which node is unlike the
+The fourth question is population-level: which node is unlike the
 others. The node-link rendering of \S\ref{sec:analytics-topology} answers
 it only up to a dozen nodes; past that, it is spaghetti. The fleet view
 therefore changes representation (a heatmap grid, one cell per node,
@@ -166,7 +202,7 @@ keeps the tab from ever being empty.
 \section{Cross-Host Critical-Path Tracing}
 \label{sec:analytics-tracing}
 
-The third question (Q3), why this scenario is slow, is the classical
+The third question, why this scenario is slow, is the classical
 tracing question of \S\ref{sec:bg-tracing}, posed across hosts. The tracer
 reconstructs call trees from stitched Path-B edges in two steps.
 
@@ -196,7 +232,7 @@ operator experiences~\cite{dean2013tail}. The hop with maximal self-time is name
 \emph{bottleneck}, with its hosts and tool: not ``the scenario is slow''
 but ``the \texttt{writer}$\to$\texttt{reviewer} hop on
 \texttt{ares-comp-07}, 4.2\,s of self-time.'' Because hosts ride on every
-span, the pivot to Q4 is immediate: if the bottleneck's node also glows in
+span, the pivot to the fleet view is immediate: if the bottleneck's node also glows in
 the fleet heatmap, the cross-layer diagnosis (fleet symptom, physical
 cause) completes in two clicks. Chapter~\ref{chap:evaluation} follows
 exactly this pivot as a case study. The waterfall
@@ -205,7 +241,7 @@ highlighted; reconstruction is $O(s^2)$ in the spans of a scenario in the
 inference case ($s$ small, tens of calls) and $O(s)$ with explicit
 parents.
 
-\section{The Operator Surface: Five Views over One Log}
+\section{The Operator Surface}
 \label{sec:analytics-surface}
 
 Everything in this chapter and the last is, from the operator's chair,
@@ -227,7 +263,7 @@ status, errors in red). The header carries the scenario's live totals
 including a replay scrubber that re-animates history at chosen speed.
 Clicking any agent, host box, or edge opens its detail panel; from an
 agent the operator can pivot into its full conversation (the turns,
-token counts, and costs behind the node), which is the Q1 join of
+token counts, and costs behind the node), which is the join of
 capture to conversation, exercised end-to-end by the functional
 harness of \S\ref{sec:eval-functional}.
 Figure~\ref{fig:ui-orphan} shows the same view on a smaller scenario,
@@ -268,7 +304,7 @@ because the two demand different responses from the operator.
 \end{figure}
 
 \paragraph{Health: what is wrong, and why
-(Fig.~\ref{fig:ui-health}).} The PrismaDoctor surface. The center
+(Fig.~\ref{fig:ui-health}).} The Doctor surface. The center
 column is the live LLM-call feed (every turn as it happens, filterable
 to errors or a provider); the left rail is the ranked incident list a
 scan produces: one card per clustered incident, ordered by severity,
@@ -300,7 +336,7 @@ reads a dozen explanations rather than scrolling eight hundred errors.
 \end{figure}
 
 \paragraph{Cluster: agent semantics on physical topology
-(Fig.~\ref{fig:ui-cluster}).} This view puts the substrate itself on
+(Fig.~\ref{fig:ui-cluster}).} This view puts the storage layer itself on
 screen: the ChronoLog
 deployment drawn on the allocation's nodes (visor, one keeper
 card per node with the chronicles and stories it holds, grapher and
@@ -329,8 +365,8 @@ by rolled-up health state (ok / warn / crit, idle and busy dimmed), worst
 first; the header aggregates events, errors, and cost over the selected
 window. The representation change argued in \S\ref{sec:analytics-fleet}
 pays off here: where the node-link graph saturates at a dozen nodes, the
-heatmap stays legible at hundreds, and the red cells are the Q4 answer
-before a single query is typed. Clicking a cell filters the fleet to that
+heatmap stays legible at hundreds, and the red cells name the offending
+node before a single query is typed. Clicking a cell filters the fleet to that
 node and hands off to the other views for the why. The measured cost of
 this view, and the node counts at which it stays interactive, are reported
 in \S\ref{sec:eval-scalability}.
@@ -344,7 +380,9 @@ names the bottleneck hop with its self-time: in the capture,
 \texttt{call\_remote\_agent} $\to$ \texttt{comp-04} at 12.0\,s of a
 21.6\,s trace. A self-time bar above the waterfall shows at a glance
 which host consumed the wall-clock, and clicking any span opens the
-edge's detail. This is Q3 answered as a sentence, not a scroll.
+edge's detail. The question of why the scenario is slow is answered by
+naming the responsible hop, without requiring the operator to read the
+trace.
 
 \begin{figure}[tbp]
   \centering

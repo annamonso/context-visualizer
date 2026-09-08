@@ -3,7 +3,7 @@
 
 This chapter motivates the thesis: it describes the workload (fleets
 of LLM agents on HPC clusters) and the observability gap it creates,
-states the key insight the design builds on, and lists the
+states the observation the design builds on, and lists the
 contributions and the document structure.
 
 \section{Context: Multi-Agent LLM Systems on Clusters}
@@ -24,11 +24,11 @@ cooperating agents, each with its own role, context, and
 conversation, which delegate sub-tasks to one another through structured
 tool-call protocols such as the Model Context Protocol
 (MCP)~\cite{anthropic2024mcp}. Multi-agent frameworks make this pattern
-routine~\cite{wu2023autogen}: a planner agent farms work out to worker
+routine~\cite{wu2023autogen}: a planner agent delegates sub-tasks to worker
 agents, workers consult specialist agents, and the overall computation is a
 conversation \emph{between} programs as much as within them.
 
-At the same time, the deployment substrate of these systems is changing.
+At the same time, the deployment platform of these systems is changing.
 When agents were single processes, a laptop or a single cloud instance was
 enough. Multi-agent workloads (scientific-workflow assistants, large-scale
 code analysis, data-processing fleets) instead run on
@@ -47,7 +47,10 @@ slow (seconds per model call), and failure-prone in unfamiliar ways.
 They retry, emit calls naming tools or arguments that do not exist, hang on
 remote calls, and
 silently degrade; empirical studies of multi-agent LLM systems find such
-failures to be systematic rather than incidental~\cite{cemri2025mast}.
+failures to be systematic rather than incidental~\cite{cemri2025mast}, and
+the retry loops in particular are an instance of the amplification
+pathologies long known to destabilize distributed
+systems~\cite{bronson2021metastable}.
 Running \emph{fleets} of them across a cluster multiplies these problems by
 the number of nodes and adds the classical failure modes of distributed
 infrastructure: slow nodes, network partitions, and stragglers that drag
@@ -66,23 +69,30 @@ cluster, and the observability infrastructure required to operate it.
 
 Observability tooling for this setting splits into two mature camps whose
 intersection is, to our knowledge, unoccupied. The first camp,
-\emph{LLM and agent observability}, captures rich agent semantics
-(prompts, tokens, costs, tool calls, rendered as span trees) but treats
+\emph{LLM and agent observability} (LangSmith~\cite{langsmith},
+Langfuse~\cite{langfuse}, Arize Phoenix~\cite{phoenix},
+AgentOps~\cite{agentops}, the LLM products of established APM
+vendors~\cite{datadogllm}, and the OpenTelemetry generative-AI semantic
+conventions now consolidating them~\cite{otelgenai}), captures rich agent
+semantics (prompts, tokens, costs, tool calls, rendered as traces of nested
+spans in the lineage of Dapper~\cite{sigelman2010dapper}) but treats
 the physical machines the agents run on as, at best, opaque metadata: host
 identity is not a dimension the tools can group, compare, or alert over.
-The second camp, \emph{HPC and fleet monitoring}, is built for that
-physical layer (per-node metrics at scale, over hundreds of
+The second camp, \emph{HPC and fleet monitoring}
+(Prometheus~\cite{prometheus} with Grafana over batch-scheduled clusters, and
+HPC-native collectors such as LDMS~\cite{agelastos2014ldms}), is built for
+that physical layer (per-node metrics at scale, over hundreds of
 nodes) but carries no application semantics at all: that the process
 saturating a node is an LLM agent mid-conversation, retrying a failed
 delegation, is invisible. Section~\ref{sec:bg-sota} surveys both camps in
-detail, tools and citations included.
+detail.
 
 The consequence fits in one sentence, which this thesis takes as its
 motivating problem:
 
 \begin{quote}
-\emph{The tools we survey answer ``what did my agent do?'' with a span
-tree of one run on one machine. To our knowledge, none answers ``what is
+\emph{The tools we survey answer ``what did my agent do?'' with a trace
+of one run on one machine. To our knowledge, none answers ``what is
 my agent \textbf{fleet} doing across the cluster, and which node is
 dragging it down?''}
 \end{quote}
@@ -91,7 +101,7 @@ Answering that question requires coupling agent semantics to physical
 cluster topology in a single system, the intersection both camps leave
 open.
 
-\section{Key Insight and Approach}
+\section{The Log-Based Approach}
 \label{sec:intro-insight}
 
 The technical starting point is an observation about the shape
@@ -106,17 +116,32 @@ which happen before the reply edge. A multi-agent execution, in other words,
 \emph{is} a causally-ordered event log in the sense of
 Lamport~\cite{lamport1978time}.
 
-If the data is natively a distributed event log, the natural storage
-substrate is a \emph{distributed shared log}~\cite{balakrishnan2012corfu,
-kreps2013log}. Agents append locally on the node where they run; the log
+If the data is natively a distributed event log, the natural place to store
+it is a \emph{distributed shared log}~\cite{balakrishnan2012corfu,
+kreps2013log}, the abstraction industrialized by Kafka~\cite{kreps2011kafka}
+and since carried into production control planes~\cite{balakrishnan2020delos}.
+This thesis uses the term \emph{substrate} for that storage
+system: the log store underneath the observability system, whichever one it
+is. Agents append locally on the node where they run; the log
 provides ordering, durability, and archival; and every observability view is
 a \emph{reader} over the same substrate. Ordering and durability become
 properties of the storage layer rather than of the instrumentation, and
 cross-agent causal reconstruction comes with the substrate rather than being
 bolted on.
 
-The commitment is to that \emph{class} of store, not to a product. Which
-store is a separate question, and this thesis keeps it separate: \S\ref{sec:problem-substrate}
+This yields the hypothesis the thesis tests: \emph{if the events of a
+multi-agent LLM fleet are captured into a distributed shared log whose store
+places an append endpoint on every compute node, then agent semantics and
+cluster topology are coupled by construction rather than by integration, and
+a reader over that one log can answer the operator's fleet-scale questions
+without further instrumentation.} It is testable in two parts.
+Section~\ref{sec:problem-substrate} makes the storage half checkable by
+stating the features a store must provide, so that any candidate can be
+scored against it; Chapter~\ref{chap:evaluation} measures the second half
+against the requirements of \S\ref{sec:problem-requirements}.
+
+Which store provides the log is a separate question, and this thesis keeps
+it separate: \S\ref{sec:problem-substrate}
 states the contract a substrate must honour (five required features,
 S1--S5, and four convenient ones, S6--S9, each of whose absence is priced
 in a named mechanism), and Chapter~\ref{chap:design} is written against
@@ -132,11 +157,13 @@ semantics to cluster topology structural. Section~\ref{sec:design-chronolog}
 reports the ChronoLog-specific consequences in one place, so that the design
 and its instantiation can be read, and criticized, separately.
 
-On this foundation the thesis designs, implements, and validates
-\sys{}: a drop-in observability system for LLM-agent fleets on HPC clusters.
-The name states the design: as a prism resolves one beam into a spectrum,
-the system resolves one captured event stream into every view the operator
-needs, none of them a separate pipeline. Two capture paths feed the log,
+On this foundation the thesis designs, implements, and validates an
+observability framework for LLM-agent fleets on HPC clusters. It
+is a research prototype: complete enough to run real agent fleets on a
+live cluster and to be measured end to end, but validated at the scales
+reported in Chapter~\ref{chap:evaluation} rather than hardened for
+production use.
+Two capture paths feed the log,
 one for LLM turns and one for inter-agent
 calls, and a dashboard reconstructs every view (live agent and cluster
 topology, failure diagnosis, fleet health, cross-host tracing) purely
@@ -168,25 +195,32 @@ This thesis makes five contributions:
   the workarounds one deployment required, and it lets a prospective adopter
   predict the cost of a port from a table rather than discover it during one.
 \item \textbf{A two-path capture architecture over a distributed shared log.}
-  LLM turns flow through a node-local spool drained by a capture worker;
-  inter-agent calls flow through a per-node collector into the node-local
-  keeper. The design provides at-least-once capture and effectively
-  exactly-once ingest via per-session high-water marks, with crash recovery
-  reconstructed from the log itself (Chapter~\ref{chap:design}).
+  LLM turns flow through a node-local \emph{spool}, an append-only file on
+  the agent's own machine, drained into the log by a separate
+  \emph{capture worker} process; inter-agent calls flow through a per-node
+  \emph{collector} daemon into that node's keeper. The design provides
+  at-least-once capture and effectively exactly-once ingest, deduplicating
+  on a per-session sequence number (a \emph{high-water mark}), with crash
+  recovery reconstructed from the log itself (Chapter~\ref{chap:design}).
 \item \textbf{A hot/cold read design around the log's ingest-optimized
-  trade-off.} The substrate's drain latency (tens of seconds) and a
+  trade-off.} The log store's drain latency (tens of seconds) and a
   replay path that can block the reader for minutes make it
-  unreadable in real time; the system pairs it with an in-process hot store
-  and a server-sent-events (SSE) live bus, so that real-time views and durable
+  unreadable in real time; the system pairs it with an in-process
+  \emph{hot store} written at the moment of ingest, and a
+  server-sent-events (SSE) \emph{live bus} that pushes each event on to the
+  browser, so that real-time views and durable
   full-fidelity views are projections of one event stream
   (Chapter~\ref{chap:design}).
 \item \textbf{Fleet-scale analytics computed on the log.} Three analyses turn
-  the captured events into operator answers: PrismaDoctor, which detects
-  failures, clusters them by signature into ranked incidents, and attaches
-  zero-cost diagnoses with cross-run incident history; fleet-health rollups
-  that make the cluster overview $O(\mathrm{nodes}\times\mathrm{buckets})$,
+  the captured events into operator answers: a failure-diagnosis pipeline,
+  the \emph{Doctor}, which detects
+  failures, groups the textually identical ones into ranked incidents, and
+  attaches zero-cost diagnoses with cross-run incident history; fleet-health
+  \emph{rollups}, per-(host, minute) buckets aggregated at write time, that
+  make the cluster overview $O(\mathrm{nodes}\times\mathrm{buckets})$,
   independent of event volume; and cross-host critical-path tracing that
-  names the bottleneck hop by self-time (Chapter~\ref{chap:analytics}).
+  names the bottleneck hop by \emph{self-time}, its latency minus its
+  slowest child's (Chapter~\ref{chap:analytics}).
 \item \textbf{A measured evaluation on live clusters.} An automated
   end-to-end harness exercises the full stack with real Claude Agent SDK
   agents on live 4- and 8-node ChronoLog clusters, and we measure
@@ -194,6 +228,14 @@ This thesis makes five contributions:
   planted ground truth, scalability in event volume and agent count, and
   a timed cross-layer diagnosis case study
   (Chapter~\ref{chap:evaluation}).
+  Real agents provide the end-to-end ground truth; a synthetic generator
+  driving the \emph{identical} ingest path supplies the controlled,
+  reproducible load for the scale sweeps, where thousands of turns of real
+  inference would be neither affordable nor repeatable
+  (\S\ref{sec:eval-method}).
+  Section~\ref{sec:eval-limitations} bounds each of those claims: the
+  scales actually validated, the diagnoser's coverage, and the substrate
+  behaviour the design works around rather than fixes.
 \end{enumerate}
 
 \section{Document Structure}
@@ -209,7 +251,7 @@ capture paths, the mapping of agent semantics onto the log, delivery
 semantics, and the hot/cold read split, written against that contract, with
 \S\ref{sec:design-chronolog} collecting what the ChronoLog instantiation
 adds. Chapter~\ref{chap:analytics} builds
-the fleet-scale analyses on that substrate. Chapter~\ref{chap:evaluation}
+the fleet-scale analyses on top of it. Chapter~\ref{chap:evaluation}
 measures overhead, freshness, scalability, and end-to-end correctness, and
 closes with a fault-localization case study. Chapter~\ref{chap:conclusions}
 concludes.
