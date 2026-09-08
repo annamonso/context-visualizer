@@ -36,7 +36,7 @@ export default function RawTab({ interaction: i }: Props) {
               <span>{t.label}</span>
               {t.count != null && t.count > 0 && (
                 <span className={`text-[10px] px-1.5 py-0.5 rounded tabular-nums ${
-                  active ? "bg-accent/15 text-accent" : "bg-elevate text-fg-muted"
+                  active ? "bg-accent/15 text-accent-strong" : "bg-elevate text-fg-muted"
                 }`}>
                   {t.count}
                 </span>

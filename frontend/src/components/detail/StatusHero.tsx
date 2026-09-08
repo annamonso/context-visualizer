@@ -59,7 +59,7 @@ export default function StatusHero({ statusCode, method, path, isStreaming }: Pr
           className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-semibold shrink-0"
           style={{
             backgroundColor: "rgb(var(--accent) / 0.15)",
-            color: "rgb(var(--accent))",
+            color: "rgb(var(--accent-strong))",
             border: "1px solid rgb(var(--accent) / 0.3)",
           }}
         >

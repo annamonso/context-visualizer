@@ -141,7 +141,7 @@ export default function ClusterPage() {
           {comms && comms.edges.length > 0 && (
             <span
               className="flex items-center gap-1 text-[10px] font-medium -mt-1.5"
-              style={{ color: "rgb(var(--accent))" }}
+              style={{ color: "rgb(var(--accent-strong))" }}
             >
               <span
                 className="inline-block w-1.5 h-1.5 rounded-full animate-pulse"
@@ -318,8 +318,8 @@ function KeeperCard({ k, drainWindowSec }: { k: ClusterKeeper; drainWindowSec: n
             backgroundColor: k.stale
               ? "rgb(var(--fg-muted))"
               : fresh
-                ? "rgb(34 197 94)"
-                : "rgb(234 179 8)",
+                ? "rgb(var(--ok))"
+                : "rgb(var(--warn))",
           }}
         />
         <span className="font-mono text-sm font-semibold truncate">{k.host ?? k.ip}</span>

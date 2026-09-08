@@ -2,10 +2,10 @@ import { useState } from "react";
 import type { Interaction } from "../../types";
 
 const ROLE_STYLES: Record<string, string> = {
-  system: "bg-purple-900/50 text-purple-300 border-purple-700",
-  user: "bg-blue-900/30 text-blue-300 border-blue-800",
-  assistant: "bg-emerald-900/30 text-emerald-300 border-emerald-800",
-  tool: "bg-orange-900/30 text-orange-300 border-orange-800",
+  system: "bg-msg-system/10 text-msg-system border-msg-system/40",
+  user: "bg-msg-user/10 text-msg-user border-msg-user/40",
+  assistant: "bg-msg-assistant/10 text-msg-assistant border-msg-assistant/40",
+  tool: "bg-msg-tool/10 text-msg-tool border-msg-tool/40",
 };
 
 function RoleBadge({ role }: { role: string }) {
@@ -135,9 +135,9 @@ function ContentBlock({ content }: { content: unknown }) {
             }
             if (b.type === "tool_use") {
               return (
-                <div key={i} className="rounded border border-orange-700/50 bg-orange-900/20 p-2 text-xs">
-                  <div className="font-semibold text-orange-300 mb-1">Tool: {String(b.name)}</div>
-                  <pre className="font-mono text-orange-200/80 text-xs overflow-x-auto whitespace-pre-wrap">
+                <div key={i} className="rounded border border-msg-tool/40 bg-msg-tool/10 p-2 text-xs">
+                  <div className="font-semibold text-msg-tool mb-1">Tool: {String(b.name)}</div>
+                  <pre className="font-mono text-msg-tool/80 text-xs overflow-x-auto whitespace-pre-wrap">
                     {JSON.stringify(b.input, null, 2)}
                   </pre>
                 </div>
@@ -145,8 +145,8 @@ function ContentBlock({ content }: { content: unknown }) {
             }
             if (b.type === "tool_result") {
               return (
-                <div key={i} className="rounded border border-yellow-700/50 bg-yellow-900/20 p-2 text-xs">
-                  <div className="font-semibold text-yellow-300 mb-1">Tool result (id: {String(b.tool_use_id)})</div>
+                <div key={i} className="rounded border border-msg-result/40 bg-msg-result/10 p-2 text-xs">
+                  <div className="font-semibold text-msg-result mb-1">Tool result (id: {String(b.tool_use_id)})</div>
                   <ContentBlock content={b.content} />
                 </div>
               );

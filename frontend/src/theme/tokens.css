@@ -4,6 +4,33 @@
    inline SVG / React Flow styles via rgb(var(--token)).
    ────────────────────────────────────────────────────────────────────── */
 
+/* Type. The three faces of the brand & style guide; the families themselves
+   do not change between themes, so they live outside the palette blocks.
+   Inter is the workhorse, JetBrains Mono carries every label/number/timestamp,
+   Space Grotesk is display-only and never set below 24px. */
+/* Data-viz constants. The style guide carves its tier accents out of the
+   brand palette — "diagrams only … never in type, chrome, or backgrounds" —
+   and the Fleet heatmap is the same kind of surface: a saturated ramp read as
+   a quantity, not as chrome. It therefore does NOT flip with the theme; only
+   the text laid over it needs a token, because the ramp stays bright while the
+   page around it goes from near-black to paper. */
+:root {
+  --heat-ok:    34 197  94;
+  --heat-warn: 234 179   8;
+  --heat-crit: 239  68  68;
+
+  /* Text over a fill whose color is theme-independent. Never pure white or
+     pure black — the guide bans both outright. */
+  --fg-on-fill: 228 231 237;   /* #e4e7ed, over dark saturated fills  */
+  --fg-on-heat:  14  18  10;   /* #0e120a, over the bright heat ramp  */
+}
+
+:root {
+  --font-sans:    "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display: "Space Grotesk", "Inter", sans-serif;
+}
+
 :root,
 [data-theme="dark"] {
   /* Surfaces */
@@ -25,6 +52,11 @@
   /* Brand + semantic */
   --accent:       56 189 248;   /* sky-400 */
   --accent-muted: 14 116 144;   /* cyan-800 */
+  /* Accent as *text*, and as the foreground laid over a solid accent fill.
+     On near-black the accent is already legible, so both collapse onto it;
+     the paper theme is where they have to diverge. */
+  --accent-strong: 56 189 248;
+  --accent-fg:     12 12 15;    /* = --bg-canvas */
 
   /* Agent role palette */
   --role-orchestrator: 59 130 246;
@@ -40,49 +72,124 @@
   --warn:  234 179 8;
   --error: 239 68 68;
 
+  /* Fleet tiles for nodes we have no data for — greyed by real cluster state,
+     never faked as a metric. Ordered least → most concerning. */
+  --tile-idle:  75  85  99;
+  --tile-busy:  55  65  81;
+  --tile-down:  31  41  55;
+  --tile-fg:   228 231 237;
+
   /* Incident severity (Health tab, trace criticality) */
   --sev-critical: 239 68 68;
   --sev-error:    249 115 22;
   --sev-warning:  234 179 8;
   --sev-info:     96 165 250;
+
+  /* Conversation message roles and JSON syntax. These are content
+     classification, not brand: the guide's one-accent rule governs chrome,
+     and a transcript that colour-codes system vs tool vs assistant is doing
+     the same job as its tier accents in diagrams. Each token is the *text*
+     colour; panels and rules derive from it with alpha, so one value per
+     category is enough. */
+  --msg-system:    216 180 254;
+  --msg-user:      147 197 253;
+  --msg-assistant: 110 231 183;
+  --msg-tool:      253 186 116;
+  --msg-result:    253 224  71;
+
+  --syn-key:       147 197 253;
+  --syn-string:    134 239 172;
+  --syn-number:    253 224  71;
+  --syn-literal:   216 180 254;
 }
 
+/* ── Paper theme ────────────────────────────────────────────────────────
+   The light theme is the brand guide's *paper* palette — the one it specifies
+   for posters and print — rather than a desaturation of the dark theme. The
+   guide gives four fixed values (--paper, --paper-2, --ink, --lime-2); the
+   surface ladder between them and every categorical hue below is derived, and
+   derived under one rule: darkened until it clears WCAG AA (4.5:1) against
+   --bg-elevate, the darkest surface any of them lands on. Severity chips and
+   role labels are read as text in the Health and Fleet views, so "close
+   enough" is not.
+   ────────────────────────────────────────────────────────────────────── */
 [data-theme="light"] {
-  --bg-canvas:   255 255 255;
-  --bg-surface:  249 250 251;
-  --bg-elevate:  243 244 246;
-  --bg-hover:    229 231 235;
+  /* Surfaces. Warm off-white, never pure white — the guide is explicit. */
+  --bg-canvas:  244 245 238;   /* #f4f5ee  --paper   */
+  --bg-surface: 238 240 229;   /* derived step       */
+  --bg-elevate: 232 235 220;   /* #e8ebdc  --paper-2 */
+  --bg-hover:   221 225 205;   /* derived step       */
 
-  --fg-primary:    17 24 39;
-  --fg-secondary:  55 65 81;
-  --fg-muted:     107 114 128;
+  --fg-primary:    14  18  10; /* #0e120a  --ink          */
+  --fg-secondary:  51  56  44; /* derived, 11:1 on paper  */
+  --fg-muted:     107 113  96; /* #6b7160  --muted-print  */
 
-  --border:       209 213 219;
-  --border-soft:  229 231 235;
+  /* Hairlines only. The guide bans shadows outright, so these carry every
+     bit of structure the dark theme gets from depth. */
+  --border:      201 205 184;
+  --border-soft: 221 224 207;
 
-  --accent:       14 165 233;
-  --accent-muted: 186 230 253;
+  /* The accent splits three ways on paper. --accent stays the guide's
+     #a7c238 for fills, rules and dots, where its 1.8:1 against the sheet is
+     the intended look. It is unreadable as text at that value, so accent
+     *text* gets a further-darkened same-hue olive, following the guide's own
+     reasoning for why it darkened #c3e04d to #a7c238 in the first place. */
+  --accent:        167 194  56;  /* #a7c238  --lime-2  */
+  --accent-strong:  95 111  32;  /* #5f6f20  5.1:1 on paper */
+  --accent-fg:      14  18  10;  /* ink, over a solid lime fill */
+  --accent-muted:  199 217 122;  /* lighter lime, for the cache-read bar */
 
-  --role-orchestrator: 37 99 235;
-  --role-subagent:     234 88 12;
-  --role-tool:         147 51 234;
-  --role-unknown:      107 114 128;
-  --role-orphan:       217 119 6;
+  /* Agent role palette */
+  --role-orchestrator:  28  92 234;
+  --role-subagent:     181  68   9;
+  --role-tool:         145  46 234;
+  --role-unknown:       98 104 117;
+  --role-orphan:       157  86   4;
 
-  --ok:    22 163 74;
-  --warn:  202 138 4;
-  --error: 220 38 38;
+  /* Status */
+  --ok:     16 118  54;
+  --warn:  130  98   0;   /* the guide's #edb200, darkened for paper */
+  --error: 205  33  33;
 
-  --sev-critical: 220 38 38;
-  --sev-error:    234 88 12;
-  --sev-warning:  202 138 4;
-  --sev-info:     59 130 246;
+  /* Same ordering as dark, but ink increases with concern instead of
+     brightness — on paper a lighter tile reads as quieter, not louder. */
+  --tile-idle: 215 219 198;
+  --tile-busy: 185 191 166;
+  --tile-down: 143 150 121;
+  --tile-fg:    14  18  10;
+
+  /* Incident severity (Health tab, trace criticality) */
+  --sev-critical: 205  33  33;
+  --sev-error:    181  68   9;
+  --sev-warning:  130  98   0;
+  --sev-info:      28  92 234;
+
+  /* Message roles and JSON syntax, same hues walked down to 4.5:1 on paper
+     with saturation capped — the dark theme's *-300 tints go neon rather than
+     dark if you only drop lightness. */
+  --msg-system:    138  58 223;
+  --msg-user:       30 104 186;
+  --msg-assistant:  19 118  79;
+  --msg-tool:      151  89  25;
+  --msg-result:    121 105  20;
+
+  --syn-key:        30 104 186;
+  --syn-string:     19 119  55;
+  --syn-number:    121 105  20;
+  --syn-literal:   138  58 223;
 }
 
 /* Base body styling so pages with no explicit bg inherit the canvas. */
 html, body, #root {
   background-color: rgb(var(--bg-canvas));
   color: rgb(var(--fg-primary));
+}
+
+body {
+  font-family: var(--font-sans);
+  /* tnum is not cosmetic here: token counts, latencies and costs are read down
+     a column, and proportional digits make them jitter. */
+  font-feature-settings: "ss01", "cv11", "tnum";
 }
 
 /* Smooth theme crossfade. */

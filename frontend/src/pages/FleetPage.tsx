@@ -8,6 +8,7 @@ import {
   type NodeHealth,
   type ClusterCapacity,
 } from "../api";
+import { mixToken } from "../lib/themeColor";
 
 // A node as drawn in the grid: its health (if it produced any data) plus its
 // real cluster availability (idle / busy with other work / down), so we can
@@ -39,9 +40,9 @@ const METRICS: { key: Metric; label: string }[] = [
 const WINDOWS = ["", "5m", "15m", "1h"];
 
 const STATUS_COLOR: Record<string, string> = {
-  crit: "#ef4444",
-  warn: "#eab308",
-  ok: "#22c55e",
+  crit: "rgb(var(--heat-crit))",
+  warn: "rgb(var(--heat-warn))",
+  ok: "rgb(var(--heat-ok))",
 };
 
 export default function FleetPage() {
@@ -162,8 +163,8 @@ export default function FleetPage() {
           {capacity?.available && (
             <>
               <span className="text-fg-muted/40">|</span>
-              <Chip color={GREY.idle} label={`${capacity.idle_count ?? 0} idle`} />
-              <Chip color={GREY.busy} label={`${capacity.busy_count ?? 0} busy`} />
+              <Chip color={TILE.idle} label={`${capacity.idle_count ?? 0} idle`} />
+              <Chip color={TILE.busy} label={`${capacity.busy_count ?? 0} busy`} />
             </>
           )}
         </div>
@@ -242,16 +243,15 @@ function metricValue(n: NodeHealth, metric: Metric): number {
 }
 
 function cellColor(n: NodeHealth, metric: Metric, maxVal: number): string {
-  if (metric === "status") return STATUS_COLOR[n.status] ?? "#888";
+  if (metric === "status") return STATUS_COLOR[n.status] ?? "rgb(var(--role-unknown))";
   const v = metricValue(n, metric);
   const t = Math.min(1, v / maxVal);
-  // green -> amber -> red ramp
-  if (t < 0.5) {
-    const k = t / 0.5;
-    return `rgb(${Math.round(34 + k * 200)}, ${Math.round(197 - k * 18)}, ${Math.round(94 - k * 80)})`;
-  }
-  const k = (t - 0.5) / 0.5;
-  return `rgb(${Math.round(234 + k * 5)}, ${Math.round(179 - k * 111)}, ${Math.round(8 + k * 60)})`;
+  // ok -> warn -> crit ramp, interpolated between the heat tokens rather than
+  // between literals, so the ramp and the discrete status swatches above can
+  // never drift apart.
+  return t < 0.5
+    ? mixToken("--heat-ok", "--heat-warn", t / 0.5)
+    : mixToken("--heat-warn", "--heat-crit", (t - 0.5) / 0.5);
 }
 
 function metricText(n: NodeHealth, metric: Metric): string {
@@ -269,9 +269,13 @@ function metricText(n: NodeHealth, metric: Metric): string {
   }
 }
 
-// Greys for nodes we have no data for: light grey = idle/available, darker =
-// busy with other work, darkest = down.
-const GREY: Record<string, string> = { idle: "#4b5563", busy: "#374151", down: "#1f2937" };
+// Tiles for nodes we have no data for, keyed by real cluster state. The token
+// ramp runs least → most concerning; which end is lighter is the theme's call.
+const TILE: Record<string, string> = {
+  idle: "rgb(var(--tile-idle))",
+  busy: "rgb(var(--tile-busy))",
+  down: "rgb(var(--tile-down))",
+};
 
 function emptyNode(host: string): NodeHealth {
   return {
@@ -296,7 +300,7 @@ function Cell({
 }) {
   // No data for this node → grey it by its real cluster state, don't fake a metric.
   if (!node.hasData) {
-    const grey = GREY[node.cluster ?? "busy"] ?? GREY.busy;
+    const tile = TILE[node.cluster ?? "busy"] ?? TILE.busy;
     const label =
       node.cluster === "idle" ? "idle" : node.cluster === "down" ? "down" : "busy";
     return (
@@ -305,10 +309,10 @@ function Cell({
         onClick={onClick}
         title={`${node.host}\n${label} (no activity from us)`}
         className="rounded p-1.5 text-left flex flex-col gap-0.5"
-        style={{ backgroundColor: grey, outline: active ? "2px solid rgb(var(--accent))" : "none" }}
+        style={{ backgroundColor: tile, outline: active ? "2px solid rgb(var(--accent))" : "none" }}
       >
-        <span className="text-[10px] font-medium truncate text-white/70">{shortHost(node.host)}</span>
-        <span className="text-[10px] tabular-nums text-white/45">{label}</span>
+        <span className="text-[10px] font-medium truncate" style={{ color: "rgb(var(--tile-fg) / 0.7)" }}>{shortHost(node.host)}</span>
+        <span className="text-[10px] tabular-nums" style={{ color: "rgb(var(--tile-fg) / 0.45)" }}>{label}</span>
       </button>
     );
   }
@@ -321,10 +325,10 @@ function Cell({
       className="rounded p-1.5 text-left flex flex-col gap-0.5 transition-transform hover:scale-[1.03]"
       style={{ backgroundColor: bg, outline: active ? "2px solid rgb(var(--accent))" : "none" }}
     >
-      <span className="text-[10px] font-medium truncate text-black/80">
+      <span className="text-[10px] font-medium truncate" style={{ color: "rgb(var(--fg-on-heat) / 0.8)" }}>
         {shortHost(node.host)}
       </span>
-      <span className="text-[11px] font-semibold tabular-nums text-black/90">
+      <span className="text-[11px] font-semibold tabular-nums" style={{ color: "rgb(var(--fg-on-heat) / 0.9)" }}>
         {metricText(node, metric)}
       </span>
     </button>

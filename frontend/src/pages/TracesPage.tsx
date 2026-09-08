@@ -462,7 +462,7 @@ function TimeBreakdown({
               title={`${span.tool_name || "call"} → ${shortHost(span.to_host)}\nself-time ${fmtMs(ms)} (${Math.round(frac * 100)}%)${isBn ? "\n← bottleneck" : ""}`}
             >
               {frac > 0.12 && (
-                <span className="text-[9px] text-white/95 px-1 truncate">
+                <span className="text-[9px] px-1 truncate" style={{ color: "rgb(var(--fg-on-fill) / 0.95)" }}>
                   {shortHost(span.to_host)} · {fmtMs(ms)}
                 </span>
               )}
@@ -556,7 +556,7 @@ function SpanRow({
               : `${fmtMs(span.latency_ms)}${span.is_error ? " (error)" : ""}`
           }`}
         >
-          {onCritical && <span className="w-1 h-1 rounded-full bg-white/90 ml-1" />}
+          {onCritical && <span className="w-1 h-1 rounded-full ml-1" style={{ backgroundColor: "rgb(var(--fg-on-fill) / 0.9)" }} />}
         </div>
       </div>
       <span

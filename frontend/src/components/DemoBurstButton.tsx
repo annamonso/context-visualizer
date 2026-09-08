@@ -80,7 +80,7 @@ export default function DemoBurstButton(
     );
   };
 
-  const accent = { backgroundColor: "rgb(var(--accent) / 0.12)", color: "rgb(var(--accent))" };
+  const accent = { backgroundColor: "rgb(var(--accent) / 0.12)", color: "rgb(var(--accent-strong))" };
 
   return (
     <div className="relative">

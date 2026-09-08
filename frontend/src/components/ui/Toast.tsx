@@ -39,8 +39,8 @@ export default function Toast({
     <div
       className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-xl border text-sm ${
         toast.type === "success"
-          ? "bg-emerald-900 border-emerald-700 text-emerald-200"
-          : "bg-red-900 border-red-700 text-red-200"
+          ? "bg-ok/15 border-ok/50 text-ok"
+          : "bg-error/15 border-error/50 text-error"
       }`}
     >
       {!hideIcon && <span>{toast.type === "success" ? "✓" : "✕"}</span>}

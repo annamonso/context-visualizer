@@ -6,11 +6,11 @@ const TRUNCATE_LENGTH = 2000;
 function colorize(json: string): string {
   return json
     .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g, (match) => {
-      let cls = "text-yellow-300"; // number
+      let cls = "text-syn-number"; // number
       if (/^"/.test(match)) {
-        cls = /:$/.test(match) ? "text-blue-300" : "text-green-300"; // key vs string
+        cls = /:$/.test(match) ? "text-syn-key" : "text-syn-string"; // key vs string
       } else if (/true|false/.test(match)) {
-        cls = "text-purple-300";
+        cls = "text-syn-literal";
       } else if (/null/.test(match)) {
         cls = "text-fg-secondary";
       }
@@ -39,7 +39,7 @@ export default function JsonViewer({ data, label, initiallyExpanded = true }: Js
         <div className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-surface">
           <button
             onClick={() => setExpanded((v) => !v)}
-            className="text-xs font-medium text-fg-primary hover:text-white"
+            className="text-xs font-medium text-fg-secondary hover:text-fg-primary"
           >
             {expanded ? "▾" : "▸"} {label}
           </button>
@@ -61,7 +61,7 @@ export default function JsonViewer({ data, label, initiallyExpanded = true }: Js
             <div className="px-3 pb-2">
               <button
                 onClick={() => setShowAll(true)}
-                className="text-xs text-blue-400 hover:underline"
+                className="text-xs text-accent-strong hover:underline"
               >
                 Show all ({raw.length.toLocaleString()} chars)
               </button>

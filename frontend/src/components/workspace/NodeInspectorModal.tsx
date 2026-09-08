@@ -76,7 +76,7 @@ function Chip({
       className="px-2 py-0.5 text-[11px] rounded-full border font-mono whitespace-nowrap transition-colors"
       style={{
         borderColor: active ? "rgb(var(--accent))" : "rgb(var(--border-soft))",
-        color: active ? "rgb(var(--accent))" : "rgb(var(--fg-muted))",
+        color: active ? "rgb(var(--accent-strong))" : "rgb(var(--fg-muted))",
         backgroundColor: active ? "rgb(var(--accent) / 0.1)" : "transparent",
       }}
     >
@@ -208,7 +208,7 @@ function IoTab({ edges, target }: { edges: ScenarioEdge[]; target: InspectTarget
                   <td className="px-4 py-1.5">
                     <span
                       className="font-semibold"
-                      style={{ color: out ? "rgb(var(--accent))" : "rgb(var(--role-subagent))" }}
+                      style={{ color: out ? "rgb(var(--accent-strong))" : "rgb(var(--role-subagent))" }}
                       title={out ? "outbound" : "inbound"}
                     >
                       {out ? "→" : "←"}

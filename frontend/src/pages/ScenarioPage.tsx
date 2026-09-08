@@ -224,7 +224,7 @@ export default function ScenarioPage() {
               {mode === "live" && (
                 <span
                   className="flex items-center gap-1 text-[10px] font-medium"
-                  style={{ color: live.isLive ? "rgb(var(--accent))" : "rgb(var(--fg-muted))" }}
+                  style={{ color: live.isLive ? "rgb(var(--accent-strong))" : "rgb(var(--fg-muted))" }}
                   title="Inter-agent edges stream in real time from the live bus"
                 >
                   <span
@@ -245,7 +245,7 @@ export default function ScenarioPage() {
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium"
                   style={{
                     backgroundColor: "rgb(var(--accent) / 0.12)",
-                    color: "rgb(var(--accent))",
+                    color: "rgb(var(--accent-strong))",
                   }}
                   title="Replay the scenario's data flow over time"
                 >
@@ -306,7 +306,7 @@ export default function ScenarioPage() {
             <input
               type="range"
               className="flex-1 min-w-0 accent-current"
-              style={{ color: "rgb(var(--accent))" }}
+              style={{ color: "rgb(var(--accent-strong))" }}
               min={timeDomain.t0}
               max={timeDomain.t1}
               step={Math.max(1, Math.floor((timeDomain.t1 - timeDomain.t0) / 500))}
@@ -358,7 +358,7 @@ export default function ScenarioPage() {
             </div>
           )}
           {scenarioId && error && (
-            <div className="h-full flex items-center justify-center text-red-500 text-sm">
+            <div className="h-full flex items-center justify-center text-error text-sm">
               Error: {error}
             </div>
           )}

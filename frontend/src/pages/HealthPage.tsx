@@ -41,6 +41,9 @@ const SEV_COLOR: Record<string, string> = {
   info: "rgb(var(--sev-info))",
 };
 
+// Severity the backend has not classified. Grey, not a fourth severity hue.
+const UNKNOWN_SEV = "rgb(var(--role-unknown))";
+
 const PROVIDER_TOKEN: Record<Provider, string> = {
   openai: "--ok",
   anthropic: "--role-subagent",
@@ -168,9 +171,19 @@ export default function HealthPage() {
       for (const id of sampleIds(inc)) if (!bySample.has(id)) bySample.set(id, inc);
       for (const s of inc.sessions) if (!bySession.has(s)) bySession.set(s, inc);
     }
-    return (row: InteractionSummary): Incident | undefined =>
-      bySample.get(row.id) ??
-      (row.session_id ? bySession.get(row.session_id) : undefined);
+    return (row: InteractionSummary): Incident | undefined => {
+      const evidence = bySample.get(row.id);
+      if (evidence) return evidence;
+      // A session-level match is too weak to badge a HEALTHY call: an agent can be
+      // implicated in an incident (a peer edge that timed out, a slow sibling turn)
+      // while this particular turn returned 200 — badging those marks every row in
+      // the feed and the badge stops meaning anything. Incidents keep only a handful
+      // of evidence samples, so the fallback still earns its keep for failed calls
+      // that did not make the sample cut. Selecting an incident still narrows the
+      // feed by session (rowMatchesIncident) — that association is unchanged.
+      const failed = row.status_code != null && row.status_code >= 400;
+      return failed && row.session_id ? bySession.get(row.session_id) : undefined;
+    };
   }, [incidents]);
 
   const providers = useMemo(
@@ -243,7 +256,7 @@ export default function HealthPage() {
             type="button"
             onClick={openMemory}
             className="px-3 py-1 rounded text-xs font-medium border border-border-soft hover:bg-canvas"
-            style={{ color: showMemory ? "rgb(var(--accent))" : undefined }}
+            style={{ color: showMemory ? "rgb(var(--accent-strong))" : undefined }}
             title="What PrismaDoctor remembers across runs (self-compacting incident log)"
           >
             Memory
@@ -264,13 +277,13 @@ export default function HealthPage() {
             className="px-3 py-1 rounded text-xs font-semibold disabled:opacity-50 flex items-center gap-1.5"
             style={{
               backgroundColor: active ? "rgb(var(--ok) / 0.15)" : "rgb(var(--accent))",
-              color: active ? "rgb(var(--ok))" : "#fff",
+              color: active ? "rgb(var(--ok))" : "rgb(var(--accent-fg))",
               border: active ? "1px solid rgb(var(--ok))" : "none",
             }}
           >
             <span
               className="w-2 h-2 rounded-full"
-              style={{ backgroundColor: active ? "rgb(var(--ok))" : "rgba(255,255,255,0.85)" }}
+              style={{ backgroundColor: active ? "rgb(var(--ok))" : "rgb(var(--accent-fg) / 0.85)" }}
             />
             {busy ? "…" : active ? "Doctor active" : "Activate Doctor"}
           </button>
@@ -315,8 +328,8 @@ export default function HealthPage() {
                 onClick={() => selectIncident(null)}
                 className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[11px]"
                 style={{
-                  borderColor: SEV_COLOR[selectedIncident.severity] ?? "#888",
-                  color: SEV_COLOR[selectedIncident.severity] ?? "#888",
+                  borderColor: SEV_COLOR[selectedIncident.severity] ?? UNKNOWN_SEV,
+                  color: SEV_COLOR[selectedIncident.severity] ?? UNKNOWN_SEV,
                 }}
                 title="Feed narrowed to this incident's evidence — click to clear"
               >
@@ -357,7 +370,7 @@ export default function HealthPage() {
               {loading ? (
                 <div className="text-fg-secondary text-sm py-8 text-center">Loading…</div>
               ) : feedError ? (
-                <div className="text-red-400 text-sm py-4">
+                <div className="text-error text-sm py-4">
                   Error: {feedError}
                   <button onClick={() => void refresh()} className="ml-3 underline">Retry</button>
                 </div>
@@ -488,8 +501,8 @@ function FeedTable({
                       }}
                       className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border whitespace-nowrap"
                       style={{
-                        borderColor: SEV_COLOR[inc.severity] ?? "#888",
-                        color: SEV_COLOR[inc.severity] ?? "#888",
+                        borderColor: SEV_COLOR[inc.severity] ?? UNKNOWN_SEV,
+                        color: SEV_COLOR[inc.severity] ?? UNKNOWN_SEV,
                       }}
                       title={`Part of incident: ${inc.title} (×${inc.count}) — click for the diagnosis`}
                     >
@@ -540,7 +553,7 @@ function SevDot({ severity }: { severity: string }) {
   return (
     <span
       className="w-2 h-2 rounded-full shrink-0 inline-block"
-      style={{ backgroundColor: SEV_COLOR[severity] ?? "#888" }}
+      style={{ backgroundColor: SEV_COLOR[severity] ?? UNKNOWN_SEV }}
     />
   );
 }

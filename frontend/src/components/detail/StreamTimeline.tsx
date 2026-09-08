@@ -46,7 +46,7 @@ function ChunkRow({ chunk, provider, firstMs }: { chunk: StreamChunk; provider: 
         <span className="text-fg-secondary font-mono whitespace-nowrap w-16 shrink-0">
           {isNaN(ts) ? "?" : fmtRelMs(firstMs, ts)}
         </span>
-        <span className="text-accent font-mono whitespace-nowrap w-24 truncate shrink-0">{eventType}</span>
+        <span className="text-accent-strong font-mono whitespace-nowrap w-24 truncate shrink-0">{eventType}</span>
         <span className="text-fg-muted font-mono whitespace-nowrap w-16 shrink-0">{formatBytes(chunk.data.length)}</span>
         <span className="flex-1 min-w-0 truncate">
           {chunk.delta_text ? (

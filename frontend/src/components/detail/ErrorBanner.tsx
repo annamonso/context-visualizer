@@ -51,7 +51,7 @@ export default function ErrorBanner({ error }: Props) {
           {long && (
             <button
               onClick={() => setShowMore((v) => !v)}
-              className="ml-2 text-xs text-accent hover:underline"
+              className="ml-2 text-xs text-accent-strong hover:underline"
             >
               {showMore ? "show less" : "show more"}
             </button>

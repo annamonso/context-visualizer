@@ -129,7 +129,7 @@ export default function TimelineView({ data, playhead }: Props) {
               key={s}
               onClick={() => playhead.setSpeed(s)}
               className={`px-2 py-0.5 text-[10px] rounded ${
-                playhead.speed === s ? "bg-accent text-canvas" : "bg-elevate text-fg-muted hover:text-fg-secondary"
+                playhead.speed === s ? "bg-accent text-accent-fg" : "bg-elevate text-fg-muted hover:text-fg-secondary"
               }`}
             >{s}x</button>
           ))}

@@ -53,7 +53,7 @@ function HostLabel({ h }: { h: ClusterCommsHost }) {
       <div className="flex items-center gap-1">
         <span
           className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
-          style={{ backgroundColor: h.in_allocation ? "rgb(34 197 94)" : "rgb(var(--fg-muted))" }}
+          style={{ backgroundColor: h.in_allocation ? "rgb(var(--ok))" : "rgb(var(--fg-muted))" }}
         />
         <span className="font-mono text-[11px] font-semibold truncate">{h.host}</span>
       </div>
@@ -73,7 +73,13 @@ function build(
   idleHosts: string[] = [],
 ): { nodes: Node[]; edges: Edge[] } {
   const hosts = comms.hosts;
-  const norm = (h: string) => h.replace(/-40g$/, "").split(".")[0];
+  // Same canonicalisation as the backend's _short_host: the comms API returns
+  // UNPADDED names (ares-comp-3) while sinfo zero-pads (ares-comp-03). Without
+  // collapsing digit groups the same node is drawn twice — once with its live
+  // traffic, once again as a green "idle · available" node.
+  const norm = (h: string) =>
+    h.replace(/-40g$/, "").split(".")[0].toLowerCase()
+      .replace(/\d+/g, (d) => String(Number(d)));
   // Idle nodes the cluster has free, that aren't already part of our deployment
   // — drawn as standalone "available" nodes so the Cluster page shows free
   // capacity alongside the live deployment.
@@ -91,7 +97,7 @@ function build(
       style: {
         width: 152,
         borderRadius: 10,
-        border: `2px solid ${h.in_allocation ? "rgb(34 197 94)" : "rgb(var(--fg-muted))"}`,
+        border: `2px solid ${h.in_allocation ? "rgb(var(--ok))" : "rgb(var(--fg-muted))"}`,
         background: "rgb(var(--bg-surface))",
         color: "rgb(var(--fg-primary))",
         opacity: h.in_allocation ? 1 : 0.55,
@@ -109,7 +115,7 @@ function build(
         label: (
           <div className="text-left leading-tight">
             <div className="flex items-center gap-1">
-              <span className="inline-block w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: "rgb(34 197 94)" }} />
+              <span className="inline-block w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: "rgb(var(--ok))" }} />
               <span className="font-mono text-[11px] font-semibold truncate">{host.split(".")[0]}</span>
             </div>
             <div className="text-[9px] text-fg-muted mt-0.5">idle · available</div>
@@ -120,7 +126,7 @@ function build(
       style: {
         width: 152,
         borderRadius: 10,
-        border: "2px dashed rgb(34 197 94)",
+        border: "2px dashed rgb(var(--ok))",
         background: "rgb(var(--bg-surface))",
         color: "rgb(var(--fg-primary))",
         opacity: 0.7,

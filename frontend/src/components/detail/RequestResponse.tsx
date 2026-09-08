@@ -11,7 +11,7 @@ function HeadersTable({ headers }: { headers: Record<string, string> }) {
       <tbody>
         {entries.map(([k, v]) => (
           <tr key={k} className="border-b border-border-soft">
-            <td className="py-1 pr-3 font-mono text-blue-300 align-top whitespace-nowrap w-1/3">{k}</td>
+            <td className="py-1 pr-3 font-mono text-syn-key align-top whitespace-nowrap w-1/3">{k}</td>
             <td className="py-1 font-mono text-fg-primary break-all">{v}</td>
           </tr>
         ))}
@@ -64,7 +64,7 @@ export function ResponsePane({ interaction: i }: { interaction: Interaction }) {
   return (
     <div className="space-y-4">
       <div className="flex gap-3 text-xs">
-        <span className={`font-mono font-semibold ${i.status_code && i.status_code < 300 ? "text-green-400" : "text-red-400"}`}>
+        <span className={`font-mono font-semibold ${i.status_code && i.status_code < 300 ? "text-ok" : "text-error"}`}>
           {i.status_code ?? "—"}
         </span>
       </div>
@@ -129,7 +129,7 @@ export default function RequestResponse({ interaction: i }: { interaction: Inter
             onClick={() => setTab(t)}
             className={`px-4 py-2 text-sm capitalize transition-colors border-b-2 -mb-px ${
               tab === t
-                ? "border-blue-500 text-blue-400"
+                ? "border-accent text-accent-strong"
                 : "border-transparent text-fg-secondary hover:text-fg-primary"
             }`}
           >

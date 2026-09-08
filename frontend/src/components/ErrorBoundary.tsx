@@ -19,11 +19,11 @@ export default class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.error) {
       return (
-        <div className="p-6 bg-elevate rounded-xl border border-red-800/60 text-red-300 text-sm space-y-2">
+        <div className="p-6 bg-elevate rounded-xl border border-error/50 text-error text-sm space-y-2">
           <div className="font-semibold">
             {this.props.label ?? "Component"} failed to render
           </div>
-          <div className="font-mono text-xs text-red-400 bg-canvas rounded p-3 overflow-x-auto">
+          <div className="font-mono text-xs text-error bg-canvas rounded p-3 overflow-x-auto">
             {this.state.error.message}
           </div>
           <button

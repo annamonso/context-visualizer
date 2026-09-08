@@ -130,7 +130,7 @@ export default function ConversationHeader({
       <div className="flex gap-2 flex-wrap">
         <Kpi icon="◈" label="Agents"   value={String(totals.agents)}   tint="text-role-orchestrator" />
         <Kpi icon="↻" label="Handoffs" value={String(totals.handoffs)} tint="text-role-subagent" />
-        <Kpi icon="✎" label="LLM calls" value={String(totals.calls)}   tint="text-accent" />
+        <Kpi icon="✎" label="LLM calls" value={String(totals.calls)}   tint="text-accent-strong" />
         <Kpi icon="#" label="Tokens"   value={formatTokens(totals.tokens)} />
         <Kpi icon="$" label="Cost"     value={formatCost(totals.costUsd)} />
       </div>

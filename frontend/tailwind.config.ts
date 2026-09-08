@@ -11,6 +11,11 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans:    ["var(--font-sans)"],
+        mono:    ["var(--font-mono)"],
+        display: ["var(--font-display)"],
+      },
       colors: {
         canvas:  rgb("--bg-canvas"),
         surface: rgb("--bg-surface"),
@@ -32,6 +37,10 @@ export default {
         accent: {
           DEFAULT: rgb("--accent"),
           muted:   rgb("--accent-muted"),
+          /* `strong` = accent used as text; `fg` = text laid over an accent
+             fill. On paper the raw accent is 1.8:1 and fails both jobs. */
+          strong:  rgb("--accent-strong"),
+          fg:      rgb("--accent-fg"),
         },
 
         role: {
@@ -44,6 +53,21 @@ export default {
         ok:    rgb("--ok"),
         warn:  rgb("--warn"),
         error: rgb("--error"),
+
+        msg: {
+          system:    rgb("--msg-system"),
+          user:      rgb("--msg-user"),
+          assistant: rgb("--msg-assistant"),
+          tool:      rgb("--msg-tool"),
+          result:    rgb("--msg-result"),
+        },
+
+        syn: {
+          key:     rgb("--syn-key"),
+          string:  rgb("--syn-string"),
+          number:  rgb("--syn-number"),
+          literal: rgb("--syn-literal"),
+        },
       },
       borderColor: {
         DEFAULT: rgb("--border"),

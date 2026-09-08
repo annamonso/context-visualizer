@@ -51,10 +51,10 @@ function getInitialTab(): Tab {
  * (the old Workspace page) now opens as a pop-up inspector from the
  * scenario topology, so there is no separate Workspace tab.
  *
- * Theme: handled globally by the Flask base.html navbar. The SPA reads
- * the current palette from `data-theme` on <html>, which the base layout
- * sets before first paint. No per-SPA toggle needed — one source of
- * truth.
+ * Theme: owned by the SPA. `main.tsx` stamps `data-theme` on <html> before
+ * first paint, from `?theme=` or localStorage; ThemeToggle below is the only
+ * thing that writes it thereafter. (This used to defer to a Flask base.html navbar — that template
+ * no longer exists, which left the light palette unreachable.)
  */
 export default function App() {
   const [toast, setToast] = useState<ToastState | null>(null);
@@ -149,6 +149,7 @@ export default function App() {
             <TabButton label="Traces"       active={tab === "traces"}       onClick={() => setTab("traces")} />
           )}
         </nav>
+        <ThemeToggle />
       </header>
 
       <main className="flex-1 min-h-0">
@@ -184,6 +185,35 @@ export default function App() {
   );
 }
 
+type Theme = "dark" | "light";
+
+function ThemeToggle() {
+  // Seed from what main.tsx already stamped on <html> rather than re-reading
+  // localStorage, so the button can never disagree with what is on screen.
+  const [theme, setTheme] = useState<Theme>(
+    () => (document.documentElement.dataset.theme === "light" ? "light" : "dark")
+  );
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  const next = theme === "dark" ? "light" : "dark";
+  return (
+    <button
+      type="button"
+      onClick={() => setTheme(next)}
+      title={`Switch to ${next === "light" ? "paper" : "dark"} theme`}
+      aria-label={`Switch to ${next === "light" ? "paper" : "dark"} theme`}
+      className="ml-auto pl-3 flex items-center gap-1.5 px-2 py-1 rounded-md border border-border-soft font-mono text-[10px] uppercase tracking-widest text-fg-muted hover:text-fg-primary hover:border-border"
+    >
+      <span aria-hidden="true">{theme === "dark" ? "◐" : "◑"}</span>
+      {theme === "dark" ? "Dark" : "Paper"}
+    </button>
+  );
+}
+
 function CapacityBadge({ cap }: { cap: ClusterCapacity | null }) {
   // Compact "what server am I on" readout: total nodes + idle/busy/down split.
   // Hidden when there's no SLURM client (e.g. the offline gateway demo).
@@ -198,9 +228,9 @@ function CapacityBadge({ cap }: { cap: ClusterCapacity | null }) {
       title={`SLURM cluster: ${cap.total} nodes (${idle} idle, ${busy} busy, ${down} down)\nidle: ${(cap.idle ?? []).join(", ") || "none"}`}
     >
       <span className="text-fg-muted">{cap.total} nodes</span>
-      <Dot color="#22c55e" /> <span className="tabular-nums">{idle} idle</span>
-      <Dot color="#eab308" /> <span className="tabular-nums">{busy} busy</span>
-      {down > 0 && (<><Dot color="#ef4444" /> <span className="tabular-nums">{down} down</span></>)}
+      <Dot color="rgb(var(--ok))" /> <span className="tabular-nums">{idle} idle</span>
+      <Dot color="rgb(var(--warn))" /> <span className="tabular-nums">{busy} busy</span>
+      {down > 0 && (<><Dot color="rgb(var(--error))" /> <span className="tabular-nums">{down} down</span></>)}
     </div>
   );
 }

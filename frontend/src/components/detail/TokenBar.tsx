@@ -71,7 +71,7 @@ export default function TokenBar({ usage }: Props) {
         <div className="mt-2 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded"
           style={{
             backgroundColor: "rgb(var(--accent-muted) / 0.2)",
-            color: "rgb(var(--accent))",
+            color: "rgb(var(--accent-strong))",
           }}
         >
           {cacheHitPct}% cache hit

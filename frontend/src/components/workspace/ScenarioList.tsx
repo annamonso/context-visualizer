@@ -39,7 +39,7 @@ export default function ScenarioList({ selected, onSelect }: Props) {
   if (loading && items.length === 0) {
     return <div className="p-4 text-fg-muted text-xs">Loading scenarios…</div>;
   }
-  if (error) return <div className="p-4 text-red-500 text-xs">Error: {error}</div>;
+  if (error) return <div className="p-4 text-error text-xs">Error: {error}</div>;
   if (!items.length) {
     return (
       <div className="p-4 text-fg-muted text-xs">
